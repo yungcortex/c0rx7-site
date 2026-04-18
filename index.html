@@ -2491,8 +2491,12 @@ async function fetchAsterTicker() {
    render. Low cadence (2 min) since OI moves slowly and this is ~30 RPS
    in a short burst. */
 async function fetchAsterOpenInterest() {
-  const targets = (STATE._fundingSyms && STATE._fundingSyms.length)
+  // Only poll symbols we've confirmed exist on Aster (price seen via REST or
+  // WS) — otherwise we burn 400s on delisted / unlisted tickers.
+  const candidates = (STATE._fundingSyms && STATE._fundingSyms.length)
     ? STATE._fundingSyms : CFG.symbols;
+  const targets = candidates.filter(s => STATE.prices.aster.has(s));
+  if (!targets.length) return;
   const LIMIT = 6;
   let i = 0, got = 0;
   async function worker() {
