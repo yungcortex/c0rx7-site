@@ -748,6 +748,21 @@
 
 <div id="views">
 <div id="view-overview" class="view">
+<!-- ============ WATCHLIST BAR ============ -->
+<div id="watchlist-bar" class="px-3 md:px-4 pt-3 flex items-center gap-3 text-[11px] flex-wrap">
+  <div class="flex items-center gap-2">
+    <span class="small-caps text-[var(--text-2)] tracking-widest">Watchlist</span>
+    <select id="wl-select" class="bg-[#0b1220] text-[var(--text-0)] border border-[#1c2430] rounded px-2 py-1 text-[11px]" style="font-family:'JetBrains Mono',monospace;">
+      <option value="">— (default compare) —</option>
+    </select>
+    <input id="wl-name" placeholder="New list name…" maxlength="24" class="bg-[#0b1220] text-[var(--text-0)] border border-[#1c2430] rounded px-2 py-1 text-[11px]" style="font-family:'JetBrains Mono',monospace; width:140px;" />
+    <button class="btn" id="wl-save">SAVE</button>
+    <button class="btn" id="wl-del" title="Delete current">DEL</button>
+    <button class="btn" id="wl-share" title="Copy share URL">SHARE</button>
+  </div>
+  <div id="wl-chips" class="flex items-center gap-1 flex-wrap text-[11px]"></div>
+  <span id="wl-status" class="text-[var(--text-2)] text-[10px] ml-auto"></span>
+</div>
 <!-- ============ MAIN LAYOUT ============ -->
 <main class="px-3 md:px-4 py-3">
   <div class="grid grid-cols-12 gap-3">
@@ -1048,6 +1063,23 @@
           </span>
         </div>
         <div id="depth-heatmap" style="height: 320px;"></div>
+      </div>
+
+      <!-- Funding rate history (active symbol, 7 days) -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>FUNDING HISTORY · <span id="fund-hist-sym">BTCUSDT</span> · 7D</span>
+          <span class="flex items-center gap-3 text-[var(--text-2)]">
+            <span>NOW <span class="tabular" id="fund-hist-now" style="color:var(--text-0);">—</span></span>
+            <span>7D AVG <span class="tabular" id="fund-hist-avg">—</span></span>
+            <span>EXT <span class="tabular" id="fund-hist-ext">—</span></span>
+          </span>
+        </div>
+        <div id="fund-hist-chart" style="height: 240px;"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between">
+          <span>Binance funding · 21 prints (≈ 7 days × 3/day)</span>
+          <span>Sustained extremes = crowded positioning</span>
+        </div>
       </div>
 
       <!-- OI + L/S ratio -->
@@ -2673,6 +2705,7 @@ STATE.charts.tree    = echarts.init($('treemap'),        'cortex', {renderer:'ca
 STATE.charts.depth   = echarts.init($('depth-heatmap'),  'cortex', {renderer:'canvas'});
 STATE.charts.oi      = echarts.init($('oi-chart'),       'cortex', {renderer:'canvas'});
 STATE.charts.cexBasis = echarts.init($('cex-basis-chart'),'cortex', {renderer:'canvas'});
+STATE.charts.fundHist = echarts.init($('fund-hist-chart'),'cortex', {renderer:'canvas'});
 window.addEventListener('resize', () => Object.values(STATE.charts).forEach(c=>c && c.resize()));
 // ResizeObserver so charts fill whatever height the grid row gives their panel
 (function wireChartObservers(){
@@ -6055,6 +6088,304 @@ function renderBasisDashboard() {
 }
 refreshSpotPrices();
 setInterval(refreshSpotPrices, 10 * 1000);
+
+/* ---------- WATCHLISTS + URL SHARE ----------
+   Multiple named lists persisted to localStorage. Active list's symbols
+   populate STATE.compare (which the compare shelf and screener already
+   honour). SHARE button copies a URL encoding the current symbols so they
+   can be restored on another machine / shared. */
+const WL_KEY = 'cortex.watchlists.v1';
+STATE.watchlists = [];
+let _wlActiveId = null;
+
+function _wlLoad() {
+  try {
+    const raw = localStorage.getItem(WL_KEY);
+    if (raw) STATE.watchlists = JSON.parse(raw) || [];
+  } catch { STATE.watchlists = []; }
+}
+function _wlPersist() {
+  try { localStorage.setItem(WL_KEY, JSON.stringify(STATE.watchlists)); } catch {}
+}
+function _wlRenderSelect() {
+  const sel = $('wl-select'); if (!sel) return;
+  const cur = _wlActiveId;
+  sel.innerHTML = '<option value="">— default compare —</option>' +
+    STATE.watchlists.map(w => `<option value="${w.id}" ${cur === w.id ? 'selected':''}>${w.name} · ${w.symbols.length}</option>`).join('');
+}
+function _wlRenderChips() {
+  const box = $('wl-chips'); if (!box) return;
+  const syms = Array.from(STATE.compare || []);
+  if (!syms.length) {
+    box.innerHTML = '<span class="text-[var(--text-2)] text-[10px]">Star symbols in Screener to build a list · then save here</span>';
+    return;
+  }
+  box.innerHTML = syms.map(s => `
+    <span class="wl-chip" data-sym="${s}" style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; background:rgba(0,255,163,0.08); border:1px solid rgba(0,255,163,0.25); border-radius:3px; color:#c2cbd6; cursor:pointer; font-family:'JetBrains Mono',monospace;">
+      ${s.replace('USDT','')}
+      <span class="wl-x" data-rm="${s}" title="remove" style="color:#5b6472; padding:0 2px;">×</span>
+    </span>`).join('');
+  box.querySelectorAll('.wl-chip').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('wl-x')) {
+        STATE.compare.delete(e.target.dataset.rm);
+        savePrefs(); _wlRenderChips();
+        if (typeof renderScreener === 'function') renderScreener();
+        if (typeof renderCompareShelf === 'function') renderCompareShelf();
+      } else {
+        try { switchSymbol(el.dataset.sym); } catch {}
+      }
+    });
+  });
+}
+function _wlStatus(text) {
+  const el = $('wl-status'); if (!el) return;
+  el.textContent = text;
+  if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
+}
+function wlSaveCurrent() {
+  const name = $('wl-name').value.trim() || ('list ' + (STATE.watchlists.length + 1));
+  const syms = Array.from(STATE.compare || []);
+  if (!syms.length) { _wlStatus('Pin some symbols first.'); return; }
+  const id = 'wl_' + Math.random().toString(36).slice(2, 9);
+  STATE.watchlists.push({ id, name, symbols: syms });
+  _wlActiveId = id;
+  _wlPersist(); _wlRenderSelect();
+  $('wl-name').value = '';
+  _wlStatus(`Saved “${name}”.`);
+}
+function wlDeleteCurrent() {
+  if (!_wlActiveId) { _wlStatus('No list selected.'); return; }
+  const w = STATE.watchlists.find(x => x.id === _wlActiveId);
+  STATE.watchlists = STATE.watchlists.filter(x => x.id !== _wlActiveId);
+  _wlActiveId = null;
+  _wlPersist(); _wlRenderSelect();
+  _wlStatus(w ? `Deleted “${w.name}”.` : 'Deleted.');
+}
+function wlApplyFromSelect() {
+  const id = $('wl-select').value || null;
+  _wlActiveId = id;
+  if (!id) return;
+  const w = STATE.watchlists.find(x => x.id === id);
+  if (!w) return;
+  STATE.compare = new Set(w.symbols);
+  savePrefs();
+  _wlRenderChips();
+  if (typeof renderScreener === 'function') renderScreener();
+  if (typeof renderCompareShelf === 'function') renderCompareShelf();
+  _wlStatus(`Loaded “${w.name}” · ${w.symbols.length} symbols.`);
+}
+function wlShare() {
+  const syms = Array.from(STATE.compare || []);
+  if (!syms.length) { _wlStatus('Pin some symbols first.'); return; }
+  const slugs = syms.map(s => s.replace('USDT','')).join(',');
+  const url = `${location.origin}${location.pathname}?w=${encodeURIComponent(slugs)}`;
+  try {
+    navigator.clipboard.writeText(url);
+    _wlStatus('Share URL copied to clipboard.');
+  } catch {
+    prompt('Copy this URL:', url);
+  }
+}
+function _wlApplyUrlParam() {
+  const params = new URLSearchParams(location.search);
+  const wp = params.get('w');
+  if (!wp) return false;
+  const syms = wp.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    .map(s => s.endsWith('USDT') ? s : s + 'USDT');
+  if (!syms.length) return false;
+  STATE.compare = new Set(syms);
+  _wlStatus(`Loaded ${syms.length} symbols from URL.`);
+  _wlRenderChips();
+  return true;
+}
+function _wlBoot() {
+  _wlLoad();
+  _wlRenderSelect();
+  _wlApplyUrlParam();
+  _wlRenderChips();
+  $('wl-save')?.addEventListener('click', wlSaveCurrent);
+  $('wl-del')?.addEventListener('click', wlDeleteCurrent);
+  $('wl-share')?.addEventListener('click', wlShare);
+  $('wl-select')?.addEventListener('change', wlApplyFromSelect);
+  // loadPrefs() later in boot() will overwrite STATE.compare with whatever
+  // was saved locally. Re-apply URL ?w=... afterwards so a shared link wins.
+  setTimeout(() => { _wlApplyUrlParam(); _wlRenderChips(); }, 2500);
+  setInterval(_wlRenderChips, 3000);
+}
+_wlBoot();
+
+/* ---------- 7-DAY FUNDING RATE HISTORY ----------
+   Fetches last 21 funding prints from Binance (≈ 7 days) for the active
+   symbol. Renders as a bar chart with colour by sign plus KPIs for current
+   rate, 7d mean, and extreme (the single highest-magnitude print). */
+STATE._fundHistSym = null;
+async function refreshFundingHistory() {
+  const sym = STATE.symbol;
+  if (sym === STATE._fundHistSym && STATE._fundHistData && (Date.now() - (STATE._fundHistAt || 0)) < 60000) {
+    renderFundingHistory(); return;
+  }
+  try {
+    const arr = await fetchJson('binance:fundRate:' + sym,
+      `${CFG.binance.rest}/fapi/v1/fundingRate?symbol=${sym}&limit=21`);
+    if (!Array.isArray(arr) || !arr.length) return;
+    STATE._fundHistSym  = sym;
+    STATE._fundHistAt   = Date.now();
+    STATE._fundHistData = arr.map(r => ({ t: +r.fundingTime, rate: +r.fundingRate }));
+    renderFundingHistory();
+  } catch (e) {
+    if (e?.message !== 'CB_OPEN') console.warn('fundRate fail', e);
+  }
+}
+function renderFundingHistory() {
+  const chart = STATE.charts.fundHist; if (!chart) return;
+  const data  = STATE._fundHistData || [];
+  const sym   = STATE._fundHistSym || STATE.symbol;
+  const symEl = $('fund-hist-sym'); if (symEl) symEl.textContent = sym;
+  if (!data.length) {
+    chart.setOption({
+      series: [], xAxis:{show:false}, yAxis:{show:false},
+      graphic:[{type:'text', left:'center', top:'middle',
+        style:{text:'Loading funding history…', fill:'#5b6472', fontFamily:'JetBrains Mono', fontSize:12}}]
+    });
+    return;
+  }
+  const current = data.at(-1).rate;
+  const avg     = data.reduce((a,b) => a + b.rate, 0) / data.length;
+  const extremeVal = data.reduce((a,b) => Math.abs(b.rate) > Math.abs(a.rate) ? b : a);
+  const $set = (id, text, color) => {
+    const el = $(id); if (!el) return;
+    el.textContent = text;
+    if (color) el.style.color = color;
+  };
+  $set('fund-hist-now', (current*100).toFixed(4)+'%', current >= 0 ? '#22d17e' : '#ff5a6e');
+  $set('fund-hist-avg', (avg*100).toFixed(4)+'%', avg >= 0 ? '#22d17e' : '#ff5a6e');
+  $set('fund-hist-ext', (extremeVal.rate*100).toFixed(4)+'%', extremeVal.rate >= 0 ? '#22d17e' : '#ff5a6e');
+
+  const times = data.map(d => new Date(d.t).toISOString().slice(5,16).replace('T',' '));
+  const bars = data.map(d => ({
+    value: +(d.rate*100).toFixed(4),
+    itemStyle: { color: d.rate >= 0 ? 'rgba(34,209,126,0.8)' : 'rgba(255,90,110,0.8)' },
+  }));
+  chart.setOption({
+    animation: false,
+    grid:{ top: 18, left: 56, right: 22, bottom: 40 },
+    tooltip:{ trigger:'axis', axisPointer:{type:'shadow'},
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: (p) => {
+        if (!p || !p.length) return '';
+        const i = p[0].dataIndex;
+        const r = data[i]; if (!r) return '';
+        return `<b>${new Date(r.t).toISOString().slice(0,16).replace('T',' ')} UTC</b><br/>
+                Rate: <b style="color:${r.rate>=0?'#22d17e':'#ff5a6e'}">${(r.rate*100).toFixed(4)}%</b>`;
+      }
+    },
+    xAxis:{ type:'category', data: times,
+      axisLine:{lineStyle:{color:'#2a3443'}},
+      axisLabel:{ color:'#5b6472', fontSize: 9, interval: Math.floor(times.length/6), rotate: 35 },
+      splitLine:{show:false},
+    },
+    yAxis:{ type:'value',
+      axisLine:{lineStyle:{color:'#2a3443'}},
+      axisLabel:{color:'#9aa4b2', fontSize:9, formatter: v => v.toFixed(3)+'%'},
+      splitLine:{lineStyle:{color:'rgba(255,255,255,0.035)'}},
+    },
+    series:[{
+      type:'bar', data: bars, barWidth:'70%',
+      markLine:{ silent:true, symbol:'none',
+        lineStyle:{color:'#2a3443', width:1, opacity:0.6},
+        data:[{ yAxis: 0 }], label:{show:false} }
+    }]
+  }, true);
+}
+// Boot + symbol switch hooks
+refreshFundingHistory();
+setInterval(refreshFundingHistory, 5 * 60 * 1000);
+// Hook into switchSymbol so the chart follows the user's active symbol
+(function patchSwitchForFundHist(){
+  const orig = window.switchSymbol;
+  if (typeof orig !== 'function') return;
+  window.switchSymbol = function(sym) {
+    orig(sym);
+    setTimeout(() => refreshFundingHistory(), 250);
+  };
+})();
+
+/* ---------- SESSION VWAP OVERLAY ----------
+   Computes Asia / London / NY session VWAPs from the active symbol's kline
+   history and adds them as horizontal priceLines on the main price chart.
+   UTC session hours:
+     Asia    00:00 – 08:00
+     London  07:00 – 16:00
+     NY      12:00 – 21:00
+   Updates when klines reload (symbol switch + new candles). */
+STATE._sessionVwapLines = [];
+const SESSIONS = [
+  { key:'asia',   label:'Asia',   startH: 0,  endH: 8,  color:'#ffcb6b' },
+  { key:'london', label:'London', startH: 7,  endH: 16, color:'#b28cff' },
+  { key:'ny',     label:'NY',     startH: 12, endH: 21, color:'#39e0ff' },
+];
+function computeSessionVwaps() {
+  // Use STATE.candleSeries isn't directly queryable — instead fetch fresh
+  // klines if we haven't already. Prefer 5m bars for smoother VWAP; limit
+  // 288 = last 24h.
+  const sym = STATE.symbol;
+  return fetchJson('binance:vwapKlines:' + sym,
+    `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=5m&limit=288`
+  ).then(bars => {
+    if (!Array.isArray(bars) || !bars.length) return {};
+    const todayUtc = new Date();
+    const dayStart = Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate());
+    const out = {};
+    for (const s of SESSIONS) {
+      const winStart = dayStart + s.startH * 3600 * 1000;
+      const winEnd   = dayStart + s.endH   * 3600 * 1000;
+      let pv = 0, v = 0;
+      for (const k of bars) {
+        const t = +k[0];
+        if (t < winStart || t > winEnd) continue;
+        const close = +k[4], vol = +k[5];
+        if (!(vol > 0)) continue;
+        pv += close * vol;
+        v  += vol;
+      }
+      if (v > 0) out[s.key] = { price: pv / v, label: s.label, color: s.color, start: winStart, end: winEnd };
+    }
+    return out;
+  }).catch(() => ({}));
+}
+function applySessionVwaps(candleSeries, vwaps) {
+  if (!candleSeries || !candleSeries.createPriceLine) return;
+  // Clear prior
+  (STATE._sessionVwapLines || []).forEach(pl => { try { candleSeries.removePriceLine(pl); } catch {} });
+  STATE._sessionVwapLines = [];
+  for (const [key, v] of Object.entries(vwaps)) {
+    try {
+      const pl = candleSeries.createPriceLine({
+        price: v.price, color: v.color, lineStyle: 2, lineWidth: 1,
+        axisLabelVisible: true, title: v.label + ' VWAP',
+      });
+      STATE._sessionVwapLines.push(pl);
+    } catch {}
+  }
+}
+async function refreshSessionVwaps() {
+  if (!STATE.candleSeries) return;
+  const vwaps = await computeSessionVwaps();
+  applySessionVwaps(STATE.candleSeries, vwaps);
+}
+refreshSessionVwaps();
+setInterval(refreshSessionVwaps, 60 * 1000);
+// Hook symbol switch
+(function patchSwitchForVwap(){
+  const orig = window.switchSymbol;
+  if (typeof orig !== 'function') return;
+  window.switchSymbol = function(sym) {
+    orig(sym);
+    setTimeout(refreshSessionVwaps, 600);
+  };
+})();
 
 /* ---------- COMMAND PALETTE (⌘K / Ctrl+K) ----------
    Fuzzy-search symbols, views, and quick actions. Keyboard-first UX. */
