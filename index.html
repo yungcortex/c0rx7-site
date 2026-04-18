@@ -1025,7 +1025,7 @@
         <div class="panel-hd">
           <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>LIQUIDATION MAP · PROJECTED · <span id="liq-map-symbol">BTCUSDT</span></span>
           <span class="flex items-center gap-4 text-[var(--text-2)]">
-            <span id="liq-map-legend">LEVERAGE 10× · 25× · 50× · 100×</span>
+            <span id="liq-map-legend">LEVERAGE 10× · 25× · 50× · 100× · multi-venue OI · dots = actual liqs (60 min)</span>
             <span>LONGS <span class="num-down">●</span> · SHORTS <span class="num-up">●</span></span>
             <span>MARK <span class="tabular text-[var(--text-0)]" id="liq-map-mark">—</span></span>
             <span>OI <span class="tabular text-[var(--text-0)]" id="liq-map-oi">—</span></span>
@@ -1033,6 +1033,7 @@
         </div>
         <div class="panel-body !p-0">
           <div id="liq-map" style="height: 260px;"></div>
+          <div id="liq-cascade" class="border-t hairline text-[10.5px]"></div>
         </div>
       </div>
 
@@ -5684,7 +5685,13 @@ function renderLiqMap() {
   if (!STATE.charts.liqMap) STATE.charts.liqMap = echarts.init($('liq-map'), 'cortex', {renderer:'canvas'});
   const sym = STATE.symbol;
   const mark = STATE.prices.binance.get(sym);
-  const oi   = STATE.openInterest.get(sym);
+  // Aggregate OI across every venue we have data for (not just Binance). A
+  // cascade cares about total market-wide notional at risk, not just one
+  // exchange's book.
+  const binOi = STATE.openInterest.get(sym) || 0;
+  const xOi   = STATE.openInterestByEx[sym] || {};
+  const venueOi = Object.values(xOi).reduce((a, v) => a + (typeof v === 'number' && v > 0 ? v : 0), 0);
+  const oi = binOi + venueOi;
   $('liq-map-symbol').textContent = sym;
   $('liq-map-mark').textContent = mark ? fmt(mark) : '—';
   $('liq-map-oi').textContent   = oi ? fmtUsd(oi) : '—';
@@ -5755,6 +5762,76 @@ function renderLiqMap() {
 
   const maxUsd = Math.max(1, ...longsBins, ...shortsBins);
 
+  // ---------- CASCADE ZONES: cumulative notional from mark to ±N% ----------
+  const zoneLevels = [0.005, 0.01, 0.02, 0.03, 0.05];
+  const zones = zoneLevels.map(pct => {
+    const targetDn = mark * (1 - pct);
+    const targetUp = mark * (1 + pct);
+    let longsAcc = 0, shortsAcc = 0;
+    for (let i = 0; i < binCount; i++) {
+      const center = minP + (i+0.5) * step;
+      if (center < mark && center >= targetDn) longsAcc  += longsBins[i];
+      if (center > mark && center <= targetUp) shortsAcc += shortsBins[i];
+    }
+    return { pct, longsAcc, shortsAcc };
+  });
+  // Flag the biggest jump level (cascade magnet) for styling
+  let maxJump = { idx: -1, mag: 0 };
+  for (let i = 1; i < zones.length; i++) {
+    const incL = zones[i].longsAcc  - zones[i-1].longsAcc;
+    const incS = zones[i].shortsAcc - zones[i-1].shortsAcc;
+    const inc  = Math.max(incL, incS);
+    if (inc > maxJump.mag) maxJump = { idx: i, mag: inc };
+  }
+  const cascadeEl = $('liq-cascade');
+  if (cascadeEl) {
+    const totalL = zones.at(-1).longsAcc;
+    const totalS = zones.at(-1).shortsAcc;
+    cascadeEl.innerHTML = `
+      <div class="flex items-center justify-between px-3 py-1 border-b hairline text-[9.5px] tracking-widest uppercase text-[var(--text-2)]">
+        <span>CASCADE ZONES · cumulative notional at risk</span>
+        <span class="tabular">Σ longs <b style="color:#ff5a6e;">${fmtUsd(totalL)}</b> · Σ shorts <b style="color:#22d17e;">${fmtUsd(totalS)}</b></span>
+      </div>
+      <div class="grid grid-cols-12 px-3 py-1 text-[9.5px] tracking-widest uppercase text-[var(--text-2)] border-b hairline" style="background:rgba(255,255,255,0.02);">
+        <div class="col-span-3">Band</div>
+        <div class="col-span-3 text-right">Longs ↓ cum</div>
+        <div class="col-span-3 text-right">Shorts ↑ cum</div>
+        <div class="col-span-3 text-right">Tag</div>
+      </div>
+      ${zones.map((z, i) => {
+        const isMagnet = i === maxJump.idx && maxJump.mag > 0;
+        const tag = isMagnet ? '<span style="color:#ffcb6b;font-weight:700;">MAGNET</span>'
+                             : (i === 0 ? '<span style="color:var(--text-2);">close</span>'
+                             : i === zones.length - 1 ? '<span style="color:var(--text-2);">far</span>'
+                             : '');
+        return `
+          <div class="grid grid-cols-12 px-3 py-0.5 tabular ${isMagnet ? 'bg-white/[0.04]' : ''}">
+            <div class="col-span-3">±${(z.pct*100).toFixed(1)}%</div>
+            <div class="col-span-3 text-right" style="color:#ff5a6e;">${fmtUsd(z.longsAcc)}</div>
+            <div class="col-span-3 text-right" style="color:#22d17e;">${fmtUsd(z.shortsAcc)}</div>
+            <div class="col-span-3 text-right">${tag}</div>
+          </div>`;
+      }).join('')}`;
+  }
+
+  // ---------- Recent actual liquidations for this symbol (last 60 min) ----
+  // Plot them as a scatter series on top of the projection bars — shows where
+  // liqs ACTUALLY hit vs where the model expected them.
+  const liqWindow = Date.now() - 60 * 60 * 1000;
+  const recentLiqs = (STATE.liqEventsAll || [])
+    .filter(e => e.symbol === sym && e.time >= liqWindow && e.price)
+    .slice(-200);
+  const liqScatter = recentLiqs.map(e => {
+    const idx = Math.round(((e.price - minP) / step) - 0.5);
+    if (idx < 0 || idx >= binCount) return null;
+    const x = e.side === 'SELL' ? -Math.min(e.usd, maxUsd * 0.9) : Math.min(e.usd, maxUsd * 0.9);
+    return {
+      value: [x, idx],
+      itemStyle: { color: e.side === 'SELL' ? '#ffb3bd' : '#b3f0cd', borderColor: '#05070a', borderWidth: 0.5 },
+      symbolSize: Math.min(18, Math.max(4, 4 + Math.sqrt(e.usd)/250)),
+    };
+  }).filter(Boolean);
+
   STATE.charts.liqMap.setOption({
     grid:{ top:20, left:88, right:24, bottom:30 },
     tooltip:{ trigger:'axis', axisPointer:{type:'shadow'},
@@ -5782,6 +5859,10 @@ function renderLiqMap() {
     series:[
       { name:'Longs',  type:'bar', data: longsData,  barWidth: '92%', animationDuration: 300 },
       { name:'Shorts', type:'bar', data: shortsData, barWidth: '92%', animationDuration: 300 },
+      {
+        name:'Recent liqs', type:'scatter', data: liqScatter,
+        tooltip: { show: false }, animationDuration: 0, z: 5,
+      },
       { name:'mark', type:'line', data:[], markLine:{ silent:true, symbol:'none',
         lineStyle:{color:'#00ffa3', type:'dashed', width:1.5, opacity:0.9},
         label:{color:'#00ffa3', fontFamily:'JetBrains Mono', fontSize:10, position:'insideEndTop',
