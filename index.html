@@ -2442,6 +2442,14 @@ async function fetchHyperliquidMeta() {
       obj.hyperliquid = +c.funding;
       STATE.funding[sym] = obj;
       STATE.prices.hyperliquid.set(sym, +c.markPx);
+      // OI: assetCtx.openInterest is in coin units; multiply by mark for USD
+      const oiCoin = c.openInterest != null ? +c.openInterest : null;
+      const mk = +c.markPx;
+      if (oiCoin != null && !isNaN(oiCoin) && mk) {
+        const ox = STATE.openInterestByEx[sym] || {};
+        ox.hyperliquid = oiCoin * mk;
+        STATE.openInterestByEx[sym] = ox;
+      }
     });
     setConn('hyperliquid', true);
     scheduleFundingHeatmap();
@@ -2475,6 +2483,36 @@ async function fetchAsterTicker() {
     console.warn('aster fail', e);
     setConn('aster', false);
   }
+}
+
+/* Aster OI — Binance-compat API has no bulk OI endpoint. Fan out
+   per-symbol /fapi/v1/openInterest for the set of symbols we actually
+   render. Low cadence (2 min) since OI moves slowly and this is ~30 RPS
+   in a short burst. */
+async function fetchAsterOpenInterest() {
+  const targets = (STATE._fundingSyms && STATE._fundingSyms.length)
+    ? STATE._fundingSyms : CFG.symbols;
+  const LIMIT = 6;
+  let i = 0, got = 0;
+  async function worker() {
+    while (i < targets.length) {
+      const sym = targets[i++];
+      try {
+        const j = await fetchJson('aster:oi:' + sym,
+          CFG.aster.rest + `/fapi/v1/openInterest?symbol=${sym}`);
+        const oiCoin = j?.openInterest != null ? +j.openInterest : null;
+        const px     = STATE.prices.aster.get(sym);
+        if (oiCoin != null && !isNaN(oiCoin) && px) {
+          const ox = STATE.openInterestByEx[sym] || {};
+          ox.aster = oiCoin * px;
+          STATE.openInterestByEx[sym] = ox;
+          got++;
+        }
+      } catch (_) { /* single-symbol failure is fine */ }
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(LIMIT, targets.length)}, worker));
+  if (got) setConn('aster', true);
 }
 
 /* ====================================================================
@@ -5791,7 +5829,13 @@ async function connectKucoinTickersWs() {
     return null;
   }
   const cid = 'c0r7x_' + Math.random().toString(36).slice(2, 10);
-  const url = `${srv.endpoint}?token=${encodeURIComponent(token)}&connectId=${cid}`;
+  // KuCoin's bullet-public occasionally returns a broken `ws-api-futures.com`
+  // (bare apex, no public DNS) instead of `ws-api-futures.kucoin.com`. Rewrite
+  // defensively so the WS actually resolves in the browser.
+  let endpoint = srv.endpoint || '';
+  endpoint = endpoint.replace('ws-api-futures.com', 'ws-api-futures.kucoin.com');
+  if (!/\/endpoint\/?$/.test(endpoint)) endpoint = endpoint.replace(/\/?$/, '/endpoint');
+  const url = `${endpoint}?token=${encodeURIComponent(token)}&connectId=${cid}`;
   const ksyms = CFG.symbols.map(s => {
     const base = s.replace(/USDT$/,'');
     const kb = (base === 'BTC') ? 'XBT' : base;
@@ -5955,6 +5999,7 @@ async function boot() {
   setInterval(fetchGateTickers,            120000);
   setInterval(fetchKucoinContracts,        120000);  // WS price; REST still primes OI
   setInterval(fetchCoinbaseIntxInstruments, 30000);  // no public WS — REST stays fast
+  fetchAsterOpenInterest(); setInterval(fetchAsterOpenInterest, 120000);  // per-symbol fan-out, slow cadence
   setInterval(sampleCexBasis,        2000);
   setInterval(renderCrossExchangeOI, 3000);
   sampleCexBasis();
@@ -6001,6 +6046,8 @@ async function boot() {
   } catch {}
   // Also persist view changes
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => setTimeout(savePrefs, 50)));
+  // Expose for DevTools inspection (top-level const doesn't attach to window)
+  try { window.STATE = STATE; window.CFG = CFG; } catch {}
 }
 boot();
 
