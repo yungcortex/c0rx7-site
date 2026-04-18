@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://c0r7x.com/sitemap.xml
