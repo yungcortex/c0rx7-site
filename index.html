@@ -1510,6 +1510,30 @@ const CFG = {
   heatmapTimeBuckets: 48,    // slightly coarser time axis (was 60)
 };
 
+/* -----------------------------------------------------------------
+   Origin-aware proxy rewriting.
+   Gate / KuCoin / Coinbase INTX don't send permissive CORS headers,
+   so browser calls from c0r7x.com fail.  When we're deployed on a
+   host that supports edge rewrites (Vercel via vercel.json, Netlify
+   via _redirects), route those feeds through same-origin proxy
+   paths — same-origin means no CORS preflight, browser is happy.
+   On plain static hosts (github.io) or local `python -m http.server`,
+   keep the direct URLs so nothing breaks unexpectedly (those requests
+   will fail the same way they always have).
+   ----------------------------------------------------------------- */
+(function applyProxyRewrites() {
+  try {
+    const host = (location.hostname || '').toLowerCase();
+    const isStatic = host.endsWith('github.io') || host === 'localhost' ||
+                     host === '127.0.0.1' || host === '';
+    if (isStatic) return;
+    CFG.gate.rest     = '/gate';
+    CFG.gate.fallback = '/gatefx';
+    CFG.kucoin.rest   = '/kucoin';
+    CFG.coinbaseIntx.rest = '/cbintx';
+  } catch (_) { /* CFG stays on direct URLs */ }
+})();
+
 const STATE = {
   symbol: CFG.defaultSymbol,
   exchange: 'binance',
