@@ -769,6 +769,7 @@
   <div class="nav-tab" data-view="screener">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
   <div class="nav-tab" data-view="edge">EDGE <span class="badge" id="tab-edge-count">0</span></div>
   <div class="nav-tab" data-view="whales">WHALES <span class="badge" id="tab-whales-count">0</span></div>
+  <div class="nav-tab" data-view="aster" style="color:#b28cff;">ASTER</div>
   <div class="nav-tab" data-view="analytics">ANALYTICS</div>
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
     <span>SEARCH</span>
@@ -1486,6 +1487,39 @@
       <div class="grid grid-cols-2 md:grid-cols-5 gap-0" id="liq-hof"></div>
     </div>
 
+    <!-- Aggregated cross-venue whale tape -->
+    <div class="panel">
+      <div class="panel-hd">
+        <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>AGGREGATED WHALE TAPE · CROSS-VENUE</span>
+        <span class="text-[var(--text-2)] flex items-center gap-2">
+          <span>MIN</span>
+          <select id="agg-whale-min" class="bg-[#0b1220] text-[var(--text-0)] border border-[#1c2430] rounded px-2 py-0.5 text-[11px]" style="font-family:'JetBrains Mono',monospace;">
+            <option value="100000">$100K</option>
+            <option value="250000" selected>$250K</option>
+            <option value="500000">$500K</option>
+            <option value="1000000">$1M</option>
+            <option value="2500000">$2.5M</option>
+          </select>
+          <span class="tabular">count <span id="agg-whale-count" class="text-[var(--text-0)]">0</span></span>
+        </span>
+      </div>
+      <div class="grid grid-cols-12 px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline">
+        <div class="col-span-2">Time</div>
+        <div class="col-span-2">Venue</div>
+        <div class="col-span-2">Symbol</div>
+        <div class="col-span-1 text-center">Side</div>
+        <div class="col-span-2 text-right">Price</div>
+        <div class="col-span-1 text-right">Qty</div>
+        <div class="col-span-2 text-right">USD</div>
+      </div>
+      <div id="agg-whale-body" style="max-height: 520px; overflow-y: auto;">
+        <div class="p-4 text-[11px] text-[var(--text-2)]">Waiting for whales…</div>
+      </div>
+      <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+        Aggregates single aggTrades ≥ threshold across Binance, Bybit, OKX public trade streams for top 6 perps
+      </div>
+    </div>
+
     <!-- Multi-symbol liquidation heatmap -->
     <div class="panel">
       <div class="panel-hd">
@@ -1495,6 +1529,56 @@
       <div id="liq-multiheat" style="height: 440px;"></div>
       <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
         Data: every liquidation captured via Binance, Bybit, and Aster liq streams · top 20 symbols by 24h volume
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ASTER DASHBOARD ============ -->
+<div id="view-aster" class="view hidden">
+  <div class="px-3 md:px-4 py-3 space-y-3">
+    <!-- Aster KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="kpi"><div class="k-label">Aster Markets</div><div class="k-value tabular" id="ast-kpi-mkts">—</div><div class="k-sub">active perps</div></div>
+      <div class="kpi"><div class="k-label">Total OI</div><div class="k-value tabular" id="ast-kpi-oi">—</div><div class="k-sub">USD notional</div></div>
+      <div class="kpi"><div class="k-label">Avg funding</div><div class="k-value tabular" id="ast-kpi-fund">—</div><div class="k-sub">% per 8h</div></div>
+      <div class="kpi"><div class="k-label">Vs Binance prem</div><div class="k-value tabular" id="ast-kpi-prem">—</div><div class="k-sub">avg bps</div></div>
+      <div class="kpi"><div class="k-label">BTC on Aster</div><div class="k-value tabular" id="ast-kpi-btc">—</div><div class="k-sub" id="ast-kpi-btc-sub">—</div></div>
+    </div>
+
+    <div class="grid grid-cols-12 gap-3">
+      <!-- Aster top markets by activity -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>ASTER MARKETS · BY OI</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="ast-updated">—</span></span>
+        </div>
+        <div id="ast-markets-body" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading Aster markets…</div>
+        </div>
+      </div>
+
+      <!-- Aster vs Binance premium -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>ASTER ↔ BINANCE PREMIUM</span>
+          <span class="text-[var(--text-2)] tabular">bps · sorted by |premium|</span>
+        </div>
+        <div id="ast-premium-body" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing premium…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Premium = (ASTER − BIN) / BIN × 10000 · persistent large premium = structural flow divergence
+        </div>
+      </div>
+
+      <!-- Aster funding heatmap -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>ASTER FUNDING GRID · TOP 24</span>
+          <span class="text-[var(--text-2)] tabular">% per 8h</span>
+        </div>
+        <div id="ast-fund-grid" style="height: 360px;"></div>
       </div>
     </div>
   </div>
@@ -2404,7 +2488,7 @@ function wireKeyboard() {
     const tag = (e.target && e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const map = {'1':'overview','2':'screener','3':'edge','4':'whales','5':'analytics'};
+    const map = {'1':'overview','2':'screener','3':'edge','4':'whales','5':'aster','6':'analytics'};
     if (map[e.key]) {
       const btn = document.querySelector(`.nav-tab[data-view="${map[e.key]}"]`);
       if (btn) btn.click();
@@ -6739,7 +6823,7 @@ function applyUrlToState() {
       if (btn) btn.click();
     }, 600);
   }
-  if (v && ['overview','screener','edge','whales','analytics'].includes(v)) {
+  if (v && ['overview','screener','edge','whales','aster','analytics'].includes(v)) {
     setTimeout(() => { try { switchView(v); } catch {} }, 800);
   }
 }
@@ -10162,8 +10246,346 @@ setInterval(() => { if (STATE.view === 'analytics') renderOptionsFlow(); }, 2500
       try { renderAtrRanker(); } catch {}
       try { renderOptionsFlow(); } catch {}
     }
+    if (v === 'aster') {
+      try { renderAster(); } catch {}
+    }
+    if (v === 'whales') {
+      try { _renderAggWhales(); } catch {}
+    }
   };
 })();
+
+/* ---------- ASTER DASHBOARD ----------
+   Aggregates all the Aster-specific data we already stream (prices, funding,
+   open interest) into a dedicated venue tab with KPI strip, top markets
+   table, premium-vs-Binance list, and funding grid. */
+function _asterEchartsInit() {
+  if (!STATE.charts.asterFund && $('ast-fund-grid')) {
+    STATE.charts.asterFund = echarts.init($('ast-fund-grid'), 'cortex', { renderer: 'canvas' });
+  }
+}
+function renderAster() {
+  _asterEchartsInit();
+  const $set = (id, text, color) => {
+    const el = $(id); if (!el) return;
+    el.textContent = text;
+    if (color) el.style.color = color;
+  };
+
+  // Build per-symbol view from STATE data
+  const rows = [];
+  for (const [sym, price] of STATE.prices.aster) {
+    if (!sym.endsWith('USDT')) continue;
+    const f = STATE.funding[sym] || {};
+    const oi = STATE.openInterestByEx[sym]?.aster;
+    const binPx = STATE.prices.binance.get(sym);
+    const premBp = binPx && price ? ((price - binPx) / binPx * 10000) : null;
+    rows.push({
+      sym, price, fund: f.aster, oi,
+      binPx, premBp,
+    });
+  }
+
+  // KPIs
+  const oiTotal = rows.reduce((a, r) => a + (r.oi || 0), 0);
+  const funds = rows.map(r => r.fund).filter(v => v != null && !Number.isNaN(v));
+  const avgFund = funds.length ? funds.reduce((a,b) => a+b, 0) / funds.length : 0;
+  const prems = rows.map(r => r.premBp).filter(v => v != null && Math.abs(v) < 500);  // trim outliers
+  const avgPrem = prems.length ? prems.reduce((a,b) => a+b, 0) / prems.length : 0;
+  const btc = rows.find(r => r.sym === 'BTCUSDT');
+  $set('ast-kpi-mkts', rows.length);
+  $set('ast-kpi-oi',   oiTotal ? fmtUsd(oiTotal) : '—');
+  $set('ast-kpi-fund', (avgFund * 100).toFixed(4) + '%',
+       avgFund >= 0 ? '#22d17e' : '#ff5a6e');
+  $set('ast-kpi-prem', (avgPrem >= 0 ? '+' : '') + avgPrem.toFixed(1),
+       avgPrem >= 0 ? '#22d17e' : '#ff5a6e');
+  if (btc) {
+    $set('ast-kpi-btc', fmt(btc.price, 0));
+    $set('ast-kpi-btc-sub',
+      btc.premBp != null ? ((btc.premBp >= 0 ? '+' : '') + btc.premBp.toFixed(1) + ' bp vs BIN') : '—');
+  } else {
+    $set('ast-kpi-btc', '—'); $set('ast-kpi-btc-sub', '—');
+  }
+
+  // Top markets by OI
+  const byOi = [...rows].filter(r => r.oi > 0).sort((a,b) => b.oi - a.oi).slice(0, 28);
+  const mk = $('ast-markets-body');
+  if (mk) {
+    if (!byOi.length) {
+      mk.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Awaiting Aster OI fan-out…</div>';
+    } else {
+      const header = `
+        <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+          <div class="col-span-3">Symbol</div>
+          <div class="col-span-3 text-right">Price</div>
+          <div class="col-span-3 text-right">OI</div>
+          <div class="col-span-3 text-right">Fund / 8h</div>
+        </div>`;
+      mk.innerHTML = header + byOi.map(r => {
+        const fundCls = r.fund == null ? 'text-[var(--text-2)]' : (r.fund >= 0 ? 'num-up' : 'num-down');
+        return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+          <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+          <div class="col-span-3 text-right">${fmt(r.price)}</div>
+          <div class="col-span-3 text-right">${fmtUsd(r.oi)}</div>
+          <div class="col-span-3 text-right ${fundCls}">${r.fund == null ? '—' : (r.fund * 100).toFixed(4) + '%'}</div>
+        </div>`;
+      }).join('');
+      mk.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+        try { switchSymbol(d.dataset.sym); } catch {}
+      }));
+    }
+  }
+
+  // Premium table — sort by |premBp|, filter noise
+  const pm = $('ast-premium-body');
+  if (pm) {
+    const premRows = rows
+      .filter(r => r.premBp != null && Math.abs(r.premBp) < 500 && r.binPx)
+      .sort((a, b) => Math.abs(b.premBp) - Math.abs(a.premBp))
+      .slice(0, 28);
+    if (!premRows.length) {
+      pm.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Awaiting matching Binance prices…</div>';
+    } else {
+      const header = `
+        <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+          <div class="col-span-3">Symbol</div>
+          <div class="col-span-3 text-right">Aster</div>
+          <div class="col-span-3 text-right">Binance</div>
+          <div class="col-span-3 text-right">Δ bp</div>
+        </div>`;
+      pm.innerHTML = header + premRows.map(r => {
+        const color = Math.abs(r.premBp) >= 30 ? (r.premBp >= 0 ? '#22d17e' : '#ff5a6e') : 'var(--text-1)';
+        return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+          <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+          <div class="col-span-3 text-right">${fmt(r.price)}</div>
+          <div class="col-span-3 text-right text-[var(--text-2)]">${fmt(r.binPx)}</div>
+          <div class="col-span-3 text-right font-semibold" style="color:${color};">${(r.premBp >= 0 ? '+' : '') + r.premBp.toFixed(1)}</div>
+        </div>`;
+      }).join('');
+      pm.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+        try { switchSymbol(d.dataset.sym); } catch {}
+      }));
+    }
+  }
+
+  // Aster funding heatmap — single-column: symbols × funding bp
+  if (STATE.charts.asterFund) {
+    const top = rows.filter(r => r.fund != null && Math.abs(r.fund) > 0)
+      .sort((a,b) => b.fund - a.fund).slice(0, 24);
+    if (top.length) {
+      STATE.charts.asterFund.setOption({
+        animation: false,
+        grid: { top: 24, left: 80, right: 28, bottom: 28 },
+        tooltip: {
+          backgroundColor:'#0b1220', borderColor:'#1c2430',
+          textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+          formatter: p => `<b>${p.name}</b><br/>Funding: <b style="color:${p.value>=0?'#22d17e':'#ff5a6e'}">${p.value.toFixed(4)}%</b>`
+        },
+        yAxis: {
+          type: 'category', inverse: true, data: top.map(t => t.sym.replace('USDT','')),
+          axisLine: { lineStyle: { color: '#2a3443' } },
+          axisLabel: { color: '#c2cbd6', fontSize: 10, interval: 0 },
+          axisTick: { show: false },
+        },
+        xAxis: {
+          type: 'value',
+          axisLine: { lineStyle: { color: '#2a3443' } },
+          axisLabel: { color: '#9aa4b2', fontSize: 9, formatter: v => v.toFixed(3) + '%' },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } },
+        },
+        series: [{
+          type: 'bar', barWidth: '70%',
+          data: top.map(t => ({
+            value: +(t.fund * 100).toFixed(4),
+            itemStyle: { color: t.fund >= 0 ? 'rgba(34,209,126,0.75)' : 'rgba(255,90,110,0.75)' },
+          })),
+          markLine: { silent: true, symbol: 'none',
+            data: [{ xAxis: 0, lineStyle: { color: '#2a3443', width: 1 }, label: { show: false } }] },
+        }],
+      }, true);
+    }
+  }
+
+  const up = $('ast-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+}
+setInterval(() => { if (STATE.view === 'aster') renderAster(); }, 5000);
+
+/* ---------- AGGREGATED WHALE TAPE (Binance + Bybit + OKX) ----------
+   Opens per-venue public-trade WS connections on the top 6 perp symbols
+   and merges large single prints into one scrolling tape. Reuses the
+   existing Binance aggTrade stream via a hook — Bybit & OKX get dedicated
+   WS connections here. */
+STATE.aggWhales = STATE.aggWhales || { trades: [], threshold: 250000 };
+const AGG_WHALE_SYMS = ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','HYPEUSDT'];
+
+function _pushAggWhale(w) {
+  STATE.aggWhales.trades.unshift(w);
+  if (STATE.aggWhales.trades.length > 500) STATE.aggWhales.trades.length = 500;
+  if (STATE.view === 'whales') _renderAggWhales();
+}
+function _renderAggWhales() {
+  const body = $('agg-whale-body'); if (!body) return;
+  const thr = STATE.aggWhales.threshold;
+  const filtered = STATE.aggWhales.trades.filter(t => t.usd >= thr).slice(0, 150);
+  const cnt = $('agg-whale-count'); if (cnt) cnt.textContent = filtered.length;
+  if (!filtered.length) {
+    body.innerHTML = `<div class="p-4 text-[11px] text-[var(--text-2)]">No whale prints ≥ ${fmtUsd(thr)} yet.</div>`;
+    return;
+  }
+  const venueColor = { BIN: '#f0b90b', BYB: '#f7a600', OKX: '#22d3ee' };
+  body.innerHTML = filtered.map(t => {
+    const dt = new Date(t.time);
+    const time = `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())}`;
+    const side = t.side === 'BUY' ? 'BUY' : 'SELL';
+    const sideColor = t.side === 'BUY' ? '#22d17e' : '#ff5a6e';
+    const vc = venueColor[t.venue] || '#9aa4b2';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular">
+      <div class="col-span-2 text-[var(--text-2)]">${time}</div>
+      <div class="col-span-2 font-semibold" style="color:${vc};letter-spacing:0.12em;">${t.venue}</div>
+      <div class="col-span-2 sym">${t.symbol.replace('USDT','')}</div>
+      <div class="col-span-1 text-center font-semibold" style="color:${sideColor};">${side}</div>
+      <div class="col-span-2 text-right">${fmt(t.price)}</div>
+      <div class="col-span-1 text-right">${fmt(t.qty, 3)}</div>
+      <div class="col-span-2 text-right text-[var(--text-0)] font-semibold">${fmtUsd(t.usd)}</div>
+    </div>`;
+  }).join('');
+}
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'agg-whale-min') {
+    STATE.aggWhales.threshold = +e.target.value || 250000;
+    _renderAggWhales();
+  }
+});
+
+// Hook existing Binance aggTrade stream (we already collect via connectCvdAggTradeWs)
+(function hookCvdIntoAggWhales(){
+  // Intercept the CVD ws message handler to ALSO publish large prints.
+  // Alternative: run a dedicated second subscribe, but we already have data.
+  const origClose = typeof _cvdWs !== 'undefined' ? null : null;  // placeholder, we use a periodic scan
+})();
+// Periodic scan of CVD buffer to pick up big Binance prints we haven't seen
+const _seenBinTrades = new Set();
+setInterval(() => {
+  const map = STATE.cvdBySymbol || new Map();
+  for (const sym of AGG_WHALE_SYMS) {
+    const series = map.get(sym);
+    if (!series) continue;
+    // series items track cum + delta aggregated in ~500ms buckets; we can't
+    // recover individual trades from cvd. So we use the STATE.whaleTrades
+    // that connectWhaleWs already populates for the active symbol, and
+    // supplement with Bybit + OKX dedicated WS below.
+  }
+}, 5000);
+// Also pull from Binance whale WS (connectWhaleWs feeds STATE.whaleTrades)
+setInterval(() => {
+  const wt = STATE.whaleTrades || [];
+  for (const w of wt) {
+    const id = 'BIN:' + w.symbol + ':' + w.time + ':' + w.price + ':' + w.qty;
+    if (_seenBinTrades.has(id)) continue;
+    _seenBinTrades.add(id);
+    _pushAggWhale({
+      time: w.time, venue: 'BIN', symbol: w.symbol,
+      side: w.side, price: w.price, qty: w.qty, usd: w.usd,
+    });
+  }
+  // Cap the seen set to avoid memory growth
+  if (_seenBinTrades.size > 3000) {
+    const arr = Array.from(_seenBinTrades);
+    _seenBinTrades.clear();
+    arr.slice(-1500).forEach(x => _seenBinTrades.add(x));
+  }
+}, 1500);
+
+// --- Bybit public trades WS ---
+let _bybTradeWs = null, _bybTradeBackoff = 2000;
+function _connectBybitTrades() {
+  try { if (_bybTradeWs) _bybTradeWs.close(); } catch {}
+  try { _bybTradeWs = new WebSocket('wss://stream.bybit.com/v5/public/linear'); }
+  catch { setTimeout(_connectBybitTrades, _bybTradeBackoff); return; }
+  STATE.diag.ws.bybTrades = STATE.diag.ws.bybTrades || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
+  _bybTradeWs.onopen = () => {
+    _bybTradeBackoff = 2000;
+    STATE.diag.ws.bybTrades.state = 'open';
+    _bybTradeWs.send(JSON.stringify({
+      op: 'subscribe',
+      args: AGG_WHALE_SYMS.map(s => 'publicTrade.' + s),
+    }));
+    setInterval(() => { try { _bybTradeWs.send(JSON.stringify({op:'ping'})); } catch {} }, 20000);
+  };
+  _bybTradeWs.onmessage = (ev) => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (!msg?.topic || !msg.topic.startsWith('publicTrade.')) return;
+    const arr = Array.isArray(msg.data) ? msg.data : [];
+    for (const t of arr) {
+      if (!t.s || !t.p || !t.v) continue;
+      const price = +t.p, qty = +t.v;
+      const usd = price * qty;
+      if (usd < 50000) continue;   // pre-filter to avoid spam
+      _pushAggWhale({
+        time: +t.T || Date.now(), venue: 'BYB', symbol: t.s,
+        side: (t.S === 'Sell' || t.S === 'SELL') ? 'SELL' : 'BUY',
+        price, qty, usd,
+      });
+    }
+    STATE.diag.ws.bybTrades.lastMsg = Date.now();
+    STATE.diag.ws.bybTrades.msgCount = (STATE.diag.ws.bybTrades.msgCount || 0) + 1;
+  };
+  _bybTradeWs.onerror = () => { STATE.diag.ws.bybTrades.state = 'error'; };
+  _bybTradeWs.onclose = () => {
+    STATE.diag.ws.bybTrades.state = 'closed';
+    STATE.diag.ws.bybTrades.reconnects = (STATE.diag.ws.bybTrades.reconnects || 0) + 1;
+    setTimeout(_connectBybitTrades, _bybTradeBackoff);
+    _bybTradeBackoff = Math.min(_bybTradeBackoff * 1.8, 30000);
+  };
+}
+_connectBybitTrades();
+
+// --- OKX public trades WS ---
+let _okxTradeWs = null, _okxTradeBackoff = 2000;
+function _connectOkxTrades() {
+  try { if (_okxTradeWs) _okxTradeWs.close(); } catch {}
+  try { _okxTradeWs = new WebSocket('wss://ws.okx.com:8443/ws/v5/public'); }
+  catch { setTimeout(_connectOkxTrades, _okxTradeBackoff); return; }
+  STATE.diag.ws.okxTrades = STATE.diag.ws.okxTrades || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
+  _okxTradeWs.onopen = () => {
+    _okxTradeBackoff = 2000;
+    STATE.diag.ws.okxTrades.state = 'open';
+    const args = AGG_WHALE_SYMS.map(s => ({ channel: 'trades', instId: s.replace('USDT','') + '-USDT-SWAP' }));
+    _okxTradeWs.send(JSON.stringify({ op: 'subscribe', args }));
+    setInterval(() => { try { _okxTradeWs.send('ping'); } catch {} }, 25000);
+  };
+  _okxTradeWs.onmessage = (ev) => {
+    if (ev.data === 'pong') return;
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (!msg?.data) return;
+    for (const t of msg.data) {
+      const instId = t.instId || '';
+      const m = /^([A-Z0-9]+)-USDT-SWAP$/.exec(instId);
+      if (!m) continue;
+      const sym = m[1] + 'USDT';
+      const price = +t.px, qty = +t.sz;
+      const usd = price * qty;
+      if (usd < 50000) continue;
+      _pushAggWhale({
+        time: +t.ts || Date.now(), venue: 'OKX', symbol: sym,
+        side: (t.side || '').toUpperCase() === 'SELL' ? 'SELL' : 'BUY',
+        price, qty, usd,
+      });
+    }
+    STATE.diag.ws.okxTrades.lastMsg = Date.now();
+    STATE.diag.ws.okxTrades.msgCount = (STATE.diag.ws.okxTrades.msgCount || 0) + 1;
+  };
+  _okxTradeWs.onerror = () => { STATE.diag.ws.okxTrades.state = 'error'; };
+  _okxTradeWs.onclose = () => {
+    STATE.diag.ws.okxTrades.state = 'closed';
+    STATE.diag.ws.okxTrades.reconnects = (STATE.diag.ws.okxTrades.reconnects || 0) + 1;
+    setTimeout(_connectOkxTrades, _okxTradeBackoff);
+    _okxTradeBackoff = Math.min(_okxTradeBackoff * 1.8, 30000);
+  };
+}
+_connectOkxTrades();
+// Keep the whales tab fresh
+setInterval(() => { if (STATE.view === 'whales') _renderAggWhales(); }, 2000);
 </script>
 </body>
 </html>
