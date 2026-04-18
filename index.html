@@ -1561,6 +1561,7 @@ const CFG = {
               if (d) { d.strikes = 0; d.cooldownUntil = 0; }
             });
           } } catch (_) {}
+          try { typeof fetchGateContracts === 'function' && fetchGateContracts(); } catch(_) {}
           try { typeof fetchGateTickers === 'function' && fetchGateTickers(); } catch(_) {}
           try { typeof fetchKucoinContracts === 'function' && fetchKucoinContracts(); } catch(_) {}
           try { typeof fetchCoinbaseIntxInstruments === 'function' && fetchCoinbaseIntxInstruments(); } catch(_) {}
@@ -5953,7 +5954,10 @@ async function boot() {
   renderExchangeRows();
   // initial REST
   await fetchBinanceTicker24h();
-  await fetchGateContracts(); // cache multipliers so first Gate ticker call yields OI
+  // fetchGateContracts is deferred — runs after setupProxyMode enables the
+  // edge proxy on custom domains. The WS feed also pushes open_interest_usd
+  // directly so first OI paint doesn't wait on the multiplier cache.
+  if (CFG.gate.rest === '/gate') { try { await fetchGateContracts(); } catch(_) {} }
   await Promise.allSettled([
     fetchBinanceFunding(),
     fetchHyperliquidMeta(),
