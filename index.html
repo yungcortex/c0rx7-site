@@ -743,6 +743,7 @@
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
     <span>SEARCH</span>
     <input type="search" id="global-search" placeholder="Filter · sym…" style="width:180px;" />
+    <button id="share-view" class="btn" title="Copy shareable URL for current view/symbol/tf">SHARE</button>
   </div>
 </nav>
 
@@ -6390,6 +6391,87 @@ setInterval(refreshSessionVwaps, 60 * 1000);
   };
 })();
 
+/* ---------- URL STATE SYNC + SHARE ----------
+   Serialises view / symbol / timeframe / watchlist into the query string on
+   every change (via history.replaceState — no reload, no back-button spam)
+   and deserialises on load. Means any state of the site is linkable — paste
+   the URL into a DM, the recipient lands exactly where you are. */
+function _buildShareUrl() {
+  const params = new URLSearchParams();
+  if (STATE.view && STATE.view !== 'overview') params.set('v', STATE.view);
+  if (STATE.symbol && STATE.symbol !== 'BTCUSDT') params.set('s', STATE.symbol.replace('USDT',''));
+  if (STATE.timeframe && STATE.timeframe !== '1m') params.set('tf', STATE.timeframe);
+  if (STATE.compare && STATE.compare.size) {
+    const slugs = Array.from(STATE.compare).map(s => s.replace('USDT','')).join(',');
+    params.set('w', slugs);
+  }
+  const qs = params.toString();
+  return `${location.origin}${location.pathname}${qs ? '?' + qs : ''}`;
+}
+function syncUrlFromState() {
+  try {
+    const url = _buildShareUrl();
+    const rel = url.slice(location.origin.length);
+    // Skip if nothing changed — avoids thrashing the history stack
+    if (rel === (location.pathname + location.search)) return;
+    history.replaceState(null, '', rel);
+  } catch {}
+}
+function applyUrlToState() {
+  const params = new URLSearchParams(location.search);
+  const v = params.get('v');
+  const s = params.get('s');
+  const tf = params.get('tf');
+  if (s) {
+    const sym = s.toUpperCase().endsWith('USDT') ? s.toUpperCase() : s.toUpperCase() + 'USDT';
+    if (CFG.symbols.includes(sym) || /^[A-Z0-9]+USDT$/.test(sym)) {
+      setTimeout(() => { try { switchSymbol(sym); } catch {} }, 300);
+    }
+  }
+  if (tf && /^(1m|3m|5m|15m|30m|1h|4h|1d)$/.test(tf)) {
+    setTimeout(() => {
+      const btn = document.querySelector(`#tf-tabs .btn[data-tf="${tf}"]`);
+      if (btn) btn.click();
+    }, 600);
+  }
+  if (v && ['overview','screener','edge','whales','analytics'].includes(v)) {
+    setTimeout(() => { try { switchView(v); } catch {} }, 800);
+  }
+}
+// Patch view + symbol + timeframe change points to update URL.
+(function patchForUrlSync(){
+  const origView = window.switchView;
+  if (typeof origView === 'function') {
+    window.switchView = function(v) { origView(v); syncUrlFromState(); };
+  }
+  const origSym = window.switchSymbol;
+  if (typeof origSym === 'function') {
+    window.switchSymbol = function(sym) { origSym(sym); syncUrlFromState(); };
+  }
+  // Timeframe tabs don't go through a function — hook their click handlers.
+  setTimeout(() => {
+    document.querySelectorAll('#tf-tabs .btn').forEach(btn => {
+      btn.addEventListener('click', () => setTimeout(syncUrlFromState, 50));
+    });
+  }, 1200);
+})();
+// SHARE button in the header + fallback inside watchlist bar.
+function _shareCopy(url) {
+  try {
+    navigator.clipboard.writeText(url);
+    flashAlert && flashAlert('LINK COPIED · ' + url.replace(location.origin, ''));
+  } catch {
+    prompt('Copy this URL:', url);
+  }
+}
+$('share-view')?.addEventListener('click', () => _shareCopy(_buildShareUrl()));
+// Apply any URL params on first load (deferred so STATE + DOM are settled).
+setTimeout(applyUrlToState, 1000);
+// Add a "Copy link to current view" entry to the ⌘K palette.
+if (Array.isArray(CMDK_ACTIONS)) {
+  CMDK_ACTIONS.push({ id: 'a:shareView', label: 'Action · Copy link to current view' });
+}
+
 /* ---------- COMMAND PALETTE (⌘K / Ctrl+K) ----------
    Fuzzy-search symbols, views, and quick actions. Keyboard-first UX. */
 const CMDK_VIEWS = [
@@ -6465,6 +6547,8 @@ function _cmdkRun() {
     } catch {}
   } else if (it.id === 'a:refreshAll') {
     const btn = $('dh-refresh'); if (btn) btn.click();
+  } else if (it.id === 'a:shareView') {
+    try { _shareCopy(_buildShareUrl()); } catch {}
   }
 }
 
