@@ -2934,11 +2934,12 @@ function renderCrossExchangeOI() {
   const el = $('oi-xex-rows'); if (!el) return;
   const sym = STATE.symbol;
   $('oi-xex-sym').textContent = sym;
-  // Binance OI pulled from STATE.openInterest (coin-units); multiply by price.
-  const binOiCoin = STATE.openInterest.get(sym);
-  const binPx     = STATE.prices.binance.get(sym);
+  // STATE.openInterest is already stored as USD notional (sumOpenInterestValue
+  // from /openInterestHist, or openInterest × markPrice from pollOiTip).
+  // The old code here double-multiplied by price — resulting in $trillions.
+  const binOiUsd = STATE.openInterest.get(sym);
   const rowVals = [];
-  if (binOiCoin != null && binPx) rowVals.push({ ex: 'BIN', usd: binOiCoin * binPx });
+  if (binOiUsd != null && binOiUsd > 0) rowVals.push({ ex: 'BIN', usd: binOiUsd });
   const byOi = STATE.openInterestByEx[sym] || {};
   if (byOi.bybit        != null) rowVals.push({ ex: 'BYB',    usd: byOi.bybit });
   if (byOi.okx          != null) rowVals.push({ ex: 'OKX',    usd: byOi.okx });
