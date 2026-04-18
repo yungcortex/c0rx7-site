@@ -5974,8 +5974,15 @@ function renderVolRegime() {
   }));
   const upd = $('vol-regime-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
 }
-refreshVolatilityRegime();
-setInterval(refreshVolatilityRegime, 5 * 60 * 1000);
+// Defer until ticker24h populates; retry every 10s until it has data.
+(function kickVolRegime() {
+  if (STATE.ticker24h.size > 0) {
+    refreshVolatilityRegime();
+    setInterval(refreshVolatilityRegime, 5 * 60 * 1000);
+  } else {
+    setTimeout(kickVolRegime, 10000);
+  }
+})();
 
 /* ---------- SPOT↔PERP BASIS DASHBOARD ----------
    Top 20 perp symbols by volume — cross against Binance spot price from
@@ -6007,6 +6014,10 @@ function renderBasisDashboard() {
     const spot = STATE.spotPrices.get(sym);
     if (!perp || !spot) continue;
     const bp = ((perp / spot) - 1) * 10000;
+    // Filter listing-mismatch noise: real perp/spot basis lives in ±100 bp.
+    // Anything beyond that is usually stale spot, mis-tickered listing, or a
+    // coin that exists on perps but not spot (or vice versa).
+    if (Math.abs(bp) > 300) continue;
     rows.push({ sym, perp, spot, bp, vol: +t.quoteVolume || 0 });
   }
   if (!rows.length) {
