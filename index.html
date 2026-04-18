@@ -1513,6 +1513,24 @@
         </div>
       </div>
 
+      <!-- CVD divergence tracker -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ff9f5a"></span>CVD DIVERGENCES · 15 MIN</span>
+          <span class="text-[var(--text-2)] flex items-center gap-3">
+            <span><b style="color:#22d17e;">BULL</b> = price ↓ while net taker buys ↑</span>
+            <span><b style="color:#ff5a6e;">BEAR</b> = price ↑ while net taker sells ↑</span>
+            <span class="tabular">updated <span id="cvd-updated">—</span></span>
+          </span>
+        </div>
+        <div id="cvd-div-table" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Warming up — collecting taker flow on top 15 symbols…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          CVD = cumulative taker-buy − taker-sell volume on Binance perps · divergence = price moves one way, flow moves the other
+        </div>
+      </div>
+
       <!-- Price-discovery leaders -->
       <div class="panel col-span-12">
         <div class="panel-hd">
@@ -4534,6 +4552,7 @@ function switchView(v) {
       try { renderCrossVenueSpreads(); } catch {}
       try { renderFundingArb(); } catch {}
       try { renderLeadership(); } catch {}
+      try { renderCvdDivergences(); } catch {}
     }
   }, 30);
 }
@@ -6569,8 +6588,136 @@ setInterval(() => {
     try { renderCrossVenueSpreads(); } catch {}
     try { renderFundingArb(); } catch {}
     try { renderLeadership(); } catch {}
+    try { renderCvdDivergences(); } catch {}
   }
 }, 3000);
+
+/* ---------- CVD DIVERGENCE TRACKER ----------
+   Subscribes to per-symbol aggTrade streams on a dedicated Binance ws so
+   we can maintain a proper cumulative volume delta per symbol. Flags
+   divergences when price trend and taker flow trend have opposite signs
+   over a 15-min window.
+   CVD convention: +USD on taker buy (m=false), −USD on taker sell (m=true). */
+const CVD_SYMBOLS = [
+  'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT',
+  'AVAXUSDT','LINKUSDT','LTCUSDT','DOTUSDT','TRXUSDT','HYPEUSDT','SUIUSDT','ARBUSDT'
+];
+STATE.cvdBySymbol = STATE.cvdBySymbol || new Map();  // sym -> [{t, price, cum, delta}]
+let _cvdWs = null, _cvdWsBackoff = 2000;
+
+function connectCvdAggTradeWs() {
+  try { if (_cvdWs) _cvdWs.close(); } catch {}
+  const streams = CVD_SYMBOLS.map(s => s.toLowerCase() + '@aggTrade').join('/');
+  const url = `${CFG.binance.ws}?streams=${streams}`;
+  try { _cvdWs = new WebSocket(url); }
+  catch (e) { setTimeout(connectCvdAggTradeWs, _cvdWsBackoff); return; }
+  STATE.diag.ws.cvd = STATE.diag.ws.cvd || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
+  _cvdWs.onopen = () => {
+    _cvdWsBackoff = 2000;
+    STATE.diag.ws.cvd.state = 'open';
+  };
+  _cvdWs.onmessage = (ev) => {
+    let env;
+    try { env = JSON.parse(ev.data); } catch { return; }
+    const s = env.stream, d = env.data;
+    if (!s || !d || !d.p || !d.q) return;
+    const m = /^([a-z0-9]+)@aggtrade$/i.exec(s);
+    if (!m) return;
+    const sym = m[1].toUpperCase();
+    const price = +d.p;
+    const qty   = +d.q;
+    const usd   = price * qty;
+    if (!usd) return;
+    // m=true → buyer was the MAKER (the taker sold) → negative CVD.
+    const delta = d.m ? -usd : +usd;
+    const series = STATE.cvdBySymbol.get(sym) || [];
+    const now = Date.now();
+    const last = series.at(-1);
+    const cum = (last ? last.cum : 0) + delta;
+    // Aggregate into ~500ms buckets so a hot symbol doesn't explode memory.
+    if (!last || now - last.t > 500) {
+      series.push({ t: now, price, cum, delta });
+    } else {
+      last.cum    = cum;
+      last.delta += delta;
+      last.price  = price;
+    }
+    // Retention: last 30 min, capped at 3000 samples.
+    const cutoff = now - 30 * 60 * 1000;
+    while (series.length && series[0].t < cutoff) series.shift();
+    if (series.length > 3000) series.splice(0, series.length - 3000);
+    STATE.cvdBySymbol.set(sym, series);
+    STATE.diag.ws.cvd.lastMsg = now;
+    STATE.diag.ws.cvd.msgCount = (STATE.diag.ws.cvd.msgCount || 0) + 1;
+  };
+  _cvdWs.onerror = () => { STATE.diag.ws.cvd.state = 'error'; };
+  _cvdWs.onclose = () => {
+    STATE.diag.ws.cvd.state = 'closed';
+    STATE.diag.ws.cvd.reconnects = (STATE.diag.ws.cvd.reconnects || 0) + 1;
+    setTimeout(connectCvdAggTradeWs, _cvdWsBackoff);
+    _cvdWsBackoff = Math.min(_cvdWsBackoff * 1.8, 30000);
+  };
+}
+
+function computeCvdDivergences() {
+  const out = [];
+  for (const [sym, series] of STATE.cvdBySymbol) {
+    if (!series || series.length < 40) continue;
+    const now = series.at(-1);
+    const cutoffT = now.t - 15 * 60 * 1000;
+    let ref = null;
+    for (let i = 0; i < series.length; i++) {
+      if (series[i].t >= cutoffT) { ref = series[i]; break; }
+    }
+    if (!ref || ref === now) continue;
+    const priceChange = ((now.price - ref.price) / ref.price) * 100;
+    const cvdChange   = now.cum - ref.cum;
+    const maxAbsCvd   = series.reduce((m, s) => Math.max(m, Math.abs(s.cum)), 1);
+    const cvdNorm     = cvdChange / maxAbsCvd;
+    if (Math.abs(priceChange) < 0.25) continue;      // need a real price move
+    if (Math.sign(priceChange) === Math.sign(cvdNorm)) continue;
+    // Score balances price magnitude and CVD opposition
+    const score = Math.abs(priceChange) + Math.abs(cvdNorm) * 6;
+    const type  = priceChange > 0 ? 'BEAR' : 'BULL';
+    out.push({ sym, score, type, priceChange, cvdChange, cvdNorm });
+  }
+  return out.sort((a,b) => b.score - a.score);
+}
+
+function renderCvdDivergences() {
+  const el = $('cvd-div-table'); if (!el) return;
+  const rows = computeCvdDivergences().slice(0, 15);
+  const upd = $('cvd-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No divergences right now — price and taker flow are aligned across the top 15 symbols.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Symbol</div>
+      <div class="col-span-2">Bias</div>
+      <div class="col-span-3 text-right">Price Δ 15m</div>
+      <div class="col-span-3 text-right">CVD Δ (norm)</div>
+      <div class="col-span-2 text-right">Score</div>
+    </div>`;
+  const body = rows.map(r => {
+    const biasColor = r.type === 'BULL' ? '#22d17e' : '#ff5a6e';
+    const pxCls = r.priceChange >= 0 ? 'num-up' : 'num-down';
+    const cvdCls = r.cvdNorm >= 0 ? 'num-up' : 'num-down';
+    return `
+      <div class="grid grid-cols-12 px-3 py-1 text-[11px] border-b hairline cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+        <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+        <div class="col-span-2 font-semibold" style="color:${biasColor};letter-spacing:0.12em;">${r.type}</div>
+        <div class="col-span-3 text-right tabular ${pxCls}">${(r.priceChange>=0?'+':'') + r.priceChange.toFixed(2)}%</div>
+        <div class="col-span-3 text-right tabular ${cvdCls}">${(r.cvdNorm>=0?'+':'') + (r.cvdNorm*100).toFixed(1)}%</div>
+        <div class="col-span-2 text-right tabular font-semibold" style="color:${biasColor};">${r.score.toFixed(2)}</div>
+      </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
 
 /* ====================================================================
    BOOT
@@ -6610,6 +6757,7 @@ async function boot() {
   connectBinanceWs();
   connectWhaleWs();
   connectAllTickerFeeds();
+  try { connectCvdAggTradeWs(); } catch (e) { console.warn('cvd ws kick', e); }
 
   // analytics / background
   fetchFearGreed();
