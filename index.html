@@ -1513,25 +1513,61 @@ const CFG = {
 /* -----------------------------------------------------------------
    Origin-aware proxy rewriting.
    Gate / KuCoin / Coinbase INTX don't send permissive CORS headers,
-   so browser calls from c0r7x.com fail.  When we're deployed on a
-   host that supports edge rewrites (Vercel via vercel.json, Netlify
-   via _redirects), route those feeds through same-origin proxy
-   paths — same-origin means no CORS preflight, browser is happy.
-   On plain static hosts (github.io) or local `python -m http.server`,
-   keep the direct URLs so nothing breaks unexpectedly (those requests
-   will fail the same way they always have).
+   so browser calls from a deployed origin fail.  When we're hosted
+   on a platform with edge rewrites (Vercel/Netlify), same-origin
+   proxy paths like /gate/* forward to the exchange server-side — no
+   CORS preflight, browser is happy.
+
+   The tricky bit: on a custom domain we can't tell from the
+   hostname alone whether the proxy is wired up (could be Vercel or
+   GitHub Pages behind the same domain).  So we probe one endpoint
+   at startup; if the response is valid JSON we enable proxy mode
+   and re-fire the three affected fetchers.  If the probe returns
+   HTML (the SPA fallback on a static host) we stay on direct URLs.
    ----------------------------------------------------------------- */
-(function applyProxyRewrites() {
-  try {
-    const host = (location.hostname || '').toLowerCase();
-    const isStatic = host.endsWith('github.io') || host === 'localhost' ||
-                     host === '127.0.0.1' || host === '';
-    if (isStatic) return;
+(function setupProxyMode() {
+  const host = (location.hostname || '').toLowerCase();
+  const knownProxy  = host.endsWith('.vercel.app') || host.endsWith('.netlify.app');
+  const knownStatic = host.endsWith('github.io') || host === 'localhost' ||
+                      host === '127.0.0.1' || host === '';
+  function enable(reason) {
     CFG.gate.rest     = '/gate';
     CFG.gate.fallback = '/gatefx';
     CFG.kucoin.rest   = '/kucoin';
     CFG.coinbaseIntx.rest = '/cbintx';
-  } catch (_) { /* CFG stays on direct URLs */ }
+    try { console.info('[c0r7x] edge-proxy mode ENABLED for gate/kucoin/cbintx (' + reason + ')'); } catch(_) {}
+  }
+  if (knownStatic) {
+    try { console.info('[c0r7x] proxy DISABLED — static host (' + host + '); gate/kucoin/cbintx will CORS-fail. Move DNS to Vercel to fix.'); } catch(_) {}
+    return;
+  }
+  if (knownProxy)  { enable('hostname=' + host); return; }
+  // Custom domain — probe once to decide. /gate/api/v4/spot/currencies is
+  // ~1KB on Gate; on a static host it gets rewritten to index.html (HTML).
+  setTimeout(() => {
+    fetch('/gate/api/v4/spot/currencies', { method: 'GET' })
+      .then(r => r.ok ? r.text() : '')
+      .then(t => {
+        if (!t) return;
+        const s = t.trimStart()[0];
+        if (s === '[' || s === '{') {
+          enable('probe-ok on ' + host);
+          // Re-fire the three feeds that may already have run with
+          // direct URLs (and CORS-failed / tripped the breaker).
+          try { if (window.STATE?.diag?.rest) {
+            ['gate:tickers','gate:contracts','kucoin:contracts',
+             'coinbaseIntx:instruments'].forEach(k => {
+              const d = STATE.diag.rest[k];
+              if (d) { d.strikes = 0; d.cooldownUntil = 0; }
+            });
+          } } catch (_) {}
+          try { typeof fetchGateTickers === 'function' && fetchGateTickers(); } catch(_) {}
+          try { typeof fetchKucoinContracts === 'function' && fetchKucoinContracts(); } catch(_) {}
+          try { typeof fetchCoinbaseIntxInstruments === 'function' && fetchCoinbaseIntxInstruments(); } catch(_) {}
+        }
+      })
+      .catch(() => { try { console.info('[c0r7x] proxy probe failed on ' + host + ' — staying on direct URLs'); } catch(_) {} });
+  }, 0);
 })();
 
 const STATE = {
@@ -4632,17 +4668,23 @@ function ensureAnalyticsCharts() {
     STATE.charts.vlead = echarts.init($('vol-leaders'), 'cortex', {renderer:'canvas'});
 }
 async function refreshMomentumData() {
-  // Fetch 1h klines limit 5 for top 24 symbols → 1h, 4h computed
+  // Fetch top 30 by volume, one set of 1h klines (for 1h/4h) and one set
+  // of 5m klines (for 5m/15m) in parallel. 5m klines with limit=16 give
+  // 80 min of history, more than enough for both short-frame columns.
   const top = Array.from(STATE.ticker24h.values())
     .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
     .sort((a,b) => +b.quoteVolume - +a.quoteVolume)
-    .slice(0, 24)
+    .slice(0, 30)
     .map(t => t.symbol);
-  const results = await Promise.allSettled(top.map(sym =>
+  const hourly = Promise.allSettled(top.map(sym =>
     fetchJson('binance:klines:1h:'+sym, `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=1h&limit=5`).then(a => [sym, a])
   ));
-  const byTf = { '1h': new Map(), '4h': new Map() };
-  results.forEach(r => {
+  const fives = Promise.allSettled(top.map(sym =>
+    fetchJson('binance:klines:5m:'+sym, `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=5m&limit=16`).then(a => [sym, a])
+  ));
+  const [hRes, fRes] = await Promise.all([hourly, fives]);
+  const byTf = { '5m': new Map(), '15m': new Map(), '1h': new Map(), '4h': new Map() };
+  hRes.forEach(r => {
     if (r.status !== 'fulfilled' || !Array.isArray(r.value[1])) return;
     const [sym, bars] = r.value;
     if (bars.length < 2) return;
@@ -4652,6 +4694,18 @@ async function refreshMomentumData() {
     const fourHAgo = +fourHAgoBar[4];
     if (oneHAgo) byTf['1h'].set(sym, ((last - oneHAgo)/oneHAgo)*100);
     if (fourHAgo) byTf['4h'].set(sym, ((last - fourHAgo)/fourHAgo)*100);
+  });
+  fRes.forEach(r => {
+    if (r.status !== 'fulfilled' || !Array.isArray(r.value[1])) return;
+    const [sym, bars] = r.value;
+    if (bars.length < 2) return;
+    const last = +bars.at(-1)[4];
+    // 5m change: compare to close of previous 5m bar (index -2).
+    // 15m change: compare to close of the bar 3 positions back (index -4).
+    const prev5  = bars.at(-2)?.[4];
+    const prev15 = bars.at(-4)?.[4];
+    if (prev5)  byTf['5m'].set(sym,  ((last - +prev5)  / +prev5)  * 100);
+    if (prev15) byTf['15m'].set(sym, ((last - +prev15) / +prev15) * 100);
   });
   STATE.momentumByTf = byTf;
   renderMomentumHeatmap();
@@ -4668,10 +4722,10 @@ function renderMomentumHeatmap() {
   top.forEach((t, y) => {
     const sym = t.symbol;
     const vals = {
-      '5m':  computePriceHistoryChange(sym, 5*60*1000),
-      '15m': computePriceHistoryChange(sym, 15*60*1000),
-      '1h':  STATE.momentumByTf['1h']?.get(sym) ?? computePriceHistoryChange(sym, 60*60*1000),
-      '4h':  STATE.momentumByTf['4h']?.get(sym) ?? computePriceHistoryChange(sym, 4*60*60*1000),
+      '5m':  STATE.momentumByTf['5m']?.get(sym)  ?? computePriceHistoryChange(sym, 5*60*1000),
+      '15m': STATE.momentumByTf['15m']?.get(sym) ?? computePriceHistoryChange(sym, 15*60*1000),
+      '1h':  STATE.momentumByTf['1h']?.get(sym)  ?? computePriceHistoryChange(sym, 60*60*1000),
+      '4h':  STATE.momentumByTf['4h']?.get(sym)  ?? computePriceHistoryChange(sym, 4*60*60*1000),
       '24h': +t.priceChangePercent,
     };
     tfs.forEach((tf, x) => {
