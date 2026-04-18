@@ -2522,8 +2522,18 @@ async function _loadAsterTradingSet() {
   }
   return _asterTradingSet;
 }
-// Symbols the API has rejected with -1121 / -4108 at runtime.
+// Symbols the API has rejected with -1121 / -4108. Persisted in
+// localStorage so a single 400 per symbol is enough — subsequent loads
+// start with the skip set pre-populated.
+const _ASTER_SKIP_KEY = 'cortex.asterOiSkip.v1';
 const _asterOiSkip = new Set();
+try {
+  const raw = localStorage.getItem(_ASTER_SKIP_KEY);
+  if (raw) JSON.parse(raw).forEach(s => _asterOiSkip.add(s));
+} catch (_) {}
+function _persistAsterSkip() {
+  try { localStorage.setItem(_ASTER_SKIP_KEY, JSON.stringify(Array.from(_asterOiSkip))); } catch (_) {}
+}
 async function fetchAsterOpenInterest() {
   await _loadAsterTradingSet();
   const candidates = (STATE._fundingSyms && STATE._fundingSyms.length)
@@ -2548,7 +2558,10 @@ async function fetchAsterOpenInterest() {
           if (r.status === 400) {
             try {
               const j = await r.json();
-              if (j?.code === -1121 || j?.code === -4108) _asterOiSkip.add(sym);
+              if (j?.code === -1121 || j?.code === -4108) {
+                _asterOiSkip.add(sym);
+                _persistAsterSkip();
+              }
             } catch {}
           }
           continue;
