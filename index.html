@@ -5477,6 +5477,430 @@ document.addEventListener('change', (e) => {
 setInterval(sampleCorr, 10000);
 setInterval(() => { if (STATE.view === 'analytics') renderCorrelationMatrix(); }, 10000);
 
+/* Seed correlation matrix with ~4h of 5m-resolution Binance kline closes
+   so the matrix renders immediately on page load instead of waiting for
+   the live !markPrice@arr samples to accumulate.  Live 10s sampling
+   still runs on top, providing the most-recent tail of data. */
+async function seedCorrelation() {
+  if (STATE.corrSeeded) return;
+  const tickers = STATE.ticker24h;
+  if (!tickers || tickers.size === 0) {
+    setTimeout(seedCorrelation, 1500);
+    return;
+  }
+  STATE.corrSeeded = true;
+  const top = Array.from(tickers.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a,b) => +b.quoteVolume - +a.quoteVolume)
+    .slice(0, 20)
+    .map(t => t.symbol);
+  const results = await Promise.allSettled(top.map(sym =>
+    fetchJson('binance:klines:corr:'+sym,
+      `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=5m&limit=48`).then(a => [sym, a])
+  ));
+  const cut = Date.now() - 4*3600*1000;
+  results.forEach(r => {
+    if (r.status !== 'fulfilled') return;
+    const [sym, bars] = r.value;
+    if (!Array.isArray(bars) || !bars.length) return;
+    const existing = STATE.corrSeries.get(sym) || [];
+    // 5m kline close-time is bars[i][6], close price is bars[i][4]
+    bars.forEach(b => {
+      const t = +b[6], p = +b[4];
+      if (t && p && t >= cut) existing.push({t, p});
+    });
+    existing.sort((a,b) => a.t - b.t);
+    // Dedupe by timestamp (defensive)
+    const seen = new Set(); const out = [];
+    for (const s of existing) { if (!seen.has(s.t)) { seen.add(s.t); out.push(s); } }
+    STATE.corrSeries.set(sym, out);
+  });
+  if (STATE.view === 'analytics') renderCorrelationMatrix();
+}
+// Kick off after boot gives ticker24h a chance to populate.
+setTimeout(seedCorrelation, 2500);
+
+/* ====================================================================
+   PUBLIC WS TICKER STREAMS
+   --------------------------------------------------------------------
+   Moves mark price / funding / open interest off REST polling onto the
+   venues' public WebSocket feeds. Updates the same STATE keys the REST
+   pollers use (STATE.prices[venue], STATE.funding[sym],
+   STATE.openInterestByEx[sym].<venue>) so downstream renderers don't
+   change. REST pollers are kept at reduced cadence as a safety net and
+   to bootstrap metadata some venues don't push over WS.
+   ==================================================================== */
+
+// Throttle scheduleFundingHeatmap() — WS can fire many msgs/sec
+let _wsFundingDirty = false;
+setInterval(() => {
+  if (_wsFundingDirty) {
+    _wsFundingDirty = false;
+    try { scheduleFundingHeatmap(); } catch {}
+  }
+}, 2500);
+function markFundingDirty() { _wsFundingDirty = true; }
+
+// Shared factory: auto-reconnect with exp backoff, heartbeat, diagnostics.
+function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, decoder }) {
+  STATE.diag.ws[name] = STATE.diag.ws[name] || { lastMsg:0, msgCount:0, reconnects:0, state:'idle' };
+  const d = STATE.diag.ws[name];
+  let ws = null, backoff = 2000, pingTimer = null, killed = false;
+  function scheduleReconnect() {
+    if (killed) return;
+    d.reconnects = (d.reconnects || 0) + 1;
+    setTimeout(open, backoff);
+    backoff = Math.min(backoff * 1.8, 30000);
+  }
+  function open() {
+    if (killed) return;
+    try { ws = new WebSocket(url); }
+    catch (e) { console.warn('[ws] '+name+' init fail', e); scheduleReconnect(); return; }
+    d.state = 'connecting';
+    ws.onopen = () => {
+      d.state = 'open';
+      backoff = 2000;
+      try { onOpen && onOpen(ws); } catch (e) { console.warn('[ws] '+name+' onOpen', e); }
+      if (pingIntervalMs && buildPing) {
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+          try { const f = buildPing(); if (f != null && ws.readyState === 1) ws.send(f); } catch {}
+        }, pingIntervalMs);
+      }
+    };
+    ws.onmessage = (m) => {
+      d.lastMsg = Date.now();
+      d.msgCount = (d.msgCount || 0) + 1;
+      let data = m.data;
+      if (decoder) { try { data = decoder(data); } catch { return; } }
+      if (data == null) return;
+      try { onMessage && onMessage(data, ws); } catch { /* parse noise */ }
+    };
+    ws.onerror = () => { d.state = 'error'; };
+    ws.onclose = () => {
+      clearInterval(pingTimer);
+      d.state = 'closed';
+      scheduleReconnect();
+    };
+  }
+  open();
+  return { close() { killed = true; clearInterval(pingTimer); try { ws && ws.close(); } catch {} } };
+}
+
+// ---------- BYBIT tickers (snapshot + delta on v5 linear) ----------
+const _bybitTickerCache = new Map();
+function connectBybitTickersWs() {
+  const syms = CFG.symbols;
+  const chunks = [];
+  for (let i = 0; i < syms.length; i += 10) chunks.push(syms.slice(i, i + 10));
+  return makeVenueWs({
+    name: 'bybit',
+    url:  'wss://stream.bybit.com/v5/public/linear',
+    pingIntervalMs: 20000,
+    buildPing: () => JSON.stringify({ op: 'ping' }),
+    onOpen: (ws) => {
+      chunks.forEach(c => {
+        ws.send(JSON.stringify({ op:'subscribe', args: c.map(s => 'tickers.' + s) }));
+      });
+    },
+    decoder: (s) => JSON.parse(s),
+    onMessage: (d) => {
+      if (!d || !d.topic || !d.topic.startsWith('tickers.')) return;
+      const sym = d.topic.slice(8);
+      if (!sym.endsWith('USDT')) return;
+      let cur = _bybitTickerCache.get(sym);
+      if (d.type === 'snapshot' || !cur) cur = { ...(d.data || {}) };
+      else if (d.type === 'delta')       cur = { ...cur, ...(d.data || {}) };
+      _bybitTickerCache.set(sym, cur);
+      if (cur.lastPrice && +cur.lastPrice) STATE.prices.bybit.set(sym, +cur.lastPrice);
+      if (cur.fundingRate != null && cur.fundingRate !== '') {
+        const obj = STATE.funding[sym] || {};
+        obj.bybit = +cur.fundingRate;
+        STATE.funding[sym] = obj;
+        markFundingDirty();
+      }
+      if (cur.openInterest != null && cur.openInterest !== '' && cur.lastPrice) {
+        const ox = STATE.openInterestByEx[sym] || {};
+        ox.bybit = (+cur.openInterest) * (+cur.lastPrice);
+        STATE.openInterestByEx[sym] = ox;
+      }
+      setConn('bybit', true);
+    },
+  });
+}
+
+// ---------- OKX public: tickers + open-interest + funding-rate ----------
+function connectOkxPublicWs() {
+  const instIds = CFG.symbols.map(s => s.replace('USDT','') + '-USDT-SWAP');
+  return makeVenueWs({
+    name: 'okx',
+    url:  'wss://ws.okx.com:8443/ws/v5/public',
+    pingIntervalMs: 25000,
+    buildPing: () => 'ping',
+    onOpen: (ws) => {
+      const argsAll = [];
+      instIds.forEach(inst => {
+        argsAll.push({ channel:'tickers',       instId: inst });
+        argsAll.push({ channel:'open-interest', instId: inst });
+        argsAll.push({ channel:'funding-rate',  instId: inst });
+      });
+      for (let i = 0; i < argsAll.length; i += 60) {
+        ws.send(JSON.stringify({ op:'subscribe', args: argsAll.slice(i, i+60) }));
+      }
+    },
+    decoder: (s) => (s === 'pong') ? null : JSON.parse(s),
+    onMessage: (d) => {
+      if (!d || !d.arg || !d.data) return;
+      const ch = d.arg.channel;
+      const m = /^([A-Z0-9]+)-USDT-SWAP$/.exec(d.arg.instId || '');
+      if (!m) return;
+      const sym = m[1] + 'USDT';
+      const row = Array.isArray(d.data) ? d.data[0] : d.data;
+      if (!row) return;
+      if (ch === 'tickers') {
+        if (row.last != null && row.last !== '') STATE.prices.okx.set(sym, +row.last);
+      } else if (ch === 'open-interest') {
+        const px = STATE.prices.okx.get(sym);
+        const oiCoin = row.oiCcy != null ? +row.oiCcy : (row.oi != null ? +row.oi : null);
+        if (px && oiCoin != null && !isNaN(oiCoin)) {
+          const ox = STATE.openInterestByEx[sym] || {};
+          ox.okx = oiCoin * px;
+          STATE.openInterestByEx[sym] = ox;
+        }
+      } else if (ch === 'funding-rate') {
+        if (row.fundingRate != null && row.fundingRate !== '') {
+          const obj = STATE.funding[sym] || {};
+          obj.okx = +row.fundingRate;
+          STATE.funding[sym] = obj;
+          markFundingDirty();
+        }
+      }
+      setConn('okx', true);
+    },
+  });
+}
+
+// ---------- BITGET v2 tickers (USDT-FUTURES) ----------
+function connectBitgetTickersWs() {
+  return makeVenueWs({
+    name: 'bitget',
+    url:  'wss://ws.bitget.com/v2/ws/public',
+    pingIntervalMs: 25000,
+    buildPing: () => 'ping',
+    onOpen: (ws) => {
+      const args = CFG.symbols.map(s => ({ instType:'USDT-FUTURES', channel:'ticker', instId: s }));
+      for (let i = 0; i < args.length; i += 50) {
+        ws.send(JSON.stringify({ op:'subscribe', args: args.slice(i, i+50) }));
+      }
+    },
+    decoder: (s) => (s === 'pong') ? null : JSON.parse(s),
+    onMessage: (d) => {
+      if (!d || !d.arg || !Array.isArray(d.data)) return;
+      if (d.arg.channel !== 'ticker') return;
+      d.data.forEach(row => {
+        if (!row || !row.instId || !row.instId.endsWith('USDT')) return;
+        const sym = row.instId;
+        const last = row.lastPr != null ? +row.lastPr : null;
+        if (last) STATE.prices.bitget.set(sym, last);
+        if (row.fundingRate != null && row.fundingRate !== '') {
+          const obj = STATE.funding[sym] || {};
+          obj.bitget = +row.fundingRate;
+          STATE.funding[sym] = obj;
+          markFundingDirty();
+        }
+        const hold = row.holdingAmount != null ? +row.holdingAmount : null;
+        if (hold != null && !isNaN(hold) && last) {
+          const ox = STATE.openInterestByEx[sym] || {};
+          ox.bitget = hold * last;
+          STATE.openInterestByEx[sym] = ox;
+        }
+      });
+      setConn('bitget', true);
+    },
+  });
+}
+
+// ---------- GATE futures.tickers (bulk push: price, funding, OI in USD) ----------
+function connectGateTickersWs() {
+  const payload = CFG.symbols.map(s => s.replace(/USDT$/,'_USDT'));
+  return makeVenueWs({
+    name: 'gate',
+    url:  'wss://fx-ws.gateio.ws/v4/ws/usdt',
+    pingIntervalMs: 20000,
+    buildPing: () => JSON.stringify({ time: Math.floor(Date.now()/1000), channel:'futures.ping' }),
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({
+        time: Math.floor(Date.now()/1000),
+        channel: 'futures.tickers',
+        event: 'subscribe',
+        payload,
+      }));
+    },
+    decoder: (s) => JSON.parse(s),
+    onMessage: (d) => {
+      if (!d || !d.channel) return;
+      if (d.channel === 'futures.pong') return;
+      if (d.channel !== 'futures.tickers' || d.event !== 'update') return;
+      const arr = Array.isArray(d.result) ? d.result : [d.result];
+      arr.forEach(t => {
+        if (!t || !t.contract) return;
+        const m = /^([A-Z0-9]+)_USDT$/.exec(t.contract);
+        if (!m) return;
+        const sym = m[1] + 'USDT';
+        const last = t.last != null ? +t.last : null;
+        if (last) STATE.prices.gate.set(sym, last);
+        const fr = (t.funding_rate != null && t.funding_rate !== '') ? +t.funding_rate
+                 : (t.funding_rate_indicative != null && t.funding_rate_indicative !== '') ? +t.funding_rate_indicative
+                 : null;
+        if (fr != null && !Number.isNaN(fr)) {
+          const obj = STATE.funding[sym] || {};
+          obj.gate = fr;
+          STATE.funding[sym] = obj;
+          markFundingDirty();
+        }
+        // Gate pushes open_interest_usd directly — no multiplier math
+        const oiUsd = t.open_interest_usd != null ? +t.open_interest_usd : null;
+        if (oiUsd != null && !isNaN(oiUsd) && oiUsd > 0) {
+          const ox = STATE.openInterestByEx[sym] || {};
+          ox.gate = oiUsd;
+          STATE.openInterestByEx[sym] = ox;
+        }
+      });
+      setConn('gate', true);
+    },
+  });
+}
+
+// ---------- KUCOIN futures tickerV2 (needs bullet-public token first) ----------
+async function connectKucoinTickersWs() {
+  let bullet;
+  try {
+    const r = await fetch(CFG.kucoin.rest + '/api/v1/bullet-public', { method:'POST' });
+    if (!r.ok) throw new Error('kucoin bullet HTTP ' + r.status);
+    bullet = await r.json();
+  } catch (e) {
+    console.warn('[ws] kucoin bullet-public fail; retry in 30s', e);
+    setTimeout(connectKucoinTickersWs, 30000);
+    return null;
+  }
+  const srv = bullet?.data?.instanceServers?.[0];
+  const token = bullet?.data?.token;
+  if (!srv || !token) {
+    console.warn('[ws] kucoin bullet malformed; retry in 30s');
+    setTimeout(connectKucoinTickersWs, 30000);
+    return null;
+  }
+  const cid = 'c0r7x_' + Math.random().toString(36).slice(2, 10);
+  const url = `${srv.endpoint}?token=${encodeURIComponent(token)}&connectId=${cid}`;
+  const ksyms = CFG.symbols.map(s => {
+    const base = s.replace(/USDT$/,'');
+    const kb = (base === 'BTC') ? 'XBT' : base;
+    return kb + 'USDTM';
+  });
+  let pingId = 1;
+  return makeVenueWs({
+    name: 'kucoin',
+    url,
+    pingIntervalMs: (srv.pingInterval && srv.pingInterval > 3000)
+                      ? Math.min(srv.pingInterval - 2000, 18000) : 18000,
+    buildPing: () => JSON.stringify({ id: ++pingId, type:'ping' }),
+    onOpen: (ws) => {
+      for (let i = 0; i < ksyms.length; i += 20) {
+        const chunk = ksyms.slice(i, i+20);
+        ws.send(JSON.stringify({
+          id: Date.now() + i,
+          type:'subscribe',
+          topic: '/contractMarket/tickerV2:' + chunk.join(','),
+          privateChannel: false,
+          response: false,
+        }));
+      }
+    },
+    decoder: (s) => JSON.parse(s),
+    onMessage: (d) => {
+      if (!d || d.type !== 'message' || !d.topic) return;
+      if (!d.topic.startsWith('/contractMarket/tickerV2:')) return;
+      const data = d.data;
+      if (!data || !data.symbol) return;
+      const mTerm = /^([A-Z0-9]+)USDTM$/.exec(data.symbol);
+      if (!mTerm) return;
+      let base = mTerm[1];
+      if (base === 'XBT') base = 'BTC';
+      const sym = base + 'USDT';
+      const bid = data.bestBidPrice != null ? +data.bestBidPrice : null;
+      const ask = data.bestAskPrice != null ? +data.bestAskPrice : null;
+      const mid = (bid && ask) ? (bid + ask) / 2 : null;
+      if (mid) STATE.prices.kucoin.set(sym, mid);
+      setConn('kucoin', true);
+    },
+  });
+}
+
+// ---------- ASTER (Binance-compatible markPrice bulk stream) ----------
+function connectAsterTickersWs() {
+  return makeVenueWs({
+    name: 'aster',
+    url:  'wss://fstream.asterdex.com/stream?streams=!markPrice@arr@1s',
+    onOpen: () => {},
+    decoder: (s) => JSON.parse(s),
+    onMessage: (msg) => {
+      const env = (msg && msg.data) ? msg.data : msg;
+      if (!Array.isArray(env)) return;
+      env.forEach(e => {
+        if (!e || !e.s || !e.s.endsWith('USDT')) return;
+        if (e.p != null) STATE.prices.aster.set(e.s, +e.p);
+        if (e.r != null && e.r !== '') {
+          const obj = STATE.funding[e.s] || {};
+          obj.aster = +e.r;
+          STATE.funding[e.s] = obj;
+          markFundingDirty();
+        }
+      });
+      setConn('aster', true);
+    },
+  });
+}
+
+// ---------- HYPERLIQUID allMids (bulk mark-price push) ----------
+function connectHyperliquidWs() {
+  return makeVenueWs({
+    name: 'hyperliquid',
+    url:  CFG.hyperliquid.ws,
+    pingIntervalMs: 30000,
+    buildPing: () => JSON.stringify({ method: 'ping' }),
+    onOpen: (ws) => {
+      ws.send(JSON.stringify({ method:'subscribe', subscription:{ type:'allMids' } }));
+    },
+    decoder: (s) => JSON.parse(s),
+    onMessage: (d) => {
+      if (!d) return;
+      if (d.channel === 'pong') return;
+      if (d.channel !== 'allMids' || !d.data) return;
+      const mids = d.data.mids || d.data;
+      if (!mids || typeof mids !== 'object') return;
+      Object.entries(mids).forEach(([coin, px]) => {
+        if (!coin || typeof coin !== 'string' || coin.startsWith('@')) return;
+        const sym = coin.toUpperCase() + 'USDT';
+        const n = +px;
+        if (!isNaN(n) && n > 0) STATE.prices.hyperliquid.set(sym, n);
+      });
+      setConn('hyperliquid', true);
+    },
+  });
+}
+
+function connectAllTickerFeeds() {
+  const safe = (fn, label) => { try { fn(); } catch (e) { console.warn('[ws-kick] '+label, e); } };
+  safe(connectBybitTickersWs,    'bybit');
+  safe(connectOkxPublicWs,       'okx');
+  safe(connectBitgetTickersWs,   'bitget');
+  safe(connectGateTickersWs,     'gate');
+  safe(connectKucoinTickersWs,   'kucoin');
+  safe(connectAsterTickersWs,    'aster');
+  safe(connectHyperliquidWs,     'hyperliquid');
+  try { console.info('[c0r7x] WS ticker feeds dispatched: bybit, okx, bitget, gate, kucoin, aster, hyperliquid'); } catch {}
+}
+
 /* ====================================================================
    BOOT
    ==================================================================== */
@@ -5504,6 +5928,7 @@ async function boot() {
   loadOiAndLs();
   connectBinanceWs();
   connectWhaleWs();
+  connectAllTickerFeeds();
 
   // analytics / background
   fetchFearGreed();
@@ -5513,18 +5938,23 @@ async function boot() {
   refreshGlobalLS();
   refreshMomentumData();
 
-  // refresh cycles
-  setInterval(fetchBinanceTicker24h, 15000);
-  setInterval(fetchBinanceFunding,   30000);
-  setInterval(fetchHyperliquidMeta,  15000);
-  setInterval(fetchAsterTicker,      20000);
-  setInterval(fetchBybitTickers,     20000);
-  setInterval(fetchOkxTickersAndOI,  30000);
-  setInterval(fetchOkxFundingBatch,  60000);
-  setInterval(fetchBitgetTickers,    20000);
-  setInterval(fetchGateTickers,      25000);
-  setInterval(fetchKucoinContracts,  30000);
-  setInterval(fetchCoinbaseIntxInstruments, 30000);
+  // Refresh cycles. Venues with public WS feeds (bybit, okx, bitget, gate,
+  // kucoin, aster, hyperliquid) now receive price/funding/OI over WS; their
+  // REST pollers are kept as a safety net + source of coverage for fields
+  // the WS doesn't push (eg. kucoin OI, hyperliquid funding). Cadence is
+  // stretched out accordingly. Coinbase INTX has no free public WS (HMAC
+  // auth required) so it stays on REST at the original pace.
+  setInterval(fetchBinanceTicker24h,        15000);
+  setInterval(fetchBinanceFunding,          30000);
+  setInterval(fetchHyperliquidMeta,         90000);  // WS carries mids; REST keeps funding fresh
+  setInterval(fetchAsterTicker,            120000);  // WS carries mark+funding
+  setInterval(fetchBybitTickers,           120000);  // WS carries price+funding+OI
+  setInterval(fetchOkxTickersAndOI,        120000);  // WS carries all three channels
+  setInterval(fetchOkxFundingBatch,        300000);  // WS funding-rate per-instId now
+  setInterval(fetchBitgetTickers,          120000);
+  setInterval(fetchGateTickers,            120000);
+  setInterval(fetchKucoinContracts,        120000);  // WS price; REST still primes OI
+  setInterval(fetchCoinbaseIntxInstruments, 30000);  // no public WS — REST stays fast
   setInterval(sampleCexBasis,        2000);
   setInterval(renderCrossExchangeOI, 3000);
   sampleCexBasis();
