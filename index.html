@@ -6209,8 +6209,11 @@ function _wlBoot() {
   $('wl-share')?.addEventListener('click', wlShare);
   $('wl-select')?.addEventListener('change', wlApplyFromSelect);
   // loadPrefs() later in boot() will overwrite STATE.compare with whatever
-  // was saved locally. Re-apply URL ?w=... afterwards so a shared link wins.
-  setTimeout(() => { _wlApplyUrlParam(); _wlRenderChips(); }, 2500);
+  // was saved locally. Re-apply URL ?w=... several times over the first 15s
+  // so whichever order things run in, the shared link wins on page load.
+  [1000, 3000, 6000, 10000, 15000].forEach(ms => {
+    setTimeout(() => { _wlApplyUrlParam(); _wlRenderChips(); }, ms);
+  });
   setInterval(_wlRenderChips, 3000);
 }
 _wlBoot();
