@@ -1468,6 +1468,18 @@
       <div class="panel-hd"><span><span class="dot"></span>LIQUIDATION HALL OF FAME · LAST 24H</span></div>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-0" id="liq-hof"></div>
     </div>
+
+    <!-- Multi-symbol liquidation heatmap -->
+    <div class="panel">
+      <div class="panel-hd">
+        <span><span class="dot" style="background:#ff5a6e;box-shadow:0 0 10px #ff5a6e"></span>MULTI-SYMBOL LIQ HEATMAP · 24H · 30MIN BUCKETS</span>
+        <span class="text-[var(--text-2)]">intensity = USD liquidated · red = longs wiped · green = shorts covered</span>
+      </div>
+      <div id="liq-multiheat" style="height: 440px;"></div>
+      <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+        Data: every liquidation captured via Binance, Bybit, and Aster liq streams · top 20 symbols by 24h volume
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1598,6 +1610,22 @@
               ETH · Upcoming expiries · Max Pain
             </div>
             <div id="derib-eth-expiries" class="text-[10.5px]"></div>
+          </div>
+        </div>
+        <div class="border-t hairline grid grid-cols-12">
+          <div class="col-span-12 md:col-span-6 border-r hairline">
+            <div class="px-3 py-2 border-b hairline text-[10px] uppercase tracking-widest text-[var(--text-2)] flex justify-between">
+              <span>BTC · Dealer Gamma Exposure (GEX) by strike</span>
+              <span>net flip <b id="derib-btc-flip" class="text-[var(--text-0)] tabular">—</b></span>
+            </div>
+            <div id="derib-btc-gex" style="height: 240px;"></div>
+          </div>
+          <div class="col-span-12 md:col-span-6">
+            <div class="px-3 py-2 border-b hairline text-[10px] uppercase tracking-widest text-[var(--text-2)] flex justify-between">
+              <span>ETH · Dealer Gamma Exposure (GEX) by strike</span>
+              <span>net flip <b id="derib-eth-flip" class="text-[var(--text-0)] tabular">—</b></span>
+            </div>
+            <div id="derib-eth-gex" style="height: 240px;"></div>
           </div>
         </div>
         <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
@@ -1876,6 +1904,34 @@
         </div>
         <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
           Score = 1h%² + vol-surge × 2 + OI Δ + |funding| — accelerating moves on strong flow bubble to the top
+        </div>
+      </div>
+
+      <!-- Squeeze Score Board -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>SQUEEZE SCORE · LONG & SHORT</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="squeeze-updated">—</span></span>
+        </div>
+        <div id="squeeze-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Scanning squeeze candidates…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          SHORT SQ · negative funding + price ↑ + OI rising · BULLISH setup · LONG SQ · heavy positive funding + price ↓ + OI rising · BEARISH
+        </div>
+      </div>
+
+      <!-- Funding Flip Tracker -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>FUNDING FLIPS · REGIME SHIFTS</span>
+          <span class="text-[var(--text-2)] tabular">last 4h · updated <span id="ffp-updated">—</span></span>
+        </div>
+        <div id="ffp-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Tracking funding polarity…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Monitors avg cross-venue funding per symbol · flips positive → negative (or vice versa) indicate positioning reset
         </div>
       </div>
 
@@ -4937,7 +4993,7 @@ function switchView(v) {
   // Let charts in the newly-shown view re-measure
   setTimeout(() => {
     Object.values(STATE.charts).forEach(c => c && c.resize && c.resize());
-    if (v === 'whales') { renderWhaleFeed(); renderWhaleBySymbol(); renderMegaLiqs(); renderLiqHof(); updateWhaleKPIs(); }
+    if (v === 'whales') { renderWhaleFeed(); renderWhaleBySymbol(); renderMegaLiqs(); renderLiqHof(); updateWhaleKPIs(); try { renderLiqMultiHeat(); } catch {} }
     if (v === 'screener') { renderScreener(); updateScreenerKPIs(); }
     if (v === 'analytics') {
       ensureAnalyticsCharts();
@@ -5386,6 +5442,10 @@ function ensureAnalyticsCharts() {
     STATE.charts.llama = echarts.init($('llama-chart'), 'cortex', {renderer:'canvas'});
   if (!STATE.charts.narrative && $('narrative-treemap'))
     STATE.charts.narrative = echarts.init($('narrative-treemap'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.gexBtc && $('derib-btc-gex'))
+    STATE.charts.gexBtc = echarts.init($('derib-btc-gex'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.gexEth && $('derib-eth-gex'))
+    STATE.charts.gexEth = echarts.init($('derib-eth-gex'), 'cortex', {renderer:'canvas'});
 }
 async function refreshMomentumData() {
   // Fetch top 30 by volume, one set of 1h klines (for 1h/4h) and one set
@@ -9254,6 +9314,365 @@ async function _refreshDeribitExpiries(currency) {
 }
 _refreshDeribitExpiries('BTC'); _refreshDeribitExpiries('ETH');
 setInterval(() => { _refreshDeribitExpiries('BTC'); _refreshDeribitExpiries('ETH'); }, 90 * 1000);
+
+/* ---------- DEALER GAMMA EXPOSURE (GEX) ----------
+   Approximates dealer gamma profile by strike using Black-Scholes gamma
+   and net option open interest. Dealer flip level = strike where cumulative
+   gamma crosses zero. Above the flip: positive gamma = dampening. Below
+   the flip: negative gamma = amplifying (volatility regime shifts). */
+function _normPDF(x) { return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI); }
+function _bsGamma(S, K, T, sigma) {
+  if (!(S > 0 && K > 0 && T > 0 && sigma > 0)) return 0;
+  const d1 = (Math.log(S / K) + (sigma * sigma / 2) * T) / (sigma * Math.sqrt(T));
+  return _normPDF(d1) / (S * sigma * Math.sqrt(T));
+}
+function renderGEX(currency) {
+  const chart = currency === 'BTC' ? STATE.charts.gexBtc : STATE.charts.gexEth;
+  if (!chart) return;
+  const d = STATE.deribit?.[currency];
+  const opts = d?._rawOptions;
+  if (!opts || !d?.spot) return;
+  const S = d.spot;
+  const now = Date.now();
+  // Group gamma contribution per strike (sum across all live expiries).
+  // Convention: retail is net long options → dealer is short → dealer gamma
+  // at strike K = -gamma(K) × (call_OI + put_OI) × S² × 0.01.
+  const gexByStrike = new Map();
+  for (const o of opts) {
+    if (o.expiry <= now) continue;
+    const T = (o.expiry - now) / (365 * 86400 * 1000);
+    const iv = (+o.mark_iv || 0) / 100;  // mark_iv is in % on Deribit
+    if (T <= 0 || iv <= 0) continue;
+    const gamma = _bsGamma(S, o.strike, T, iv);
+    // Customer-long-call vs short-put net — very rough proxy using sign by type
+    const oi = +o.open_interest || 0;
+    if (!oi) continue;
+    const contrib = -gamma * oi * S * S * 0.01 * (o.type === 'C' ? 1 : -1);
+    gexByStrike.set(o.strike, (gexByStrike.get(o.strike) || 0) + contrib);
+  }
+  // Limit to strikes near spot (±25%) for readability
+  const minK = S * 0.75, maxK = S * 1.25;
+  const strikes = [...gexByStrike.keys()].filter(k => k >= minK && k <= maxK).sort((a,b) => a-b);
+  if (!strikes.length) return;
+  const data = strikes.map(k => ({
+    value: [k, +gexByStrike.get(k).toFixed(0)],
+    itemStyle: { color: gexByStrike.get(k) >= 0 ? 'rgba(34,209,126,0.75)' : 'rgba(255,90,110,0.75)' },
+  }));
+  // Find flip = strike where cumulative running sum crosses zero closest to spot
+  const sorted = strikes.map(k => ({ k, g: gexByStrike.get(k) })).sort((a,b) => a.k - b.k);
+  let cum = 0, flipStrike = null, flipCum = Infinity;
+  for (const { k, g } of sorted) {
+    const prev = cum;
+    cum += g;
+    if (Math.sign(prev) !== Math.sign(cum) && Math.abs(cum) < flipCum) {
+      flipStrike = k;
+      flipCum = Math.abs(cum);
+    }
+  }
+  const flipEl = $(`derib-${currency.toLowerCase()}-flip`);
+  if (flipEl) flipEl.textContent = flipStrike ? (flipStrike >= 1000 ? fmt(flipStrike, 0) : fmt(flipStrike)) : '—';
+
+  chart.setOption({
+    animation: false,
+    grid: { top: 14, left: 64, right: 18, bottom: 30 },
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: (p) => {
+        const [k, v] = p[0].data.value;
+        return `<b>${currency} ${fmt(k, 0)}</b><br/>
+                GEX: <b style="color:${v>=0?'#22d17e':'#ff5a6e'}">${v.toLocaleString()}</b>`;
+      }
+    },
+    xAxis: {
+      type: 'value', min: minK, max: maxK, name: 'Strike',
+      nameTextStyle: { color: '#9aa4b2', fontSize: 9 },
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#9aa4b2', fontSize: 9, formatter: v => v >= 1000 ? fmt(v, 0) : fmt(v) },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value', scale: true,
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#9aa4b2', fontSize: 9, formatter: v => (v >= 0 ? '+' : '') + fmt(v) },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } },
+    },
+    series: [
+      {
+        type: 'bar', data, barWidth: '86%',
+        markLine: {
+          silent: true, symbol: 'none',
+          data: [
+            { xAxis: S, lineStyle: { color: '#00ffa3', type: 'dashed', width: 1.5 },
+              label: { color: '#00ffa3', fontSize: 10, formatter: 'SPOT' } },
+            ...(flipStrike ? [{
+              xAxis: flipStrike, lineStyle: { color: '#b28cff', type: 'dashed', width: 1 },
+              label: { color: '#b28cff', fontSize: 10, formatter: 'FLIP' }
+            }] : []),
+          ]
+        },
+      },
+    ],
+  }, true);
+}
+setInterval(() => {
+  if (STATE.view === 'analytics') { renderGEX('BTC'); renderGEX('ETH'); }
+}, 15000);
+
+/* ---------- MULTI-SYMBOL LIQUIDATION HEATMAP ---------- */
+function renderLiqMultiHeat() {
+  const chart = STATE.charts.liqMultiHeat ||
+    (STATE.charts.liqMultiHeat = echarts.init($('liq-multiheat'), 'cortex', {renderer:'canvas'}));
+  const evts = STATE.liqEventsAll || [];
+  if (!evts.length) {
+    chart.setOption({ series: [],
+      graphic:[{type:'text', left:'center', top:'middle',
+        style:{text:'Collecting live liquidation events…', fill:'#5b6472', fontFamily:'JetBrains Mono', fontSize:12}}]
+    });
+    return;
+  }
+  const now = Date.now();
+  const winStart = now - 24 * 3600 * 1000;
+  // Top 20 symbols by total liq USD in window
+  const perSymbol = new Map();
+  for (const e of evts) {
+    if (e.time < winStart) continue;
+    perSymbol.set(e.symbol, (perSymbol.get(e.symbol) || 0) + e.usd);
+  }
+  const topSyms = Array.from(perSymbol.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 20).map(x=>x[0]);
+  if (!topSyms.length) {
+    chart.setOption({ series: [],
+      graphic:[{type:'text', left:'center', top:'middle',
+        style:{text:'No liquidations in window yet.', fill:'#5b6472', fontFamily:'JetBrains Mono', fontSize:12}}]
+    });
+    return;
+  }
+  const BUCKET_MS = 30 * 60 * 1000;         // 30-min buckets
+  const bucketCount = Math.ceil((now - winStart) / BUCKET_MS);
+  const data = [];
+  const symIdx = new Map(topSyms.map((s, i) => [s, i]));
+  // Two values per cell: +USD for shorts liq (buy side), -USD for longs
+  const grid = new Array(topSyms.length).fill(0).map(() => new Array(bucketCount).fill(0));
+  for (const e of evts) {
+    if (e.time < winStart || e.time > now) continue;
+    const i = symIdx.get(e.symbol);
+    if (i == null) continue;
+    const b = Math.min(bucketCount - 1, Math.floor((e.time - winStart) / BUCKET_MS));
+    grid[i][b] += (e.side === 'SELL' ? -1 : 1) * e.usd;
+  }
+  for (let i = 0; i < topSyms.length; i++) {
+    for (let b = 0; b < bucketCount; b++) {
+      if (grid[i][b] !== 0) data.push([b, i, grid[i][b]]);
+    }
+  }
+  const times = [];
+  for (let b = 0; b < bucketCount; b++) {
+    const t = new Date(winStart + (b + 0.5) * BUCKET_MS);
+    times.push(`${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}`);
+  }
+  const maxAbs = Math.max(1, ...data.map(d => Math.abs(d[2])));
+  chart.setOption({
+    animation: false,
+    grid: { top: 20, left: 90, right: 26, bottom: 40 },
+    tooltip: {
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: p => {
+        const [bx, sy, v] = p.data;
+        return `<b>${topSyms[sy].replace('USDT','')}</b> @ <b>${times[bx]} UTC</b><br/>
+                ${v >= 0 ? 'Shorts liq'  : 'Longs liq'}: <b style="color:${v>=0?'#22d17e':'#ff5a6e'}">${fmtUsd(Math.abs(v))}</b>`;
+      }
+    },
+    xAxis: {
+      type: 'category', data: times, name: 'UTC',
+      nameTextStyle: { color:'#9aa4b2', fontSize:9 },
+      axisLabel: { color:'#5b6472', fontSize: 9, interval: Math.floor(times.length / 12) },
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      splitArea: { show: false },
+    },
+    yAxis: {
+      type: 'category', data: topSyms.map(s => s.replace('USDT','')),
+      inverse: true,
+      axisLabel: { color: '#c2cbd6', fontSize: 10, interval: 0 },
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisTick: { show: false },
+      splitArea: { show: false },
+    },
+    visualMap: {
+      show: false, min: -maxAbs, max: maxAbs,
+      inRange: { color: ['#ff5a6e','#5a1820','#0a0f14','#0d3a28','#22d17e'] },
+    },
+    series: [{
+      type: 'heatmap', data,
+      itemStyle: { borderColor: '#05070a', borderWidth: 0.6 },
+      emphasis: { itemStyle: { borderColor: '#00ffa3', borderWidth: 1.2 } },
+    }],
+  }, true);
+}
+
+/* ---------- SQUEEZE SCORE BOARD ----------
+   Per symbol: identifies active short squeezes (negative funding + price up
+   + OI up = shorts getting crushed) and long squeeze setups (heavy positive
+   funding + price stalling/down + OI up = longs over-positioned). */
+function renderSqueezeBoard() {
+  const el = $('squeeze-body'); if (!el) return;
+  const momo1h = STATE.momentumByTf?.['1h'] || new Map();
+  const oiByPct = new Map();
+  (STATE.oiChange24h || []).forEach(r => oiByPct.set(r.sym, r.pct));
+  const rows = [];
+  for (const [sym, t] of STATE.ticker24h) {
+    if (!sym.endsWith('USDT') || sym.includes('_')) continue;
+    if ((+t.quoteVolume || 0) < 10_000_000) continue;
+    const f = STATE.funding[sym] || {};
+    const fund = f.binance;
+    if (fund == null) continue;
+    const fundBp = fund * 10000;
+    const chg1h  = momo1h.get(sym);
+    if (chg1h == null) continue;
+    const chg24  = +t.priceChangePercent || 0;
+    const oiPct  = oiByPct.get(sym);
+    if (oiPct == null) continue;
+    // SHORT squeeze (bullish): funding very negative + price up + OI rising
+    // Heuristic: shortSqueezeScore = -fundBp × oiPct × (chg1h > 0 ? chg1h : 0)
+    const bull = Math.max(0, -fundBp) * Math.max(0, oiPct) * Math.max(0, chg1h);
+    // LONG squeeze (bearish): funding very positive + price stalling + OI rising
+    const bear = Math.max(0, fundBp)  * Math.max(0, oiPct) * Math.max(0, -chg1h);
+    const score = Math.max(bull, bear);
+    if (score < 0.5) continue;
+    rows.push({
+      sym, fundBp, chg1h, chg24, oiPct,
+      type: bull > bear ? 'SHORT SQ' : 'LONG SQ',
+      color: bull > bear ? '#22d17e' : '#ff5a6e',
+      score,
+    });
+  }
+  rows.sort((a,b) => b.score - a.score);
+  const upd = $('squeeze-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No strong squeeze candidates right now.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Sym</div>
+      <div class="col-span-2">Type</div>
+      <div class="col-span-2 text-right">Fund bp</div>
+      <div class="col-span-2 text-right">ΔOI 24h</div>
+      <div class="col-span-2 text-right">1h %</div>
+      <div class="col-span-2 text-right">Score</div>
+    </div>`;
+  const body = rows.slice(0, 18).map(r => `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+    <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+    <div class="col-span-2 font-semibold" style="color:${r.color};letter-spacing:0.1em;">${r.type}</div>
+    <div class="col-span-2 text-right ${r.fundBp >= 0 ? 'num-up' : 'num-down'}">${(r.fundBp>=0?'+':'') + r.fundBp.toFixed(1)}</div>
+    <div class="col-span-2 text-right ${r.oiPct >= 0 ? 'num-up' : 'num-down'}">${(r.oiPct>=0?'+':'') + r.oiPct.toFixed(1)}%</div>
+    <div class="col-span-2 text-right ${r.chg1h >= 0 ? 'num-up' : 'num-down'}">${(r.chg1h>=0?'+':'') + r.chg1h.toFixed(2)}%</div>
+    <div class="col-span-2 text-right font-semibold text-[var(--text-0)]">${r.score.toFixed(1)}</div>
+  </div>`).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+
+/* ---------- FUNDING FLIP TRACKER ----------
+   Keeps a rolling history of Binance funding signs and flags symbols whose
+   sign changed in the last ~4 hours (i.e., between funding prints). */
+STATE._fundSignHist = STATE._fundSignHist || new Map();
+function _trackFundingSigns() {
+  const now = Date.now();
+  for (const sym of Object.keys(STATE.funding)) {
+    const r = STATE.funding[sym]?.binance;
+    if (r == null) continue;
+    const sign = Math.sign(r);
+    if (sign === 0) continue;
+    const hist = STATE._fundSignHist.get(sym) || [];
+    const last = hist.at(-1);
+    if (!last || last.sign !== sign) {
+      hist.push({ t: now, sign, rate: r });
+      // Keep last 24h
+      while (hist.length && hist[0].t < now - 24 * 3600 * 1000) hist.shift();
+      STATE._fundSignHist.set(sym, hist);
+    } else {
+      last.rate = r; // keep latest rate
+    }
+  }
+}
+setInterval(_trackFundingSigns, 30 * 1000);
+
+function renderFundingFlips() {
+  _trackFundingSigns();
+  const el = $('ffp-body'); if (!el) return;
+  const now = Date.now();
+  const cutoff = now - 4 * 3600 * 1000;
+  const flips = [];
+  for (const [sym, hist] of STATE._fundSignHist) {
+    if (!hist || hist.length < 2) continue;
+    const t = STATE.ticker24h.get(sym);
+    if (!t || (+t.quoteVolume || 0) < 5_000_000) continue;
+    const recent = hist.filter(x => x.t >= cutoff);
+    if (recent.length < 1) continue;
+    const last = hist.at(-1);
+    const prev = hist[hist.length - 2];
+    if (!prev || last.sign === prev.sign) continue;
+    if (last.t < cutoff) continue;
+    flips.push({
+      sym,
+      fromSign: prev.sign,
+      toSign:   last.sign,
+      rate:     last.rate,
+      when:     last.t,
+      chg24:    +t.priceChangePercent || 0,
+    });
+  }
+  flips.sort((a,b) => b.when - a.when);
+  const upd = $('ffp-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+  if (!flips.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No sign flips in last 4h — positioning stable.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-3">Symbol</div>
+      <div class="col-span-3">Flip</div>
+      <div class="col-span-3 text-right">Current rate</div>
+      <div class="col-span-3 text-right">When</div>
+    </div>`;
+  const body = flips.slice(0, 20).map(f => {
+    const arrowColor = f.toSign > 0 ? '#ff5a6e' : '#22d17e';
+    const arrow = f.toSign > 0 ? '− → +' : '+ → −';
+    const mins = Math.round((now - f.when) / 60000);
+    const timeAgo = mins < 60 ? mins + 'm ago' : (mins/60).toFixed(1) + 'h ago';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${f.sym}">
+      <div class="col-span-3 sym">${f.sym.replace('USDT','')}</div>
+      <div class="col-span-3 font-semibold" style="color:${arrowColor};letter-spacing:0.14em;">${arrow}</div>
+      <div class="col-span-3 text-right ${f.rate >= 0 ? 'num-up' : 'num-down'}">${(f.rate*100).toFixed(4)}%</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${timeAgo}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+
+// Periodic refresh + hook into view switches
+setInterval(() => {
+  if (STATE.view === 'edge') { renderSqueezeBoard(); renderFundingFlips(); }
+  if (STATE.view === 'whales') { try { renderLiqMultiHeat(); } catch {} }
+}, 5000);
+// Also render once when switching into the relevant tabs
+(function hookAllNewPanels(){
+  const o = window.switchView;
+  if (typeof o !== 'function') return;
+  window.switchView = function(v) {
+    o(v);
+    if (v === 'edge')     { try { renderSqueezeBoard(); renderFundingFlips(); } catch {} }
+    if (v === 'whales')   { try { renderLiqMultiHeat(); } catch {} }
+    if (v === 'analytics'){ try { renderGEX('BTC'); renderGEX('ETH'); } catch {} }
+  };
+})();
 
 /* ---------- BTC NETWORK STATS (mempool.space) ---------- */
 STATE.btcnet = STATE.btcnet || {};
