@@ -1525,6 +1525,11 @@ const CFG = {
    and re-fire the three affected fetchers.  If the probe returns
    HTML (the SPA fallback on a static host) we stay on direct URLs.
    ----------------------------------------------------------------- */
+// Resolves when setupProxyMode has either enabled the proxy or confirmed
+// we're on a static host. Lets feeds that depend on proxy paths wait.
+window._proxyReady = null;
+let _resolveProxyReady;
+window._proxyReady = new Promise(res => { _resolveProxyReady = res; });
 (function setupProxyMode() {
   const host = (location.hostname || '').toLowerCase();
   const knownProxy  = host.endsWith('.vercel.app') || host.endsWith('.netlify.app');
@@ -1536,9 +1541,11 @@ const CFG = {
     CFG.kucoin.rest   = '/kucoin';
     CFG.coinbaseIntx.rest = '/cbintx';
     try { console.info('[c0r7x] edge-proxy mode ENABLED for gate/kucoin/cbintx (' + reason + ')'); } catch(_) {}
+    _resolveProxyReady && _resolveProxyReady(true);
   }
   if (knownStatic) {
     try { console.info('[c0r7x] proxy DISABLED — static host (' + host + '); gate/kucoin/cbintx will CORS-fail. Move DNS to Vercel to fix.'); } catch(_) {}
+    _resolveProxyReady && _resolveProxyReady(false);
     return;
   }
   if (knownProxy)  { enable('hostname=' + host); return; }
@@ -1548,8 +1555,9 @@ const CFG = {
     fetch('/gate/api/v4/spot/currencies', { method: 'GET' })
       .then(r => r.ok ? r.text() : '')
       .then(t => {
-        if (!t) return;
+        if (!t) { _resolveProxyReady && _resolveProxyReady(false); return; }
         const s = t.trimStart()[0];
+        if (s !== '[' && s !== '{') { _resolveProxyReady && _resolveProxyReady(false); return; }
         if (s === '[' || s === '{') {
           enable('probe-ok on ' + host);
           // Re-fire the three feeds that may already have run with
@@ -1567,7 +1575,10 @@ const CFG = {
           try { typeof fetchCoinbaseIntxInstruments === 'function' && fetchCoinbaseIntxInstruments(); } catch(_) {}
         }
       })
-      .catch(() => { try { console.info('[c0r7x] proxy probe failed on ' + host + ' — staying on direct URLs'); } catch(_) {} });
+      .catch(() => {
+        try { console.info('[c0r7x] proxy probe failed on ' + host + ' — staying on direct URLs'); } catch(_) {}
+        _resolveProxyReady && _resolveProxyReady(false);
+      });
   }, 0);
 })();
 
@@ -2490,14 +2501,37 @@ async function fetchAsterTicker() {
    per-symbol /fapi/v1/openInterest for the set of symbols we actually
    render. Low cadence (2 min) since OI moves slowly and this is ~30 RPS
    in a short burst. */
-// Aster OI symbols the API has rejected with -1121 (unknown) or -4108
-// (settling/delivering). We cache them so retries stop making noise.
+// Cached set of Aster symbols whose status is TRADING — populated once from
+// exchangeInfo so we don't fan out OI requests to delisted / settling
+// tickers (which return noisy 400s).
+let _asterTradingSet = null;
+async function _loadAsterTradingSet() {
+  if (_asterTradingSet) return _asterTradingSet;
+  try {
+    const j = await fetchJson('aster:exchangeInfo', CFG.aster.rest + '/fapi/v1/exchangeInfo');
+    const set = new Set();
+    (j?.symbols || []).forEach(s => {
+      if (!s || !s.symbol) return;
+      if (s.status === 'TRADING' && s.symbol.endsWith('USDT')) set.add(s.symbol);
+    });
+    _asterTradingSet = set;
+  } catch (_) {
+    // If exchangeInfo is unavailable, fall back to "accept everything" —
+    // the per-call blacklist will clean up on its own over time.
+    _asterTradingSet = null;
+  }
+  return _asterTradingSet;
+}
+// Symbols the API has rejected with -1121 / -4108 at runtime.
 const _asterOiSkip = new Set();
 async function fetchAsterOpenInterest() {
+  await _loadAsterTradingSet();
   const candidates = (STATE._fundingSyms && STATE._fundingSyms.length)
     ? STATE._fundingSyms : CFG.symbols;
   const targets = candidates.filter(s =>
-    STATE.prices.aster.has(s) && !_asterOiSkip.has(s)
+    STATE.prices.aster.has(s) &&
+    !_asterOiSkip.has(s) &&
+    (!_asterTradingSet || _asterTradingSet.has(s))
   );
   if (!targets.length) return;
   const LIMIT = 6;
@@ -5831,6 +5865,9 @@ function connectGateTickersWs() {
 
 // ---------- KUCOIN futures tickerV2 (needs bullet-public token first) ----------
 async function connectKucoinTickersWs() {
+  // Wait for the edge-proxy probe to finish — bullet-public is POST-with-preflight
+  // and KuCoin does not send CORS headers, so we MUST go through /kucoin/.
+  try { if (window._proxyReady) await Promise.race([window._proxyReady, new Promise(r => setTimeout(r, 4000))]); } catch {}
   let bullet;
   try {
     const r = await fetch(CFG.kucoin.rest + '/api/v1/bullet-public', { method:'POST' });
