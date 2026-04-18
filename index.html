@@ -5954,11 +5954,12 @@ async function boot() {
   renderExchangeRows();
   // initial REST
   await fetchBinanceTicker24h();
-  // fetchGateContracts is deferred — runs after setupProxyMode enables the
-  // edge proxy on custom domains. The WS feed also pushes open_interest_usd
-  // directly so first OI paint doesn't wait on the multiplier cache.
-  if (CFG.gate.rest === '/gate') { try { await fetchGateContracts(); } catch(_) {} }
-  await Promise.allSettled([
+  // Gate / KuCoin / Coinbase-INTX need the edge proxy to avoid CORS. On
+  // custom domains setupProxyMode() probes async and re-fires those fetchers
+  // once it confirms the proxy works, so skip them here to avoid a wasteful
+  // first round-trip to a CORS-blocked origin.
+  const proxyReady = CFG.gate.rest === '/gate';
+  const initialFetches = [
     fetchBinanceFunding(),
     fetchHyperliquidMeta(),
     fetchAsterTicker(),
@@ -5966,10 +5967,16 @@ async function boot() {
     fetchOkxTickersAndOI(),
     fetchOkxFundingBatch(),
     fetchBitgetTickers(),
-    fetchGateTickers(),
-    fetchKucoinContracts(),
-    fetchCoinbaseIntxInstruments(),
-  ]);
+  ];
+  if (proxyReady) {
+    try { await fetchGateContracts(); } catch(_) {}
+    initialFetches.push(
+      fetchGateTickers(),
+      fetchKucoinContracts(),
+      fetchCoinbaseIntxInstruments(),
+    );
+  }
+  await Promise.allSettled(initialFetches);
   connectCoinbaseWs();
   connectBybitLiqWs();
   loadKlines();
