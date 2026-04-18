@@ -4439,6 +4439,8 @@ function buildScreenerRows() {
   const liq24h = new Map();
   STATE.liqEventsAll.forEach(ev => { liq24h.set(ev.symbol, (liq24h.get(ev.symbol)||0) + ev.usd); });
 
+  const momo1h = STATE.momentumByTf?.['1h'] || new Map();
+  const momo4h = STATE.momentumByTf?.['4h'] || new Map();
   const arr = Array.from(STATE.ticker24h.values())
     .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
     .filter(t => !q || t.symbol.includes(q))
@@ -4446,14 +4448,26 @@ function buildScreenerRows() {
       const sym = t.symbol;
       const f = STATE.funding[sym] || {};
       const chg24h = +t.priceChangePercent;
-      const chg1h  = computePriceHistoryChange(sym, 60*60*1000);
-      const chg4h  = computePriceHistoryChange(sym, 4*60*60*1000);
+      // Prefer the bulk klines-backed values (populated by refreshMomentumData
+      // for the top 30 by volume); fall back to live-accumulated priceHistory.
+      const chg1h  = momo1h.get(sym) ?? computePriceHistoryChange(sym, 60*60*1000);
+      const chg4h  = momo4h.get(sym) ?? computePriceHistoryChange(sym, 4*60*60*1000);
+      // OI: Binance bulk only covers active symbol, fall back to the highest
+      // cross-exchange notional we have (already populated via WS feeds).
+      let oi = STATE.openInterest.get(sym) || 0;
+      if (!oi) {
+        const x = STATE.openInterestByEx[sym];
+        if (x) {
+          const vals = Object.values(x).filter(v => typeof v === 'number' && v > 0);
+          if (vals.length) oi = Math.max(...vals);
+        }
+      }
       return {
         symbol: sym,
         last: +t.lastPrice,
         chg1h, chg4h, chg24h,
         vol: +t.quoteVolume,
-        oi:  STATE.openInterest.get(sym) || 0,
+        oi,
         fund: f.binance != null ? f.binance*100 : null,
         ls:  STATE.lsRatio?.get(sym) || null,
         liq24h: liq24h.get(sym) || 0,
@@ -4812,6 +4826,14 @@ async function refreshMomentumData() {
     const prev15 = bars.at(-4)?.[4];
     if (prev5)  byTf['5m'].set(sym,  ((last - +prev5)  / +prev5)  * 100);
     if (prev15) byTf['15m'].set(sym, ((last - +prev15) / +prev15) * 100);
+    // Seed priceHistory from the bars so the screener sparkline column
+    // shows a real line on first paint (otherwise it's empty until ~2
+    // minutes of live !markPrice ticks accumulate).
+    let existing = STATE.priceHistory.get(sym);
+    if (!existing || existing.length < 5) {
+      const seeded = bars.map(k => ({ t: +k[0] + 150000, p: +k[4] })); // close-time approx
+      STATE.priceHistory.set(sym, seeded);
+    }
   });
   STATE.momentumByTf = byTf;
   renderMomentumHeatmap();
@@ -5021,7 +5043,7 @@ async function refreshOiChange() {
 async function refreshGlobalLS() {
   const top = Array.from(STATE.ticker24h.values())
     .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
-    .sort((a,b)=>+b.quoteVolume-+a.quoteVolume).slice(0, 20).map(t=>t.symbol);
+    .sort((a,b)=>+b.quoteVolume-+a.quoteVolume).slice(0, 40).map(t=>t.symbol);
   await Promise.allSettled(top.map(async sym => {
     try {
       const a = await fetchJson('binance:longShortRatio:'+sym, `${CFG.binance.rest}/futures/data/globalLongShortAccountRatio?symbol=${sym}&period=5m&limit=1`);
