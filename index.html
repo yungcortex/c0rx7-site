@@ -9223,32 +9223,37 @@ function _renderDeribitExpiries(currency) {
   }).join('');
   el.innerHTML = header + body;
 }
-// Patch refreshDeribit to ALSO cache the raw options and render expiries
-(function wrapRefreshDeribit(){
-  const orig = window.refreshDeribit || refreshDeribit;
-  window.refreshDeribit = async function(currency) {
-    await orig(currency);
-    // Re-fetch raw options summary to keep them for max-pain calc
-    try {
-      const r = await fetchJson('deribit:raw:' + currency,
-        `https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${currency}&kind=option`);
-      const items = (r?.result || []).map(it => {
-        const p = parseDeribitInstrument(it.instrument_name);
-        if (!p) return null;
-        return {
-          ...p,
-          mark_iv: it.mark_iv,
-          mark_price: it.mark_price,
-          open_interest: +it.open_interest || 0,
-          underlying_price: +it.underlying_price || 0,
-        };
-      }).filter(Boolean);
-      if (!STATE.deribit[currency]) STATE.deribit[currency] = {};
-      STATE.deribit[currency]._rawOptions = items;
-    } catch (_) {}
+// Standalone loop that caches raw option chain for max-pain calc + renders
+// the expiries table. Runs independently of the IV-focused refreshDeribit.
+async function _refreshDeribitExpiries(currency) {
+  try {
+    const r = await fetchJson('deribit:expRaw:' + currency,
+      `https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${currency}&kind=option`);
+    const items = (r?.result || []).map(it => {
+      const p = parseDeribitInstrument(it.instrument_name);
+      if (!p) return null;
+      return {
+        ...p,
+        mark_iv: it.mark_iv,
+        mark_price: it.mark_price,
+        open_interest: +it.open_interest || 0,
+        underlying_price: +it.underlying_price || 0,
+      };
+    }).filter(Boolean);
+    if (!STATE.deribit[currency]) STATE.deribit[currency] = {};
+    STATE.deribit[currency]._rawOptions = items;
+    // Ensure spot is set (refreshDeribit usually does this, but we run in
+    // parallel and might hit first).
+    if (items.length && !STATE.deribit[currency].spot) {
+      STATE.deribit[currency].spot = items[0].underlying_price;
+    }
     _renderDeribitExpiries(currency);
-  };
-})();
+  } catch (e) {
+    if (e?.message !== 'CB_OPEN') console.warn('deribit expiries ' + currency, e);
+  }
+}
+_refreshDeribitExpiries('BTC'); _refreshDeribitExpiries('ETH');
+setInterval(() => { _refreshDeribitExpiries('BTC'); _refreshDeribitExpiries('ETH'); }, 90 * 1000);
 
 /* ---------- BTC NETWORK STATS (mempool.space) ---------- */
 STATE.btcnet = STATE.btcnet || {};
