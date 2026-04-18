@@ -1526,6 +1526,47 @@
         </div>
       </div>
 
+      <!-- Narrative-grouped treemap -->
+      <div class="panel col-span-12 xl:col-span-8">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>NARRATIVES · SECTOR HEAT · 24H</span>
+          <span class="text-[var(--text-2)]">grouped by theme · size = 24h vol · colour = 24h % change</span>
+        </div>
+        <div id="narrative-treemap" style="height: 520px;"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Rotations between sectors show where capital is flowing this session — AI / Meme / DeFi / L1 / L2 etc.
+        </div>
+      </div>
+
+      <!-- Volatility regime ranker -->
+      <div class="panel col-span-12 xl:col-span-4">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ff9f5a"></span>VOLATILITY REGIME · RANK</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="vol-regime-updated">—</span></span>
+        </div>
+        <div id="vol-regime-body" class="overflow-y-auto scroll-clip" style="max-height: 520px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing realized vol…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          24h realized vol (annualized) · COIL = bottom 25% · EXPANSION = top 25%
+        </div>
+      </div>
+
+      <!-- Spot-Perp Basis dashboard -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#39e0ff;box-shadow:0 0 10px #39e0ff"></span>SPOT ↔ PERP BASIS · TOP 20 BY VOLUME</span>
+          <span class="text-[var(--text-2)]">Binance spot vs perp · backwardation (negative basis) = bear regime signal · updated <span id="basis-dash-updated" class="tabular">—</span></span>
+        </div>
+        <div id="basis-dash-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading spot prices…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between gap-3 flex-wrap">
+          <span>bp = (perp / spot − 1) × 10000</span>
+          <span>CONTANGO &gt; +5 bp · FLAT ±5 bp · <b style="color:#ff5a6e;">BACKWARDATION</b> &lt; −5 bp</span>
+        </div>
+      </div>
+
       <!-- DefiLlama macro liquidity panel -->
       <div class="panel col-span-12">
         <div class="panel-hd">
@@ -4695,6 +4736,9 @@ function switchView(v) {
       renderOiRegime();
       try { renderDeribit('BTC'); renderDeribit('ETH'); } catch {}
       try { renderDefiLlama(); } catch {}
+      try { renderNarrativeTreemap(); } catch {}
+      try { renderVolRegime(); } catch {}
+      try { renderBasisDashboard(); } catch {}
     }
     if (v === 'edge') {
       try { renderCrossVenueSpreads(); } catch {}
@@ -5125,6 +5169,8 @@ function ensureAnalyticsCharts() {
     STATE.charts.deribEth = echarts.init($('derib-eth-chart'), 'cortex', {renderer:'canvas'});
   if (!STATE.charts.llama && $('llama-chart'))
     STATE.charts.llama = echarts.init($('llama-chart'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.narrative && $('narrative-treemap'))
+    STATE.charts.narrative = echarts.init($('narrative-treemap'), 'cortex', {renderer:'canvas'});
 }
 async function refreshMomentumData() {
   // Fetch top 30 by volume, one set of 1h klines (for 1h/4h) and one set
@@ -5735,6 +5781,269 @@ function renderDefiLlama() {
 // Boot + 30 min refresh cadence (macro data moves slowly)
 refreshDefiLlama();
 setInterval(refreshDefiLlama, 30 * 60 * 1000);
+
+/* ---------- NARRATIVE-GROUPED TREEMAP ----------
+   Static symbol → sector mapping. Treemap nests sector → symbol, size by
+   24h quote volume, colour by 24h % change (red → green). A sector's aggregate
+   % (volume-weighted) lights up the parent tile. */
+const NARRATIVE_SECTORS = {
+  'L1':        ['BTC','ETH','SOL','BNB','XRP','TRX','ADA','AVAX','DOT','NEAR','APT','SUI','TIA','SEI','ATOM','ALGO','HBAR','ICP','FTM','TON','KAS','INJ'],
+  'L2':        ['ARB','OP','MATIC','STRK','BASE','MNT','METIS','ZK'],
+  'DeFi':      ['UNI','AAVE','CRV','COMP','MKR','SNX','SUSHI','DYDX','GMX','JUP','LDO','PENDLE','RAY','CAKE','VELO','AERO'],
+  'AI':        ['FET','AGIX','RNDR','TAO','WLD','GRT','OCEAN','ARKM','AI','NMR','RLC','IO','VIRTUAL','AIXBT'],
+  'Meme':      ['DOGE','SHIB','PEPE','WIF','BONK','FLOKI','MEME','BOME','MEW','POPCAT','BRETT','TURBO','PNUT','GOAT','ACT','NEIRO','MOG'],
+  'RWA':       ['ONDO','OM','PYTH','LINK','PROM'],
+  'Gaming':    ['AXS','SAND','MANA','GALA','IMX','BEAM','ENJ','RON','PIXEL','PRIME','G','NOT'],
+  'Perp/DEX':  ['HYPE','DYDX','GMX','PENDLE','JUP'],
+  'Privacy':   ['XMR','ZEC','DASH'],
+  'Payment':   ['LTC','BCH','ETC','XRP'],
+};
+const NARRATIVE_COLORS = {
+  'L1':'#f0b90b','L2':'#627eea','DeFi':'#22d17e','AI':'#b28cff','Meme':'#ff9f5a',
+  'RWA':'#39e0ff','Gaming':'#ff5a6e','Perp/DEX':'#00ffa3','Privacy':'#ffcb6b','Payment':'#9aa4b2','Other':'#5b6472',
+};
+const _symbolToSector = (() => {
+  const m = new Map();
+  for (const [sector, syms] of Object.entries(NARRATIVE_SECTORS)) {
+    for (const s of syms) if (!m.has(s)) m.set(s, sector);
+  }
+  return m;
+})();
+
+function renderNarrativeTreemap() {
+  ensureAnalyticsCharts();
+  const chart = STATE.charts.narrative; if (!chart) return;
+  if (!STATE.ticker24h.size) return;
+  const sectors = new Map();  // sector -> {totalVol, weightedChg, children: [{sym, vol, chg}]}
+  for (const [sym, t] of STATE.ticker24h) {
+    if (!sym.endsWith('USDT') || sym.includes('_')) continue;
+    const base = sym.replace('USDT','');
+    const sector = _symbolToSector.get(base) || 'Other';
+    const vol = +t.quoteVolume || 0;
+    const chg = +t.priceChangePercent || 0;
+    if (vol < 50_000) continue;
+    const entry = sectors.get(sector) || { sector, totalVol: 0, weightedChg: 0, children: [] };
+    entry.totalVol += vol;
+    entry.weightedChg += chg * vol;
+    entry.children.push({ sym, base, vol, chg });
+    sectors.set(sector, entry);
+  }
+  // Build treemap data
+  const tmData = [];
+  for (const entry of sectors.values()) {
+    const avgChg = entry.totalVol ? entry.weightedChg / entry.totalVol : 0;
+    entry.children.sort((a,b) => b.vol - a.vol);
+    tmData.push({
+      name: `${entry.sector} · ${(avgChg>=0?'+':'')+avgChg.toFixed(2)}%`,
+      value: entry.totalVol,
+      _chg: avgChg,
+      itemStyle: {
+        color: NARRATIVE_COLORS[entry.sector] || NARRATIVE_COLORS.Other,
+        borderColor: '#05070a', borderWidth: 2, gapWidth: 2,
+      },
+      children: entry.children.slice(0, 16).map(c => ({
+        name: c.base,
+        value: c.vol,
+        _chg: c.chg,
+        _sym: c.sym,
+        itemStyle: {
+          color: c.chg >= 0
+            ? `rgba(34,209,126,${Math.min(0.9, 0.22 + Math.abs(c.chg)/18).toFixed(3)})`
+            : `rgba(255,90,110,${Math.min(0.9, 0.22 + Math.abs(c.chg)/18).toFixed(3)})`,
+          borderColor:'#05070a', borderWidth: 1, gapWidth: 1,
+        },
+        label: {
+          show: true, fontSize: 10.5, color:'#e6edf3',
+          fontFamily:'JetBrains Mono', fontWeight: 600,
+          formatter: p => `${p.name}\n${p.data._chg>=0?'+':''}${p.data._chg.toFixed(1)}%`,
+        },
+      })),
+    });
+  }
+  tmData.sort((a,b) => b.value - a.value);
+  chart.setOption({
+    animation: false,
+    tooltip: {
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: p => {
+        const d = p.data;
+        if (d._sym) {
+          return `<b>${d.name}</b> <span style="color:#9aa4b2;">${d._sym}</span><br/>
+                  24h Vol: <b>${fmtUsd(d.value)}</b><br/>
+                  24h Δ: <b style="color:${d._chg>=0?'#22d17e':'#ff5a6e'}">${d._chg>=0?'+':''}${d._chg.toFixed(2)}%</b>`;
+        }
+        return `<b>${d.name}</b><br/>Aggregate 24h Vol: <b>${fmtUsd(d.value)}</b>`;
+      },
+    },
+    series: [{
+      type: 'treemap', data: tmData,
+      roam: false, nodeClick: false,
+      levels: [
+        {
+          itemStyle: { borderColor: '#05070a', borderWidth: 3, gapWidth: 3 },
+          upperLabel: { show: true, height: 18, color: '#05070a', fontWeight: 700,
+                        fontSize: 11, letterSpacing: '0.12em', fontFamily:'JetBrains Mono' },
+        },
+        { itemStyle: { borderColor: '#05070a', borderWidth: 1, gapWidth: 1 } },
+      ],
+      breadcrumb: { show: false },
+      label: { show: true },
+    }],
+  }, true);
+  chart.off('click');
+  chart.on('click', (p) => {
+    if (p?.data?._sym) { try { switchSymbol(p.data._sym); } catch {} }
+  });
+}
+setInterval(() => { if (STATE.view === 'analytics') renderNarrativeTreemap(); }, 10000);
+
+/* ---------- VOLATILITY REGIME RANKER ----------
+   Realized vol from 1h klines (24h lookback). Ranked by percentile across
+   the top 30 by volume; bottom quartile flagged as COIL (low vol, often
+   precedes expansion), top quartile as EXPANSION. */
+STATE.rvBySymbol = STATE.rvBySymbol || new Map();
+async function refreshVolatilityRegime() {
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a,b) => +b.quoteVolume - +a.quoteVolume)
+    .slice(0, 30).map(t => t.symbol);
+  if (!top.length) return;
+  const SQRT_YEAR_BARS = Math.sqrt(365 * 24);
+  await Promise.allSettled(top.map(async sym => {
+    try {
+      const bars = await fetchJson('binance:klines1h24:' + sym,
+        `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=1h&limit=24`);
+      if (!Array.isArray(bars) || bars.length < 4) return;
+      const rets = [];
+      for (let i = 1; i < bars.length; i++) {
+        const c0 = +bars[i-1][4], c1 = +bars[i][4];
+        if (c0 > 0 && c1 > 0) rets.push(Math.log(c1 / c0));
+      }
+      if (!rets.length) return;
+      const mean = rets.reduce((a,b)=>a+b, 0) / rets.length;
+      const variance = rets.reduce((a,b) => a + (b - mean) ** 2, 0) / Math.max(1, rets.length - 1);
+      const rv = Math.sqrt(variance) * SQRT_YEAR_BARS * 100; // annualized %
+      STATE.rvBySymbol.set(sym, rv);
+    } catch (_) {}
+  }));
+  if (STATE.view === 'analytics') renderVolRegime();
+}
+
+function renderVolRegime() {
+  const el = $('vol-regime-body'); if (!el) return;
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a,b) => +b.quoteVolume - +a.quoteVolume)
+    .slice(0, 30).map(t => t.symbol);
+  const rows = top.map(sym => ({ sym, rv: STATE.rvBySymbol.get(sym) }))
+                  .filter(r => r.rv != null && !isNaN(r.rv));
+  if (!rows.length) return;
+  const sortedRv = rows.map(r => r.rv).sort((a,b) => a - b);
+  const pctileOf = (v) => {
+    let lo = 0;
+    for (let i = 0; i < sortedRv.length; i++) if (sortedRv[i] <= v) lo = i;
+    return (lo / Math.max(1, sortedRv.length - 1)) * 100;
+  };
+  rows.forEach(r => { r.pctile = pctileOf(r.rv); });
+  // Low-vol coil at top, high-vol expansion at bottom
+  rows.sort((a,b) => a.rv - b.rv);
+
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-3">Symbol</div>
+      <div class="col-span-3 text-right">RV 24h</div>
+      <div class="col-span-3 text-right">Pctile</div>
+      <div class="col-span-3 text-right">Regime</div>
+    </div>`;
+  const body = rows.map(r => {
+    let tag, tagColor;
+    if (r.pctile <= 25) { tag = 'COIL';      tagColor = '#22d17e'; }
+    else if (r.pctile >= 75) { tag = 'EXPANSION'; tagColor = '#ff5a6e'; }
+    else { tag = 'MID'; tagColor = 'var(--text-2)'; }
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 text-right">${r.rv.toFixed(1)}%</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${r.pctile.toFixed(0)}%</div>
+      <div class="col-span-3 text-right font-semibold" style="color:${tagColor};letter-spacing:0.12em;">${tag}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+  const upd = $('vol-regime-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+}
+refreshVolatilityRegime();
+setInterval(refreshVolatilityRegime, 5 * 60 * 1000);
+
+/* ---------- SPOT↔PERP BASIS DASHBOARD ----------
+   Top 20 perp symbols by volume — cross against Binance spot price from
+   bulk `/api/v3/ticker/price`. Flag backwardation (basis < −5 bp). */
+STATE.spotPrices = STATE.spotPrices || new Map();
+async function refreshSpotPrices() {
+  try {
+    const arr = await fetchJson('binance:spotPrice', 'https://api.binance.com/api/v3/ticker/price');
+    if (!Array.isArray(arr)) return;
+    for (const row of arr) {
+      if (!row?.symbol || !row.symbol.endsWith('USDT')) continue;
+      const p = +row.price;
+      if (p > 0) STATE.spotPrices.set(row.symbol, p);
+    }
+    if (STATE.view === 'analytics') renderBasisDashboard();
+  } catch (e) {
+    if (e?.message !== 'CB_OPEN') console.warn('spot prices fail', e);
+  }
+}
+function renderBasisDashboard() {
+  const el = $('basis-dash-body'); if (!el) return;
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a,b) => +b.quoteVolume - +a.quoteVolume).slice(0, 20);
+  const rows = [];
+  for (const t of top) {
+    const sym = t.symbol;
+    const perp = STATE.prices.binance.get(sym);
+    const spot = STATE.spotPrices.get(sym);
+    if (!perp || !spot) continue;
+    const bp = ((perp / spot) - 1) * 10000;
+    rows.push({ sym, perp, spot, bp, vol: +t.quoteVolume || 0 });
+  }
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Awaiting spot + perp matches…</div>';
+    return;
+  }
+  rows.sort((a,b) => a.bp - b.bp);    // most-backwardated first (biggest bear signal)
+
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Symbol</div>
+      <div class="col-span-3 text-right">Spot</div>
+      <div class="col-span-3 text-right">Perp</div>
+      <div class="col-span-2 text-right">Basis bp</div>
+      <div class="col-span-2 text-right">Regime</div>
+    </div>`;
+  const body = rows.map(r => {
+    let tag, tagColor, bpColor;
+    if (r.bp < -5) { tag = 'BACKWARDATION'; tagColor = '#ff5a6e'; bpColor = '#ff5a6e'; }
+    else if (r.bp > 5) { tag = 'CONTANGO'; tagColor = '#22d17e'; bpColor = '#22d17e'; }
+    else { tag = 'FLAT'; tagColor = 'var(--text-2)'; bpColor = 'var(--text-1)'; }
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${fmt(r.spot)}</div>
+      <div class="col-span-3 text-right">${fmt(r.perp)}</div>
+      <div class="col-span-2 text-right font-semibold" style="color:${bpColor}">${r.bp >= 0 ? '+' : ''}${r.bp.toFixed(1)}</div>
+      <div class="col-span-2 text-right text-[9.5px] font-semibold" style="color:${tagColor};letter-spacing:0.1em;">${tag}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+  const upd = $('basis-dash-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+}
+refreshSpotPrices();
+setInterval(refreshSpotPrices, 10 * 1000);
 
 /* ---------- COMMAND PALETTE (⌘K / Ctrl+K) ----------
    Fuzzy-search symbols, views, and quick actions. Keyboard-first UX. */
