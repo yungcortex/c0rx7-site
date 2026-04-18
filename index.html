@@ -6116,34 +6116,40 @@ function computeCrossVenueSpreads() {
   const rows = [];
   for (const [sym, t] of STATE.ticker24h) {
     if (!sym.endsWith('USDT') || sym.includes('_')) continue;
+    // Liquidity gate: only consider coins with real 24h Binance volume so we
+    // filter out illiquid listings where one venue has a multi-%-off price.
+    const vol = +t.quoteVolume || 0;
+    if (vol < 5_000_000) continue;
     const prices = {};
     for (const v of EDGE_VENUES) {
       const p = STATE.prices[v]?.get(sym);
       if (p && p > 0) prices[v] = p;
     }
     const keys = Object.keys(prices);
-    if (keys.length < 3) continue;       // need ≥3 venues for a real consensus
+    if (keys.length < 5) continue;             // need ≥5 venues for real consensus
     let minV=null, minP=Infinity, maxV=null, maxP=-Infinity;
     for (const v of keys) {
       if (prices[v] < minP) { minP = prices[v]; minV = v; }
       if (prices[v] > maxP) { maxP = prices[v]; maxV = v; }
     }
-    // Skip stale outliers: if the extreme is > 200bp from median, it's likely
-    // a paused/dead venue feed rather than a real arb window.
+    // Drop stale/dead outliers: if either extreme sits more than 100bp from
+    // the median, the feed is almost certainly stale (real arbs close
+    // instantly to well under 20bp — 1%+ gaps are data noise).
     const sorted = Object.values(prices).sort((a,b) => a-b);
     const median = sorted[Math.floor(sorted.length/2)];
     const deviation = Math.max(
       Math.abs((minP - median) / median) * 10000,
       Math.abs((maxP - median) / median) * 10000
     );
-    if (deviation > 300) continue;
+    if (deviation > 100) continue;
     const mid = (minP + maxP) / 2;
     const bps = ((maxP - minP) / mid) * 10000;
+    if (bps < 1) continue;
     rows.push({
       sym, minV, minP, maxV, maxP, bps,
-      edge: Math.max(0, bps - 10),   // net of ~10bp round-trip taker fees
+      edge: Math.max(0, bps - 10),
       venueCount: keys.length,
-      vol: +t.quoteVolume || 0,
+      vol,
     });
   }
   rows.sort((a,b) => b.bps - a.bps);
@@ -6193,6 +6199,11 @@ function computeFundingArb() {
   const rows = [];
   for (const sym of Object.keys(STATE.funding)) {
     if (!sym.endsWith('USDT')) continue;
+    // Same liquidity gate as spreads — a funding arb on an illiquid listing
+    // isn't tradeable and just generates noise.
+    const t = STATE.ticker24h.get(sym);
+    const vol = t ? +t.quoteVolume || 0 : 0;
+    if (vol < 5_000_000) continue;
     const f = STATE.funding[sym];
     const rates = {};
     for (const v of EDGE_VENUES) {
@@ -6200,18 +6211,26 @@ function computeFundingArb() {
       if (r != null && !Number.isNaN(r)) rates[v] = r;
     }
     const keys = Object.keys(rates);
-    if (keys.length < 2) continue;
-    let minV=null, minR=Infinity, maxV=null, maxR=-Infinity;
+    if (keys.length < 3) continue;
+    // Drop extreme outlier rates — an exchange showing -250% funding is a
+    // bad data point, not a trade. Real spreads live in 2–50 bp per 8h.
+    const sortedRates = Object.values(rates).sort((a,b) => a-b);
+    const median = sortedRates[Math.floor(sortedRates.length/2)];
+    const cleanRates = {};
     for (const v of keys) {
-      if (rates[v] < minR) { minR = rates[v]; minV = v; }
-      if (rates[v] > maxR) { maxR = rates[v]; maxV = v; }
+      if (Math.abs(rates[v] - median) < 0.005) cleanRates[v] = rates[v];   // within 50bp of median
+    }
+    const cleanKeys = Object.keys(cleanRates);
+    if (cleanKeys.length < 3) continue;
+    let minV=null, minR=Infinity, maxV=null, maxR=-Infinity;
+    for (const v of cleanKeys) {
+      if (cleanRates[v] < minR) { minR = cleanRates[v]; minV = v; }
+      if (cleanRates[v] > maxR) { maxR = cleanRates[v]; maxV = v; }
     }
     const spreadBps = (maxR - minR) * 10000;
     if (spreadBps < 2) continue;
-    // Funding is per 8h → ×3 per day × 365 days = annualized APR of the
-    // delta-neutral carry (long low-fund venue, short high-fund venue).
     const apr = (maxR - minR) * 3 * 365 * 100;
-    rows.push({ sym, minV, minR, maxV, maxR, spreadBps, apr, venueCount: keys.length });
+    rows.push({ sym, minV, minR, maxV, maxR, spreadBps, apr, venueCount: cleanKeys.length });
   }
   rows.sort((a,b) => b.spreadBps - a.spreadBps);
   return rows;
