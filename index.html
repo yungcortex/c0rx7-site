@@ -648,6 +648,32 @@
     .cmd-bar .ml-auto { margin-left: 0 !important; }
     .cmd-bar .cmd-input { min-width: 110px; }
   }
+
+  /* Per-panel deep-link icon in panel headers */
+  .panel-link {
+    display: inline-block; margin-left: 8px; padding: 1px 6px;
+    color: #5b6472; font-size: 10px; cursor: pointer;
+    border: 1px solid transparent; border-radius: 3px;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em;
+    user-select: none;
+  }
+  .panel-link:hover { color: #00ffa3; border-color: rgba(0,255,163,0.4); background: rgba(0,255,163,0.06); }
+  .panel.panel-flash { animation: panelFlash 2.8s ease-out 1; }
+  @keyframes panelFlash {
+    0%   { box-shadow: 0 0 0 2px rgba(0,255,163,0.9), 0 0 40px rgba(0,255,163,0.45); }
+    100% { box-shadow: 0 0 0 0 rgba(0,255,163,0), 0 0 0 rgba(0,255,163,0); }
+  }
+
+  /* Embed mode: strip chrome when ?embed=1 */
+  body.embed-mode header,
+  body.embed-mode > nav,
+  body.embed-mode .nav-tabs,
+  body.embed-mode footer,
+  body.embed-mode #watchlist-bar,
+  body.embed-mode #mega-strip { display: none !important; }
+  body.embed-mode main { padding: 0 !important; }
+  body.embed-mode .panel { border-radius: 0; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -8406,6 +8432,86 @@ async function boot() {
 }
 boot();
 
+/* ---------- PER-PANEL DEEP LINKS ----------
+   Inject a tiny "#" button into every .panel-hd so each panel is linkable.
+   Clicking copies the current share URL appended with a #p=<id> fragment.
+   On load, if the URL has such a fragment, scroll that panel into view and
+   briefly highlight it. Panel id = first descendant-with-id, falling back to
+   a slug of the header text. */
+function _slugify(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'panel';
+}
+function _panelKey(panelEl) {
+  const direct = panelEl.querySelector('[id]');
+  if (direct && direct.id) return direct.id;
+  const txt = (panelEl.querySelector('.panel-hd > span')?.textContent || '').trim().split(/[·|]/)[0];
+  return 'p-' + _slugify(txt);
+}
+function _injectPanelLinks() {
+  document.querySelectorAll('.panel').forEach(panel => {
+    const hd = panel.querySelector('.panel-hd');
+    if (!hd || hd.querySelector('.panel-link')) return;
+    const key = _panelKey(panel);
+    panel.dataset.panelKey = key;
+    const btn = document.createElement('span');
+    btn.className = 'panel-link';
+    btn.textContent = '#';
+    btn.title = 'Copy link to this panel';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const base = _buildShareUrl();
+      const url = base + '#p=' + encodeURIComponent(key);
+      _shareCopy(url);
+    });
+    hd.appendChild(btn);
+  });
+}
+function _applyHashScroll() {
+  const m = /#p=([^&]+)/.exec(location.hash || '');
+  if (!m) return;
+  const key = decodeURIComponent(m[1]);
+  const target = document.querySelector(`[data-panel-key="${key}"]`) ||
+                 (document.getElementById(key)?.closest('.panel')) ||
+                 document.getElementById(key);
+  if (!target) return;
+  // Switching view first if the target panel lives in a non-default view
+  const view = target.closest('.view');
+  if (view && view.id && view.id.startsWith('view-') && view.classList.contains('hidden')) {
+    try { switchView(view.id.replace('view-', '')); } catch {}
+  }
+  setTimeout(() => {
+    try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+    target.classList.add('panel-flash');
+    setTimeout(() => target.classList.remove('panel-flash'), 3200);
+  }, 250);
+}
+setTimeout(() => {
+  _injectPanelLinks();
+  _applyHashScroll();
+  // Re-scan after lazy-rendered panels appear (covers analytics tab etc.)
+  setTimeout(_injectPanelLinks, 3000);
+  setTimeout(_injectPanelLinks, 8000);
+}, 1500);
+// Also re-hash-scroll after tab switches that might reveal the target
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => setTimeout(_applyHashScroll, 400));
+});
+
+/* ---------- EMBED MODE (?embed=1) ----------
+   Strips the header, nav, footer, watchlist bar, and mega-strip so the
+   panels fill the full viewport — ideal for iframe embeds / TV displays. */
+(function applyEmbedMode(){
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('embed') === '1') {
+      document.body.classList.add('embed-mode');
+      // Nudge charts to resize once chrome is hidden
+      setTimeout(() => {
+        Object.values(STATE.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} });
+      }, 400);
+    }
+  } catch {}
+})();
 </script>
 </body>
 </html>
