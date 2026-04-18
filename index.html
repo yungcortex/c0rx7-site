@@ -794,7 +794,7 @@
   <div id="wl-chips" class="flex items-center gap-1 flex-wrap text-[11px]"></div>
   <span id="wl-status" class="text-[var(--text-2)] text-[10px] ml-auto"></span>
 </div>
-<!-- ============ FUNDING COUNTDOWN STRIP ============ -->
+<!-- ============ FUNDING COUNTDOWN + REGIME STRIP ============ -->
 <div id="fund-countdown-strip" class="px-3 md:px-4 pt-2 flex items-center gap-4 flex-wrap text-[11px]">
   <div class="flex items-center gap-2">
     <span class="small-caps text-[var(--text-2)] tracking-widest">Next Funding</span>
@@ -804,8 +804,12 @@
     <span class="tabular" id="fc-rate" style="color:var(--text-0);">—</span>
     <span class="text-[10px] text-[var(--text-2)] tracking-widest">PREDICTED</span>
   </div>
-  <div class="flex items-center gap-4 text-[10px] text-[var(--text-2)] tracking-widest">
-    <span>BINANCE FUNDING · 8H INTERVALS · 00:00 · 08:00 · 16:00 UTC</span>
+  <div class="flex items-center gap-2 border-l hairline pl-4">
+    <span class="small-caps text-[var(--text-2)] tracking-widest">Market Regime</span>
+    <span class="tabular font-semibold text-[11px]" id="regime-tag" style="letter-spacing:0.16em;">—</span>
+    <span class="text-[var(--text-2)]">·</span>
+    <span class="tabular" id="regime-avg-funding" style="color:var(--text-0);">—</span>
+    <span class="text-[10px] text-[var(--text-2)]">avg fund / 8h</span>
   </div>
   <span id="fc-nudge" class="ml-auto text-[10px]"></span>
 </div>
@@ -1110,6 +1114,7 @@
           </span>
         </div>
         <div id="depth-heatmap" style="height: 320px;"></div>
+        <div id="ob-walls" class="border-t hairline text-[10.5px]"></div>
       </div>
 
       <!-- Funding rate history (active symbol, 7 days) -->
@@ -1581,6 +1586,56 @@
           <span>ATM IV = avg of nearest call+put · 10% skew = (IV 10% OTM put − IV 10% OTM call), positive = put-bid / fear</span>
           <span>Total Deribit OI · <b class="text-[var(--text-0)]" id="derib-total-oi">—</b></span>
         </div>
+        <div class="border-t hairline grid grid-cols-12 text-[11px]">
+          <div class="col-span-12 md:col-span-6 border-r hairline">
+            <div class="px-3 py-2 border-b hairline text-[10px] uppercase tracking-widest text-[var(--text-2)]">
+              BTC · Upcoming expiries · Max Pain
+            </div>
+            <div id="derib-btc-expiries" class="text-[10.5px]"></div>
+          </div>
+          <div class="col-span-12 md:col-span-6">
+            <div class="px-3 py-2 border-b hairline text-[10px] uppercase tracking-widest text-[var(--text-2)]">
+              ETH · Upcoming expiries · Max Pain
+            </div>
+            <div id="derib-eth-expiries" class="text-[10.5px]"></div>
+          </div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          MAX PAIN = strike that minimizes total option writer payout at expiry · dealers often pin price to it into settlement
+        </div>
+      </div>
+
+      <!-- BTC NETWORK STATS -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#f0b90b;box-shadow:0 0 10px #f0b90b"></span>BTC NETWORK · HASHRATE · DIFFICULTY · MEMPOOL</span>
+          <span class="text-[var(--text-2)] tabular">mempool.space · updated <span id="btcnet-updated">—</span></span>
+        </div>
+        <div class="grid grid-cols-12 border-b hairline text-center text-[11px]">
+          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Hashrate</div>
+            <div class="tabular text-[var(--text-0)] text-[15px]" id="btcnet-hashrate">—</div>
+            <div class="text-[10px] text-[var(--text-2)]">EH/s · 3d avg</div>
+          </div>
+          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Difficulty Δ</div>
+            <div class="tabular text-[15px]" id="btcnet-diffchg">—</div>
+            <div class="text-[10px]" id="btcnet-diffeta">next adj —</div>
+          </div>
+          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Mempool TXs</div>
+            <div class="tabular text-[var(--text-0)] text-[15px]" id="btcnet-mempool">—</div>
+            <div class="text-[10px] text-[var(--text-2)]" id="btcnet-mempool-vsize">— MvB pending</div>
+          </div>
+          <div class="col-span-6 md:col-span-3 px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Fastest Fee</div>
+            <div class="tabular text-[var(--text-0)] text-[15px]" id="btcnet-fee">—</div>
+            <div class="text-[10px] text-[var(--text-2)]">sat/vB · next block</div>
+          </div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Falling hashrate or large negative Δ often flags miner capitulation · rising difficulty = competition for blocks
+        </div>
       </div>
 
       <!-- OI Regime Quadrant -->
@@ -1720,8 +1775,22 @@
         </div>
       </div>
 
+      <!-- Correlation Breakdown Detector -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>CORRELATION BREAKDOWN · BTC REFERENCE</span>
+          <span class="text-[var(--text-2)] tabular">last 30m vs full window · updated <span id="corrbrk-updated">—</span></span>
+        </div>
+        <div id="corrbrk-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Sampling correlations…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Δcorr = recent-30m Pearson minus full-window Pearson · large negative = decoupling from BTC · idiosyncratic flow
+        </div>
+      </div>
+
       <!-- Live correlation matrix -->
-      <div class="panel col-span-12">
+      <div class="panel col-span-12 xl:col-span-6">
         <div class="panel-hd">
           <span><span class="dot" style="background:#39e0ff;box-shadow:0 0 10px #39e0ff"></span>LIVE CORRELATION MATRIX · TOP 20</span>
           <span class="flex items-center gap-3 text-[var(--text-2)]">
@@ -8989,8 +9058,351 @@ _renderFundingCountdown();
 // Periodic refresh while the view is active
 setInterval(() => {
   if (STATE.view === 'edge') { renderHotZones(); renderVolumeSurge(); }
-  if (STATE.view === 'analytics') { renderRelativeStrength(); }
+  if (STATE.view === 'analytics') { renderRelativeStrength(); renderCorrelationBreakdown(); }
 }, 5000);
+
+/* ---------- MARKET-WIDE FUNDING REGIME ----------
+   Averages Binance funding across the top 30 by volume, classifies:
+      > +8 bp / 8h  → BULLISH CROWDED (longs over-paying)
+      > +2 bp       → mildly bullish
+      < -2 bp       → mildly bearish
+      < -8 bp       → BEARISH CROWDED (shorts over-paying, squeeze setup)
+      else          → NEUTRAL */
+function renderFundingRegime() {
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_') && (+t.quoteVolume || 0) > 10_000_000)
+    .sort((a,b) => +b.quoteVolume - +a.quoteVolume).slice(0, 30);
+  let sum = 0, n = 0;
+  for (const t of top) {
+    const r = STATE.funding[t.symbol]?.binance;
+    if (r != null && !Number.isNaN(r)) { sum += r; n++; }
+  }
+  const avg = n ? (sum / n) : 0;
+  const bp = avg * 10000;
+  let tag, color;
+  if (bp >= 8)       { tag = 'BULLISH CROWDED'; color = '#ff5a6e'; }
+  else if (bp >= 2)  { tag = 'BULLISH';         color = '#ffcb6b'; }
+  else if (bp <= -8) { tag = 'BEARISH CROWDED'; color = '#00ffa3'; }
+  else if (bp <= -2) { tag = 'BEARISH';         color = '#c2cbd6'; }
+  else               { tag = 'NEUTRAL';         color = 'var(--text-2)'; }
+  const tagEl = $('regime-tag');
+  if (tagEl) { tagEl.textContent = tag; tagEl.style.color = color; }
+  const avgEl = $('regime-avg-funding');
+  if (avgEl) {
+    avgEl.textContent = (bp >= 0 ? '+' : '') + bp.toFixed(2) + ' bp';
+    avgEl.style.color = bp >= 0 ? '#22d17e' : '#ff5a6e';
+  }
+}
+setInterval(renderFundingRegime, 5000);
+
+/* ---------- ORDERBOOK WALL DETECTOR (active symbol) ----------
+   Scans the active symbol's depth snapshot for passive size > 2× its
+   neighbour-average. Top 3 bids and top 3 asks surfaced. */
+function _obWalls(side, N = 3) {
+  const arr = STATE.depthData && STATE.depthData[side];
+  if (!Array.isArray(arr) || arr.length < 4) return [];
+  const sizes = arr.map(x => Array.isArray(x) ? +x[1] : +x.size || 0);
+  if (!sizes.some(s => s > 0)) return [];
+  const avg = sizes.reduce((a, b) => a + b, 0) / sizes.length;
+  if (!avg) return [];
+  const candidates = arr.map((x, i) => {
+    const price = Array.isArray(x) ? +x[0] : +x.price;
+    const size  = sizes[i];
+    return { price, size, ratio: size / avg };
+  }).filter(x => x.ratio >= 2 && x.price > 0);
+  candidates.sort((a, b) => b.ratio - a.ratio);
+  return candidates.slice(0, N);
+}
+function renderObWalls() {
+  const el = $('ob-walls'); if (!el) return;
+  const mark = STATE.prices.binance.get(STATE.symbol);
+  const bids = _obWalls('bids');
+  const asks = _obWalls('asks');
+  if (!bids.length && !asks.length) {
+    el.innerHTML = '<div class="px-3 py-2 text-[10px] text-[var(--text-2)] tracking-widest uppercase">No outsized walls in the visible depth.</div>';
+    return;
+  }
+  const row = (w, side) => {
+    const distBp = mark ? ((w.price - mark) / mark * 10000) : 0;
+    const sideColor = side === 'bid' ? '#22d17e' : '#ff5a6e';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 tabular">
+      <div class="col-span-2" style="color:${sideColor};font-weight:600;">${side.toUpperCase()}</div>
+      <div class="col-span-4 text-right">${fmt(w.price)}</div>
+      <div class="col-span-2 text-right text-[var(--text-2)]">${(distBp >= 0 ? '+' : '') + distBp.toFixed(0)}bp</div>
+      <div class="col-span-2 text-right">${fmt(w.size, 3)}</div>
+      <div class="col-span-2 text-right text-[var(--text-0)] font-semibold">${w.ratio.toFixed(1)}×</div>
+    </div>`;
+  };
+  el.innerHTML = `
+    <div class="grid grid-cols-12 px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline" style="background:rgba(255,255,255,0.02);">
+      <div class="col-span-2">Side</div>
+      <div class="col-span-4 text-right">Price</div>
+      <div class="col-span-2 text-right">Δ mark</div>
+      <div class="col-span-2 text-right">Size</div>
+      <div class="col-span-2 text-right">vs avg</div>
+    </div>
+    ${bids.map(w => row(w, 'bid')).join('')}
+    ${asks.map(w => row(w, 'ask')).join('')}
+  `;
+}
+setInterval(renderObWalls, 1500);
+
+/* ---------- DERIBIT MAX PAIN + EXPIRY CALENDAR ----------
+   Extends STATE.deribit with per-expiry max-pain (strike that minimizes
+   total option-writer payout). Renders the top 6 nearest expiries per
+   currency into the new expiry tables. */
+function _maxPainForExpiry(options) {
+  if (!options || options.length < 3) return null;
+  const strikes = [...new Set(options.map(o => o.strike))].sort((a,b) => a-b);
+  if (strikes.length < 3) return null;
+  let minPayout = Infinity, minStrike = null;
+  for (const S of strikes) {
+    let payout = 0;
+    for (const o of options) {
+      const oi = +o.open_interest || 0;
+      if (!oi) continue;
+      if (o.type === 'C' && S > o.strike)      payout += (S - o.strike) * oi;
+      else if (o.type === 'P' && S < o.strike) payout += (o.strike - S) * oi;
+    }
+    if (payout < minPayout) { minPayout = payout; minStrike = S; }
+  }
+  return minStrike;
+}
+function _renderDeribitExpiries(currency) {
+  const key = currency.toLowerCase();
+  const el = $(`derib-${key}-expiries`);
+  if (!el) return;
+  const items = (STATE.deribit?.[currency]?._rawOptions) || [];
+  if (!items.length) {
+    el.innerHTML = '<div class="px-3 py-2 text-[10px] text-[var(--text-2)]">Loading…</div>';
+    return;
+  }
+  const spot = STATE.deribit[currency]?.spot || 0;
+  const byExpiry = new Map();
+  for (const o of items) {
+    if (o.expiry < Date.now()) continue;
+    if (!byExpiry.has(o.expiry)) byExpiry.set(o.expiry, []);
+    byExpiry.get(o.expiry).push(o);
+  }
+  const rows = Array.from(byExpiry.keys()).sort().slice(0, 6).map(expiry => {
+    const opts = byExpiry.get(expiry);
+    const oiTotal = opts.reduce((s, o) => s + (+o.open_interest || 0), 0);
+    const notional = opts.reduce((s, o) => s + (+o.open_interest || 0) * (+o.mark_price || 0) * spot, 0);
+    const mp = _maxPainForExpiry(opts);
+    return {
+      expiry,
+      ttm: (expiry - Date.now()) / 86400000,
+      oiTotal,
+      notional,
+      mp,
+      distPct: mp && spot ? ((mp - spot) / spot) * 100 : null,
+    };
+  });
+  if (!rows.length) {
+    el.innerHTML = '<div class="px-3 py-2 text-[10px] text-[var(--text-2)]">No upcoming expiries.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline">
+      <div class="col-span-3">Expiry</div>
+      <div class="col-span-2 text-right">TTM d</div>
+      <div class="col-span-3 text-right">Notional OI</div>
+      <div class="col-span-2 text-right">Max Pain</div>
+      <div class="col-span-2 text-right">Δ spot</div>
+    </div>`;
+  const body = rows.map(r => {
+    const dt = new Date(r.expiry).toISOString().slice(5,10);
+    const distColor = r.distPct == null ? 'var(--text-2)' : (r.distPct >= 0 ? '#22d17e' : '#ff5a6e');
+    return `<div class="grid grid-cols-12 px-3 py-0.5 tabular text-[11px] border-b hairline">
+      <div class="col-span-3 text-[var(--text-0)]">${dt}</div>
+      <div class="col-span-2 text-right text-[var(--text-2)]">${r.ttm.toFixed(1)}</div>
+      <div class="col-span-3 text-right">${fmtUsd(r.notional)}</div>
+      <div class="col-span-2 text-right font-semibold" style="color:#b28cff;">${r.mp ? (r.mp >= 1000 ? fmt(r.mp, 0) : fmt(r.mp)) : '—'}</div>
+      <div class="col-span-2 text-right" style="color:${distColor};">${r.distPct == null ? '—' : ((r.distPct >= 0 ? '+' : '') + r.distPct.toFixed(2) + '%')}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+}
+// Patch refreshDeribit to ALSO cache the raw options and render expiries
+(function wrapRefreshDeribit(){
+  const orig = window.refreshDeribit || refreshDeribit;
+  window.refreshDeribit = async function(currency) {
+    await orig(currency);
+    // Re-fetch raw options summary to keep them for max-pain calc
+    try {
+      const r = await fetchJson('deribit:raw:' + currency,
+        `https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${currency}&kind=option`);
+      const items = (r?.result || []).map(it => {
+        const p = parseDeribitInstrument(it.instrument_name);
+        if (!p) return null;
+        return {
+          ...p,
+          mark_iv: it.mark_iv,
+          mark_price: it.mark_price,
+          open_interest: +it.open_interest || 0,
+          underlying_price: +it.underlying_price || 0,
+        };
+      }).filter(Boolean);
+      if (!STATE.deribit[currency]) STATE.deribit[currency] = {};
+      STATE.deribit[currency]._rawOptions = items;
+    } catch (_) {}
+    _renderDeribitExpiries(currency);
+  };
+})();
+
+/* ---------- BTC NETWORK STATS (mempool.space) ---------- */
+STATE.btcnet = STATE.btcnet || {};
+async function refreshBtcNetwork() {
+  try {
+    const [hash, diff, mp, fees] = await Promise.allSettled([
+      fetch('https://mempool.space/api/v1/mining/hashrate/3d').then(r => r.json()),
+      fetch('https://mempool.space/api/v1/difficulty-adjustment').then(r => r.json()),
+      fetch('https://mempool.space/api/mempool').then(r => r.json()),
+      fetch('https://mempool.space/api/v1/fees/recommended').then(r => r.json()),
+    ]);
+    const d = STATE.btcnet;
+    if (hash.status === 'fulfilled' && hash.value) {
+      const series = hash.value.hashrates || hash.value;
+      if (Array.isArray(series) && series.length) {
+        d.hashrate = series.at(-1).avgHashrate || series.at(-1).hashrate;
+      } else if (hash.value.currentHashrate) {
+        d.hashrate = hash.value.currentHashrate;
+      }
+    }
+    if (diff.status === 'fulfilled' && diff.value) {
+      d.difficultyChange = diff.value.difficultyChange;
+      d.remainingBlocks  = diff.value.remainingBlocks;
+      d.estimatedRetargetDate = diff.value.estimatedRetargetDate;
+    }
+    if (mp.status === 'fulfilled' && mp.value) {
+      d.mempoolCount = mp.value.count;
+      d.mempoolVsize = mp.value.vsize;
+    }
+    if (fees.status === 'fulfilled' && fees.value) {
+      d.fastestFee = fees.value.fastestFee;
+    }
+    renderBtcNetwork();
+  } catch (e) {
+    console.warn('btcnet fetch', e);
+  }
+}
+function renderBtcNetwork() {
+  const d = STATE.btcnet;
+  const $set = (id, text, color) => {
+    const el = $(id); if (!el) return;
+    el.textContent = text;
+    if (color) el.style.color = color;
+  };
+  // Hashrate: mempool returns it in H/s; convert to EH/s
+  if (d.hashrate) {
+    const eh = d.hashrate / 1e18;
+    $set('btcnet-hashrate', eh.toFixed(0));
+  }
+  if (d.difficultyChange != null) {
+    const chg = d.difficultyChange;
+    $set('btcnet-diffchg', (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%',
+      chg >= 0 ? '#22d17e' : '#ff5a6e');
+    if (d.estimatedRetargetDate) {
+      const daysLeft = (d.estimatedRetargetDate - Date.now()) / 86400000;
+      $set('btcnet-diffeta', `next adj ~${daysLeft.toFixed(1)}d`);
+    }
+  }
+  if (d.mempoolCount != null) {
+    $set('btcnet-mempool', d.mempoolCount.toLocaleString());
+    if (d.mempoolVsize != null) {
+      $set('btcnet-mempool-vsize', (d.mempoolVsize / 1e6).toFixed(1) + ' MvB pending');
+    }
+  }
+  if (d.fastestFee != null) {
+    $set('btcnet-fee', d.fastestFee.toFixed(0));
+  }
+  const up = $('btcnet-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+}
+refreshBtcNetwork();
+setInterval(refreshBtcNetwork, 3 * 60 * 1000);
+
+/* ---------- CORRELATION BREAKDOWN DETECTOR ----------
+   For each top-volume symbol, computes Pearson correlation of 30s-sampled
+   log returns vs BTC over (a) last 30 min and (b) the full corr window
+   (default 30 min).  Flags largest Δcorrelation — if a normally highly-
+   correlated coin decouples, that's idiosyncratic flow worth watching. */
+function _pearson(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 5) return null;
+  let sa = 0, sb = 0, sab = 0, saa = 0, sbb = 0;
+  for (let i = 0; i < n; i++) {
+    sa += a[i]; sb += b[i];
+    sab += a[i] * b[i];
+    saa += a[i] * a[i];
+    sbb += b[i] * b[i];
+  }
+  const num = n * sab - sa * sb;
+  const den = Math.sqrt((n * saa - sa*sa) * (n * sbb - sb*sb));
+  return den > 0 ? num / den : null;
+}
+function renderCorrelationBreakdown() {
+  const el = $('corrbrk-body'); if (!el) return;
+  const corr = STATE.corrSeries;
+  if (!(corr instanceof Map) || !corr.has('BTCUSDT')) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Waiting for correlation samples…</div>';
+    return;
+  }
+  const btcSeries = corr.get('BTCUSDT');
+  if (!btcSeries || btcSeries.length < 10) return;
+  // Compute log returns (bar-to-bar) over all samples
+  const ret = (series) => {
+    const out = [];
+    for (let i = 1; i < series.length; i++) {
+      const p0 = series[i-1].p, p1 = series[i].p;
+      if (p0 > 0 && p1 > 0) out.push(Math.log(p1 / p0));
+    }
+    return out;
+  };
+  const btcRet = ret(btcSeries);
+  const recent = btcRet.length - Math.min(30, Math.floor(btcRet.length / 2));
+  const rows = [];
+  for (const [sym, series] of corr) {
+    if (sym === 'BTCUSDT') continue;
+    if (!series || series.length < 10) continue;
+    const r = ret(series);
+    const nMin = Math.min(r.length, btcRet.length);
+    if (nMin < 10) continue;
+    const full  = _pearson(r.slice(-nMin),        btcRet.slice(-nMin));
+    const last  = _pearson(r.slice(-Math.min(30, nMin)), btcRet.slice(-Math.min(30, nMin)));
+    if (full == null || last == null) continue;
+    const delta = last - full;
+    rows.push({ sym, full, last, delta });
+  }
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Not enough samples yet.</div>';
+    return;
+  }
+  // Sort by |delta| descending — largest breakdowns (positive or negative) first
+  rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const top = rows.slice(0, 14);
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-3">Symbol</div>
+      <div class="col-span-3 text-right">Full ρ</div>
+      <div class="col-span-3 text-right">Recent ρ</div>
+      <div class="col-span-3 text-right">Δ ρ</div>
+    </div>`;
+  const body = top.map(r => {
+    const cls = Math.abs(r.delta) < 0.15 ? 'text-[var(--text-1)]'
+      : (r.delta < 0 ? 'num-down font-semibold' : 'num-up font-semibold');
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${r.full.toFixed(2)}</div>
+      <div class="col-span-3 text-right">${r.last.toFixed(2)}</div>
+      <div class="col-span-3 text-right ${cls}">${(r.delta >= 0 ? '+' : '') + r.delta.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+  const up = $('corrbrk-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+}
 </script>
 </body>
 </html>
