@@ -649,6 +649,17 @@
     .cmd-bar .cmd-input { min-width: 110px; }
   }
 
+  /* Panel collapse toggle */
+  .panel-collapse {
+    display: inline-block; margin-right: 10px; padding: 0 4px;
+    color: #5b6472; font-size: 11px; cursor: pointer; user-select: none;
+    font-family: 'JetBrains Mono', monospace;
+    transition: color 0.15s, transform 0.15s;
+  }
+  .panel-collapse:hover { color: #00ffa3; }
+  .panel.collapsed > *:not(.panel-hd) { display: none !important; }
+  .panel.collapsed .panel-hd { border-bottom: none; }
+
   /* Per-panel deep-link icon in panel headers */
   .panel-link {
     display: inline-block; margin-left: 8px; padding: 1px 6px;
@@ -769,7 +780,6 @@
   <div class="nav-tab" data-view="screener">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
   <div class="nav-tab" data-view="edge">EDGE <span class="badge" id="tab-edge-count">0</span></div>
   <div class="nav-tab" data-view="whales">WHALES <span class="badge" id="tab-whales-count">0</span></div>
-  <div class="nav-tab" data-view="aster" style="color:#b28cff;">ASTER</div>
   <div class="nav-tab" data-view="analytics">ANALYTICS</div>
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
     <span>SEARCH</span>
@@ -1551,56 +1561,6 @@
   </div>
 </div>
 
-<!-- ============ ASTER DASHBOARD ============ -->
-<div id="view-aster" class="view hidden">
-  <div class="px-3 md:px-4 py-3 space-y-3">
-    <!-- Aster KPIs -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <div class="kpi"><div class="k-label">Aster Markets</div><div class="k-value tabular" id="ast-kpi-mkts">—</div><div class="k-sub">active perps</div></div>
-      <div class="kpi"><div class="k-label">Total OI</div><div class="k-value tabular" id="ast-kpi-oi">—</div><div class="k-sub">USD notional</div></div>
-      <div class="kpi"><div class="k-label">Avg funding</div><div class="k-value tabular" id="ast-kpi-fund">—</div><div class="k-sub">% per 8h</div></div>
-      <div class="kpi"><div class="k-label">Vs Binance prem</div><div class="k-value tabular" id="ast-kpi-prem">—</div><div class="k-sub">avg bps</div></div>
-      <div class="kpi"><div class="k-label">BTC on Aster</div><div class="k-value tabular" id="ast-kpi-btc">—</div><div class="k-sub" id="ast-kpi-btc-sub">—</div></div>
-    </div>
-
-    <div class="grid grid-cols-12 gap-3">
-      <!-- Aster top markets by activity -->
-      <div class="panel col-span-12 xl:col-span-6">
-        <div class="panel-hd">
-          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>ASTER MARKETS · BY OI</span>
-          <span class="text-[var(--text-2)] tabular">updated <span id="ast-updated">—</span></span>
-        </div>
-        <div id="ast-markets-body" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
-          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading Aster markets…</div>
-        </div>
-      </div>
-
-      <!-- Aster vs Binance premium -->
-      <div class="panel col-span-12 xl:col-span-6">
-        <div class="panel-hd">
-          <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>ASTER ↔ BINANCE PREMIUM</span>
-          <span class="text-[var(--text-2)] tabular">bps · sorted by |premium|</span>
-        </div>
-        <div id="ast-premium-body" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
-          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing premium…</div>
-        </div>
-        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
-          Premium = (ASTER − BIN) / BIN × 10000 · persistent large premium = structural flow divergence
-        </div>
-      </div>
-
-      <!-- Aster funding heatmap -->
-      <div class="panel col-span-12">
-        <div class="panel-hd">
-          <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>ASTER FUNDING GRID · TOP 24</span>
-          <span class="text-[var(--text-2)] tabular">% per 8h</span>
-        </div>
-        <div id="ast-fund-grid" style="height: 360px;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ============ ANALYTICS VIEW ============ -->
 <div id="view-analytics" class="view hidden">
   <div class="px-3 md:px-4 py-3 space-y-3">
@@ -2030,6 +1990,46 @@
           <span>Pearson correlation of log returns · rolling ~30s samples</span>
           <div class="flex items-center gap-2"><span>−1</span><div class="w-36 h-[6px] rounded-full" style="background: linear-gradient(90deg, #ff5a6e 0%, #2a3443 50%, #22d17e 100%);"></div><span>+1</span></div>
         </div>
+      </div>
+
+      <!-- ========== ASTER VENUE DRILL-DOWN ========== -->
+      <div class="col-span-12 pt-2 pb-1 text-[10px] font-bold tracking-widest uppercase" style="color:#b28cff; letter-spacing: 0.28em;">
+        ◆ VENUE DRILL-DOWN · ASTER
+      </div>
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>ASTER MARKETS · BY OI</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="ast-updated">—</span></span>
+        </div>
+        <div class="grid grid-cols-5 gap-0 border-b hairline text-[10px] text-center uppercase tracking-widest">
+          <div class="px-2 py-1.5 border-r hairline"><div class="text-[var(--text-2)]">Markets</div><div class="tabular text-[var(--text-0)]" id="ast-kpi-mkts">—</div></div>
+          <div class="px-2 py-1.5 border-r hairline"><div class="text-[var(--text-2)]">Total OI</div><div class="tabular text-[var(--text-0)]" id="ast-kpi-oi">—</div></div>
+          <div class="px-2 py-1.5 border-r hairline"><div class="text-[var(--text-2)]">Avg Fund</div><div class="tabular" id="ast-kpi-fund">—</div></div>
+          <div class="px-2 py-1.5 border-r hairline"><div class="text-[var(--text-2)]">Prem vs BIN</div><div class="tabular" id="ast-kpi-prem">—</div></div>
+          <div class="px-2 py-1.5"><div class="text-[var(--text-2)]">BTC</div><div class="tabular text-[var(--text-0)]" id="ast-kpi-btc">—</div><div class="text-[9px]" id="ast-kpi-btc-sub">—</div></div>
+        </div>
+        <div id="ast-markets-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading Aster markets…</div>
+        </div>
+      </div>
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ffcb6b;box-shadow:0 0 10px #ffcb6b"></span>ASTER ↔ BINANCE PREMIUM</span>
+          <span class="text-[var(--text-2)] tabular">bps · sorted by |premium|</span>
+        </div>
+        <div id="ast-premium-body" class="overflow-y-auto scroll-clip" style="max-height: 500px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing premium…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Premium = (ASTER − BIN) / BIN × 10000 · persistent large premium = structural flow divergence
+        </div>
+      </div>
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>ASTER FUNDING GRID · TOP 24</span>
+          <span class="text-[var(--text-2)] tabular">% per 8h</span>
+        </div>
+        <div id="ast-fund-grid" style="height: 360px;"></div>
       </div>
     </div>
   </div>
@@ -2533,7 +2533,7 @@ function wireKeyboard() {
     const tag = (e.target && e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const map = {'1':'overview','2':'screener','3':'edge','4':'whales','5':'aster','6':'analytics'};
+    const map = {'1':'overview','2':'screener','3':'edge','4':'whales','5':'analytics'};
     if (map[e.key]) {
       const btn = document.querySelector(`.nav-tab[data-view="${map[e.key]}"]`);
       if (btn) btn.click();
@@ -6869,7 +6869,7 @@ function applyUrlToState() {
       if (btn) btn.click();
     }, 600);
   }
-  if (v && ['overview','screener','edge','whales','aster','analytics'].includes(v)) {
+  if (v && ['overview','screener','edge','whales','analytics'].includes(v)) {
     setTimeout(() => { try { switchView(v); } catch {} }, 800);
   }
 }
@@ -10292,7 +10292,7 @@ setInterval(() => { if (STATE.view === 'analytics') renderOptionsFlow(); }, 2500
       try { renderAtrRanker(); } catch {}
       try { renderOptionsFlow(); } catch {}
     }
-    if (v === 'aster') {
+    if (v === 'analytics') {
       try { renderAster(); } catch {}
     }
     if (v === 'whales') {
@@ -10454,7 +10454,7 @@ function renderAster() {
 
   const up = $('ast-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
 }
-setInterval(() => { if (STATE.view === 'aster') renderAster(); }, 5000);
+setInterval(() => { if (STATE.view === 'analytics') renderAster(); }, 5000);
 
 /* ---------- AGGREGATED WHALE TAPE (Binance + Bybit + OKX) ----------
    Opens per-venue public-trade WS connections on the top 6 perp symbols
@@ -10948,6 +10948,127 @@ setInterval(refreshEtfFlows, 15 * 60 * 1000);
       try { renderTokenUnlocks(); } catch {}
       try { renderEtfFlows(); } catch {}
     }
+  };
+})();
+
+/* ---------- COLLAPSIBLE PANELS ----------
+   Every panel gets a ▼ toggle in its header. Clicking collapses/expands
+   the panel body (chart/table). State persisted to localStorage per
+   panel-key (same key used for deep links). */
+const COLLAPSE_KEY = 'cortex.collapsedPanels.v1';
+function _loadCollapseState() {
+  try { const raw = localStorage.getItem(COLLAPSE_KEY); return raw ? new Set(JSON.parse(raw)) : new Set(); }
+  catch { return new Set(); }
+}
+function _saveCollapseState(s) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(Array.from(s))); } catch {}
+}
+const _collapseSet = _loadCollapseState();
+function _injectCollapseButtons() {
+  document.querySelectorAll('.panel').forEach(panel => {
+    const hd = panel.querySelector('.panel-hd');
+    if (!hd || hd.querySelector('.panel-collapse')) return;
+    // Derive a stable key — prefer the already-set panel-key from deep-link injector
+    const key = panel.dataset.panelKey || (typeof _panelKey === 'function' ? _panelKey(panel) : ('p-' + Math.random().toString(36).slice(2, 8)));
+    panel.dataset.panelKey = key;
+    const btn = document.createElement('span');
+    btn.className = 'panel-collapse';
+    btn.textContent = _collapseSet.has(key) ? '▶' : '▼';
+    btn.title = 'Collapse/expand panel';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = panel.classList.toggle('collapsed');
+      if (isCollapsed) { _collapseSet.add(key); btn.textContent = '▶'; }
+      else             { _collapseSet.delete(key); btn.textContent = '▼'; }
+      _saveCollapseState(_collapseSet);
+      setTimeout(() => {
+        Object.values(STATE.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} });
+      }, 120);
+    });
+    hd.insertBefore(btn, hd.firstChild);
+    if (_collapseSet.has(key)) panel.classList.add('collapsed');
+  });
+}
+setTimeout(_injectCollapseButtons, 1800);   // after _injectPanelLinks has assigned keys
+setTimeout(_injectCollapseButtons, 4000);
+setTimeout(_injectCollapseButtons, 8000);   // re-scan after lazy-rendered panels
+
+/* ---------- ⌘K PANEL JUMPER ----------
+   Extends the command palette with every panel on the page as a jumpable
+   target. Select → switch to its view → scroll into view + panel-flash. */
+function _cmdkPanelEntries() {
+  const out = [];
+  document.querySelectorAll('.panel').forEach(panel => {
+    const hd = panel.querySelector('.panel-hd > span:first-child');
+    if (!hd) return;
+    const key = panel.dataset.panelKey;
+    if (!key) return;
+    // Clean the label (strip the colored dot span text + arrow chars)
+    const txt = (hd.textContent || '').replace(/[•▼▶#]/g, '').trim().slice(0, 60);
+    if (!txt) return;
+    out.push({ id: 'p:' + key, label: 'Panel · ' + txt });
+  });
+  return out;
+}
+// Patch _cmdkBuildItems so typing also searches panels
+(function wrapCmdkBuild(){
+  if (typeof _cmdkBuildItems !== 'function') return;
+  const orig = _cmdkBuildItems;
+  _cmdkBuildItems = function(q) {
+    const base = orig(q);
+    const query = (q || '').toLowerCase().trim();
+    const panels = _cmdkPanelEntries();
+    if (!query) {
+      // Show a few panel entries when the palette first opens
+      return base.concat(panels.slice(0, 16));
+    }
+    const fuzzy = (str) => {
+      let si = 0; const lower = str.toLowerCase();
+      for (const c of query) {
+        si = lower.indexOf(c, si);
+        if (si === -1) return -1;
+        si++;
+      }
+      return 100 - lower.indexOf(query.charAt(0)) / 10 - str.length / 50;
+    };
+    const scored = panels.map(p => ({ ...p, _score: fuzzy(p.label) }))
+      .filter(p => p._score >= 0)
+      .sort((a,b) => b._score - a._score);
+    return base.concat(scored.slice(0, 30));
+  };
+})();
+// Extend _cmdkRun to handle the 'p:' panel prefix
+(function wrapCmdkRun(){
+  if (typeof _cmdkRun !== 'function') return;
+  const orig = _cmdkRun;
+  _cmdkRun = function() {
+    const it = _cmdkItems[_cmdkActiveIdx];
+    if (it && it.id && it.id.startsWith('p:')) {
+      const key = it.id.slice(2);
+      _cmdkClose();
+      // Find the panel by data-panel-key
+      const target = document.querySelector(`[data-panel-key="${key}"]`);
+      if (!target) return;
+      const view = target.closest('.view');
+      if (view && view.id && view.id.startsWith('view-') && view.classList.contains('hidden')) {
+        try { switchView(view.id.replace('view-', '')); } catch {}
+      }
+      // Expand if collapsed
+      if (target.classList.contains('collapsed')) {
+        target.classList.remove('collapsed');
+        const tg = target.querySelector('.panel-collapse');
+        if (tg) tg.textContent = '▼';
+        _collapseSet.delete(key);
+        _saveCollapseState(_collapseSet);
+      }
+      setTimeout(() => {
+        try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        target.classList.add('panel-flash');
+        setTimeout(() => target.classList.remove('panel-flash'), 2800);
+      }, 280);
+      return;
+    }
+    orig();
   };
 })();
 </script>
