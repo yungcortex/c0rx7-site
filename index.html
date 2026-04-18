@@ -13,13 +13,17 @@
 
 <!-- Open Graph / Twitter -->
 <meta property="og:title" content="c0r7x · perps terminal" />
-<meta property="og:description" content="Real-time perps dashboard — funding, OI, liquidations, depth and whales across 9 exchanges." />
+<meta property="og:description" content="Real-time perps dashboard — cross-venue spread, funding arbitrage, OI regime, CVD divergence, Deribit IV & skew, liquidation cascades across 9 exchanges." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://c0r7x.com/" />
 <meta property="og:site_name" content="c0r7x" />
+<meta property="og:image" content="https://c0r7x.com/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="c0r7x · perps terminal" />
-<meta name="twitter:description" content="Real-time perps dashboard — funding, OI, liquidations, depth and whales across 9 exchanges." />
+<meta name="twitter:description" content="Real-time perps dashboard — cross-venue spread, funding arbitrage, OI regime, CVD divergence, Deribit IV & skew, liquidation cascades." />
+<meta name="twitter:image" content="https://c0r7x.com/og.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6467,10 +6471,16 @@ function _shareCopy(url) {
 $('share-view')?.addEventListener('click', () => _shareCopy(_buildShareUrl()));
 // Apply any URL params on first load (deferred so STATE + DOM are settled).
 setTimeout(applyUrlToState, 1000);
-// Add a "Copy link to current view" entry to the ⌘K palette.
-if (Array.isArray(CMDK_ACTIONS)) {
-  CMDK_ACTIONS.push({ id: 'a:shareView', label: 'Action · Copy link to current view' });
-}
+// Add a "Copy link to current view" entry to the ⌘K palette. Deferred
+// because CMDK_ACTIONS is declared later in the file and we'd hit the TDZ
+// running this synchronously at module-load.
+setTimeout(() => {
+  try {
+    if (Array.isArray(CMDK_ACTIONS)) {
+      CMDK_ACTIONS.push({ id: 'a:shareView', label: 'Action · Copy link to current view' });
+    }
+  } catch {}
+}, 0);
 
 /* ---------- COMMAND PALETTE (⌘K / Ctrl+K) ----------
    Fuzzy-search symbols, views, and quick actions. Keyboard-first UX. */
