@@ -1117,6 +1117,23 @@
         <div id="ob-walls" class="border-t hairline text-[10.5px]"></div>
       </div>
 
+      <!-- Volume Profile (active symbol, 24h) -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>VOLUME PROFILE · <span id="vprof-sym">BTCUSDT</span> · 24H</span>
+          <span class="flex items-center gap-3 text-[var(--text-2)]">
+            <span>POC <span class="tabular text-[var(--text-0)]" id="vprof-poc">—</span></span>
+            <span>VAH <span class="tabular" id="vprof-vah" style="color:#22d17e;">—</span></span>
+            <span>VAL <span class="tabular" id="vprof-val" style="color:#ff5a6e;">—</span></span>
+          </span>
+        </div>
+        <div id="vprof-chart" style="height: 300px;"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between">
+          <span>POC = Point of Control · VAH/VAL = Value Area High/Low (70% of volume) · horizontal bars = volume at price</span>
+          <span>5m klines · last 24h</span>
+        </div>
+      </div>
+
       <!-- Funding rate history (active symbol, 7 days) -->
       <div class="panel col-span-12 xl:col-span-6">
         <div class="panel-hd">
@@ -1800,6 +1817,52 @@
         <div id="llama-chart" style="height: 280px;"></div>
         <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
           Stablecoin MC trends = dry-powder proxy · rising = liquidity inflow · falling = redemption / risk-off
+        </div>
+      </div>
+
+      <!-- Options Flow Tape (Deribit WS public trades) -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>OPTIONS FLOW · DERIBIT BTC/ETH</span>
+          <span class="text-[var(--text-2)] flex items-center gap-2">
+            <span>MIN</span>
+            <select id="opt-tape-min" class="bg-[#0b1220] text-[var(--text-0)] border border-[#1c2430] rounded px-2 py-0.5 text-[11px]" style="font-family:'JetBrains Mono',monospace;">
+              <option value="10000">$10K</option>
+              <option value="50000" selected>$50K</option>
+              <option value="100000">$100K</option>
+              <option value="250000">$250K</option>
+              <option value="1000000">$1M</option>
+            </select>
+            <span class="tabular">count <span id="opt-tape-count" class="text-[var(--text-0)]">0</span></span>
+          </span>
+        </div>
+        <div class="grid grid-cols-12 px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline">
+          <div class="col-span-2">Time</div>
+          <div class="col-span-4">Instrument</div>
+          <div class="col-span-1 text-right">IV</div>
+          <div class="col-span-1 text-center">Side</div>
+          <div class="col-span-2 text-right">Size</div>
+          <div class="col-span-2 text-right">Notional</div>
+        </div>
+        <div id="opt-tape-body" style="max-height: 420px; overflow-y: auto;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Connecting to Deribit option trades stream…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Large option block prints often front-run directional moves · buyer/seller inferred from trade direction
+        </div>
+      </div>
+
+      <!-- ATR Volatility Ranker -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ff9f5a;box-shadow:0 0 10px #ff9f5a"></span>ATR RANKER · 14H NORMALIZED</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="atr-updated">—</span></span>
+        </div>
+        <div id="atr-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing 14-hour ATR…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          ATR / price × 100 = expected daily range % · high ATR = wide ranges · low ATR = squeeze setups
         </div>
       </div>
 
@@ -2944,6 +3007,7 @@ STATE.charts.depth   = echarts.init($('depth-heatmap'),  'cortex', {renderer:'ca
 STATE.charts.oi      = echarts.init($('oi-chart'),       'cortex', {renderer:'canvas'});
 STATE.charts.cexBasis = echarts.init($('cex-basis-chart'),'cortex', {renderer:'canvas'});
 STATE.charts.fundHist = echarts.init($('fund-hist-chart'),'cortex', {renderer:'canvas'});
+STATE.charts.vprof    = echarts.init($('vprof-chart'),    'cortex', {renderer:'canvas'});
 window.addEventListener('resize', () => Object.values(STATE.charts).forEach(c=>c && c.resize()));
 // ResizeObserver so charts fill whatever height the grid row gives their panel
 (function wireChartObservers(){
@@ -9827,6 +9891,279 @@ function renderCorrelationBreakdown() {
   }));
   const up = $('corrbrk-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
 }
+
+/* ---------- VOLUME PROFILE (active symbol, 24h, 5m bars) ----------
+   32 price bins between 24h min/max. POC = highest-volume bin.
+   VAH/VAL bracket the 70% value area centred on POC. */
+STATE._vprofSym = null;
+async function refreshVolumeProfile() {
+  const sym = STATE.symbol;
+  try {
+    const bars = await fetchJson('binance:vprof:' + sym,
+      `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=5m&limit=288`);
+    if (!Array.isArray(bars) || bars.length < 10) return;
+    const closes = bars.map(k => +k[4]);
+    const vols   = bars.map(k => +k[7] || 0);
+    const min = Math.min(...closes);
+    const max = Math.max(...closes);
+    const range = max - min || max * 0.001;
+    const N = 32;
+    const bins = new Array(N).fill(0);
+    for (let i = 0; i < bars.length; i++) {
+      const bi = Math.min(N - 1, Math.max(0, Math.floor(((closes[i] - min) / range) * N)));
+      bins[bi] += vols[i];
+    }
+    const total = bins.reduce((a, b) => a + b, 0);
+    if (!total) return;
+    let pocIdx = 0;
+    for (let i = 1; i < N; i++) if (bins[i] > bins[pocIdx]) pocIdx = i;
+    let cum = bins[pocIdx], lo = pocIdx, hi = pocIdx;
+    while (cum / total < 0.7) {
+      const nxtHi = hi < N - 1 ? bins[hi + 1] : -1;
+      const nxtLo = lo > 0     ? bins[lo - 1] : -1;
+      if (nxtHi < 0 && nxtLo < 0) break;
+      if (nxtHi >= nxtLo) { hi++; cum += nxtHi; }
+      else                 { lo--; cum += nxtLo; }
+    }
+    const priceOf = (i) => min + (i + 0.5) * (range / N);
+    STATE._vprofSym = sym;
+    STATE._vprofData = {
+      bins, min, max, N, pocIdx, lo, hi,
+      poc: priceOf(pocIdx), vah: priceOf(hi), val: priceOf(lo),
+    };
+    renderVolumeProfile();
+  } catch (e) {
+    if (e?.message !== 'CB_OPEN') console.warn('vprof fail', e);
+  }
+}
+function renderVolumeProfile() {
+  const chart = STATE.charts.vprof; if (!chart) return;
+  const d = STATE._vprofData; if (!d) return;
+  const sym = STATE._vprofSym || STATE.symbol;
+  const $set = (id, text, color) => { const el = $(id); if (!el) return; el.textContent = text; if (color) el.style.color = color; };
+  $set('vprof-sym', sym);
+  $set('vprof-poc', fmt(d.poc, d.poc > 1000 ? 0 : 2));
+  $set('vprof-vah', fmt(d.vah, d.vah > 1000 ? 0 : 2));
+  $set('vprof-val', fmt(d.val, d.val > 1000 ? 0 : 2));
+  const priceOf = (i) => d.min + (i + 0.5) * ((d.max - d.min) / d.N);
+  const labels = [];
+  for (let i = 0; i < d.N; i++) labels.push(fmt(priceOf(i), d.max > 1000 ? 0 : (d.max > 1 ? 3 : 6)));
+  const data = d.bins.map((v, i) => {
+    const inValueArea = i >= d.lo && i <= d.hi;
+    const isPoc = i === d.pocIdx;
+    const color = isPoc ? '#00ffa3'
+                : inValueArea ? 'rgba(178,140,255,0.7)'
+                : 'rgba(154,164,178,0.32)';
+    return { value: v, itemStyle: { color } };
+  });
+  chart.setOption({
+    animation: false,
+    grid: { top: 16, left: 78, right: 28, bottom: 26 },
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'shadow' },
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: (p) => {
+        if (!p || !p.length) return '';
+        const i = p[0].dataIndex;
+        return `<b>${fmt(priceOf(i), d.max > 1000 ? 0 : 2)}</b>${i === d.pocIdx ? ' · <b style="color:#00ffa3;">POC</b>' : ''}<br/>Vol: <b>${fmtUsd(p[0].value)}</b>`;
+      }
+    },
+    xAxis: {
+      type: 'value',
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#9aa4b2', fontSize: 9, formatter: fmtUsd },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } },
+    },
+    yAxis: {
+      type: 'category', data: labels, inverse: true,
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#9aa4b2', fontSize: 9, interval: Math.floor(d.N / 10) },
+      splitLine: { show: false },
+    },
+    series: [{
+      type: 'bar', data, barWidth: '96%',
+    }]
+  }, true);
+}
+refreshVolumeProfile();
+setInterval(refreshVolumeProfile, 2 * 60 * 1000);
+// Trigger on symbol switch
+(function patchSwitchForVprof(){
+  const o = window.switchSymbol;
+  if (typeof o !== 'function') return;
+  window.switchSymbol = function(sym) {
+    o(sym);
+    setTimeout(refreshVolumeProfile, 500);
+  };
+})();
+
+/* ---------- ATR VOLATILITY RANKER ---------- */
+STATE._atrBySymbol = STATE._atrBySymbol || new Map();
+async function refreshAtrRanker() {
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a, b) => +b.quoteVolume - +a.quoteVolume).slice(0, 30).map(t => t.symbol);
+  if (!top.length) return;
+  await Promise.allSettled(top.map(async sym => {
+    try {
+      const bars = await fetchJson('binance:atr1h:' + sym,
+        `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=1h&limit=15`);
+      if (!Array.isArray(bars) || bars.length < 15) return;
+      const tr = [];
+      for (let i = 1; i < bars.length; i++) {
+        const h = +bars[i][2], l = +bars[i][3], pc = +bars[i-1][4];
+        tr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+      }
+      const atr = tr.reduce((a, b) => a + b, 0) / tr.length;
+      const last = +bars.at(-1)[4];
+      if (atr > 0 && last > 0) STATE._atrBySymbol.set(sym, { atr, close: last, pct: (atr / last) * 100 });
+    } catch (_) {}
+  }));
+  renderAtrRanker();
+}
+function renderAtrRanker() {
+  const el = $('atr-body'); if (!el) return;
+  const rows = Array.from(STATE._atrBySymbol.entries())
+    .map(([sym, d]) => ({ sym, ...d })).filter(r => r.pct != null)
+    .sort((a, b) => b.pct - a.pct);
+  const up = $('atr-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+  if (!rows.length) return;
+  const pcts = rows.map(r => r.pct).sort((a,b)=>a-b);
+  const pctileOf = (v) => {
+    let lo = 0;
+    for (let i = 0; i < pcts.length; i++) if (pcts[i] <= v) lo = i;
+    return (lo / Math.max(1, pcts.length - 1)) * 100;
+  };
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-3">Symbol</div>
+      <div class="col-span-3 text-right">ATR 14h</div>
+      <div class="col-span-3 text-right">ATR %</div>
+      <div class="col-span-3 text-right">Regime</div>
+    </div>`;
+  const body = rows.map(r => {
+    const pct = pctileOf(r.pct);
+    let tag, color;
+    if (pct >= 75)      { tag = 'HIGH VOL'; color = '#ff5a6e'; }
+    else if (pct >= 25) { tag = 'MID';      color = 'var(--text-1)'; }
+    else                { tag = 'SQUEEZE';  color = '#22d17e'; }
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${fmt(r.atr, r.atr > 100 ? 2 : 4)}</div>
+      <div class="col-span-3 text-right text-[var(--text-0)] font-semibold">${r.pct.toFixed(2)}%</div>
+      <div class="col-span-3 text-right font-semibold" style="color:${color};letter-spacing:0.1em;">${tag}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+(function kickAtrRanker() {
+  if (STATE.ticker24h.size > 0) {
+    refreshAtrRanker();
+    setInterval(refreshAtrRanker, 5 * 60 * 1000);
+  } else {
+    setTimeout(kickAtrRanker, 10000);
+  }
+})();
+
+/* ---------- DERIBIT OPTIONS FLOW TAPE (public WS) ---------- */
+STATE.optFlow = STATE.optFlow || { trades: [], threshold: 50000 };
+let _optWs = null, _optBackoff = 2000;
+function _connectOptFlow() {
+  try { if (_optWs) _optWs.close(); } catch {}
+  try { _optWs = new WebSocket('wss://www.deribit.com/ws/api/v2'); }
+  catch (e) { setTimeout(_connectOptFlow, _optBackoff); return; }
+  STATE.diag.ws.deribitOpt = STATE.diag.ws.deribitOpt || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
+  _optWs.onopen = () => {
+    _optBackoff = 2000;
+    STATE.diag.ws.deribitOpt.state = 'open';
+    _optWs.send(JSON.stringify({
+      jsonrpc:'2.0', id: 1, method: 'public/subscribe',
+      params: { channels: ['trades.option.BTC.100ms', 'trades.option.ETH.100ms'] },
+    }));
+  };
+  _optWs.onmessage = (ev) => {
+    let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+    if (!msg?.params?.data || !Array.isArray(msg.params.data)) return;
+    for (const t of msg.params.data) {
+      const inst = t.instrument_name || '';
+      const amt  = +t.amount || 0;
+      const px   = +t.price || 0;
+      const mark = +t.mark_price || px;
+      const underly = +t.index_price || 0;
+      if (!amt || !px || !underly) continue;
+      const notional = amt * underly * mark;
+      STATE.optFlow.trades.unshift({
+        t: t.timestamp || Date.now(), inst,
+        size: amt, price: px, mark, iv: +t.iv || 0,
+        side: (t.direction || '').toLowerCase(),
+        notional,
+      });
+    }
+    if (STATE.optFlow.trades.length > 400) STATE.optFlow.trades.length = 400;
+    STATE.diag.ws.deribitOpt.lastMsg = Date.now();
+    STATE.diag.ws.deribitOpt.msgCount = (STATE.diag.ws.deribitOpt.msgCount || 0) + 1;
+    if (STATE.view === 'analytics') renderOptionsFlow();
+  };
+  _optWs.onerror = () => { STATE.diag.ws.deribitOpt.state = 'error'; };
+  _optWs.onclose = () => {
+    STATE.diag.ws.deribitOpt.state = 'closed';
+    STATE.diag.ws.deribitOpt.reconnects = (STATE.diag.ws.deribitOpt.reconnects || 0) + 1;
+    setTimeout(_connectOptFlow, _optBackoff);
+    _optBackoff = Math.min(_optBackoff * 1.8, 30000);
+  };
+}
+_connectOptFlow();
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'opt-tape-min') {
+    STATE.optFlow.threshold = +e.target.value || 50000;
+    renderOptionsFlow();
+  }
+});
+function renderOptionsFlow() {
+  const body = $('opt-tape-body'); if (!body) return;
+  const trades = STATE.optFlow.trades || [];
+  const thr = STATE.optFlow.threshold || 50000;
+  const filtered = trades.filter(x => x.notional >= thr).slice(0, 120);
+  const cnt = $('opt-tape-count'); if (cnt) cnt.textContent = filtered.length;
+  if (!filtered.length) {
+    body.innerHTML = `<div class="p-4 text-[11px] text-[var(--text-2)]">No trades ≥ ${fmtUsd(thr)} since stream opened.</div>`;
+    return;
+  }
+  body.innerHTML = filtered.map(t => {
+    const dt = new Date(t.t);
+    const time = `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())}`;
+    const sideColor = t.side === 'buy' ? '#22d17e' : '#ff5a6e';
+    const sideLabel = t.side === 'buy' ? 'BUY' : 'SELL';
+    const isCall = t.inst.endsWith('-C');
+    const instColor = isCall ? '#22d17e' : '#ff5a6e';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular">
+      <div class="col-span-2 text-[var(--text-2)]">${time}</div>
+      <div class="col-span-4 truncate" style="color:${instColor};" title="${t.inst}">${t.inst}</div>
+      <div class="col-span-1 text-right text-[var(--text-2)]">${(t.iv).toFixed(0)}</div>
+      <div class="col-span-1 text-center font-semibold" style="color:${sideColor};letter-spacing:0.1em;">${sideLabel}</div>
+      <div class="col-span-2 text-right">${fmt(t.size, 2)}</div>
+      <div class="col-span-2 text-right text-[var(--text-0)] font-semibold">${fmtUsd(t.notional)}</div>
+    </div>`;
+  }).join('');
+}
+setInterval(() => { if (STATE.view === 'analytics') renderOptionsFlow(); }, 2500);
+
+// Hook analytics view switch (chain onto existing switchView)
+(function hookBatch7Panels(){
+  const o = window.switchView;
+  if (typeof o !== 'function') return;
+  window.switchView = function(v) {
+    o(v);
+    if (v === 'analytics') {
+      try { renderAtrRanker(); } catch {}
+      try { renderOptionsFlow(); } catch {}
+    }
+  };
+})();
 </script>
 </body>
 </html>
