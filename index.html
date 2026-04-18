@@ -3292,11 +3292,15 @@ async function fetchKucoinContracts() {
       if (fr != null && !Number.isNaN(fr) && fr !== 0) { obj.kucoin = fr; fundingCount++; }
       else if (c.symbol) needFunding.push({ksym: c.symbol, sym});
       STATE.funding[sym] = obj;
-      // openInterest is in coin units for linear; multiply by mark for USD
-      const oiCoin = c.openInterest != null ? +c.openInterest : null;
-      if (oiCoin != null && !isNaN(oiCoin) && last) {
+      // openInterest on KuCoin Futures is in CONTRACTS, not coins. Convert
+      // with the contract's `multiplier` (e.g. XBTUSDTM = 0.001 BTC each)
+      // before multiplying by mark price. Without the multiplier we were
+      // inflating BTC OI to ~$8.5T (should be ~$2B).
+      const oiContracts = c.openInterest != null ? +c.openInterest : null;
+      const mult = c.multiplier != null ? +c.multiplier : 1;
+      if (oiContracts != null && !isNaN(oiContracts) && last && mult) {
         const ox = STATE.openInterestByEx[sym] || {};
-        ox.kucoin = oiCoin * last;
+        ox.kucoin = oiContracts * mult * last;
         STATE.openInterestByEx[sym] = ox;
       }
     });
