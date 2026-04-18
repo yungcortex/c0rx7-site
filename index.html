@@ -3275,7 +3275,12 @@ async function fetchKucoinContracts() {
     const needFunding = [];  // contracts where the bulk payload has no rate → fall back
     let fundingCount = 0;
     list.forEach(c => {
-      // KuCoin symbol like XBTUSDTM / ETHUSDTM. Drop trailing 'M', map XBT→BTC.
+      // Only track USDT-margined LINEAR perps. Inverse contracts (e.g.
+      // XBTUSDM) share the same baseCurrency and would otherwise overwrite
+      // the linear entry with a completely different notional basis.
+      const kSym = c.symbol || '';
+      if (!/USDTM$/.test(kSym)) return;
+      if (c.quoteCurrency && c.quoteCurrency.toUpperCase() !== 'USDT') return;
       let base = (c.baseCurrency || '').toUpperCase();
       if (base === 'XBT') base = 'BTC';
       if (!base) return;
