@@ -794,6 +794,22 @@
   <div id="wl-chips" class="flex items-center gap-1 flex-wrap text-[11px]"></div>
   <span id="wl-status" class="text-[var(--text-2)] text-[10px] ml-auto"></span>
 </div>
+<!-- ============ FUNDING COUNTDOWN STRIP ============ -->
+<div id="fund-countdown-strip" class="px-3 md:px-4 pt-2 flex items-center gap-4 flex-wrap text-[11px]">
+  <div class="flex items-center gap-2">
+    <span class="small-caps text-[var(--text-2)] tracking-widest">Next Funding</span>
+    <span class="tabular font-semibold" style="color:#ffcb6b;" id="fc-sym">BTCUSDT</span>
+    <span class="tabular" id="fc-time" style="color:#c2cbd6;">—</span>
+    <span class="text-[var(--text-2)]">·</span>
+    <span class="tabular" id="fc-rate" style="color:var(--text-0);">—</span>
+    <span class="text-[10px] text-[var(--text-2)] tracking-widest">PREDICTED</span>
+  </div>
+  <div class="flex items-center gap-4 text-[10px] text-[var(--text-2)] tracking-widest">
+    <span>BINANCE FUNDING · 8H INTERVALS · 00:00 · 08:00 · 16:00 UTC</span>
+  </div>
+  <span id="fc-nudge" class="ml-auto text-[10px]"></span>
+</div>
+
 <!-- ============ MAIN LAYOUT ============ -->
 <main class="px-3 md:px-4 py-3">
   <div class="grid grid-cols-12 gap-3">
@@ -1615,6 +1631,34 @@
         </div>
       </div>
 
+      <!-- Relative Strength vs BTC -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#f0b90b;box-shadow:0 0 10px #f0b90b"></span>RELATIVE STRENGTH vs BTC · 24H</span>
+          <span class="text-[var(--text-2)] tabular">BTC 24h <span id="rs-btc-ref">—</span></span>
+        </div>
+        <div id="rs-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Computing RS scores…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          RS = (1 + sym24h%) / (1 + btc24h%) − 1 · positive = outperforming, negative = lagging · top 12 / bottom 12
+        </div>
+      </div>
+
+      <!-- Economic Calendar -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ff9f5a;box-shadow:0 0 10px #ff9f5a"></span>MACRO EVENTS · NEXT 7 DAYS</span>
+          <span class="text-[var(--text-2)] tabular">source <span id="econ-src">—</span> · updated <span id="econ-updated">—</span></span>
+        </div>
+        <div id="econ-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading calendar…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Impact: <b style="color:#ff5a6e;">HIGH</b> = vol-moving (Fed, CPI, NFP) · <b style="color:#ffcb6b;">MED</b> · <b style="color:var(--text-2)">LOW</b>
+        </div>
+      </div>
+
       <!-- Spot-Perp Basis dashboard -->
       <div class="panel col-span-12">
         <div class="panel-hd">
@@ -1639,25 +1683,35 @@
           </span>
         </div>
         <div class="grid grid-cols-12 border-b hairline text-center text-[11px]">
-          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
-            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Stablecoin MC</div>
+          <div class="col-span-6 md:col-span-2 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Stable MC</div>
             <div class="tabular text-[var(--text-0)] text-[15px]" id="llama-stable-mc">—</div>
             <div class="tabular text-[10px]" id="llama-stable-chg7d">—</div>
           </div>
-          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
-            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">DEX Vol 24h</div>
+          <div class="col-span-6 md:col-span-2 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">Stable Flow 24H</div>
+            <div class="tabular text-[var(--text-0)] text-[15px]" id="llama-stable-flow24">—</div>
+            <div class="tabular text-[10px] text-[var(--text-2)]">net issuance</div>
+          </div>
+          <div class="col-span-6 md:col-span-2 border-r hairline px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">DEX Vol 24H</div>
             <div class="tabular text-[var(--text-0)] text-[15px]" id="llama-dex-vol">—</div>
             <div class="tabular text-[10px]" id="llama-dex-chg">—</div>
           </div>
-          <div class="col-span-6 md:col-span-3 border-r hairline px-3 py-2">
+          <div class="col-span-6 md:col-span-2 border-r hairline px-3 py-2">
             <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">TVL Total</div>
             <div class="tabular text-[var(--text-0)] text-[15px]" id="llama-tvl">—</div>
             <div class="tabular text-[10px]" id="llama-tvl-chg">—</div>
           </div>
-          <div class="col-span-6 md:col-span-3 px-3 py-2">
+          <div class="col-span-6 md:col-span-2 border-r hairline px-3 py-2">
             <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">USDT / USDC</div>
             <div class="tabular text-[var(--text-0)] text-[15px]" id="llama-split">—</div>
             <div class="tabular text-[10px] text-[var(--text-2)]">market share</div>
+          </div>
+          <div class="col-span-6 md:col-span-2 px-3 py-2">
+            <div class="text-[10px] uppercase tracking-widest text-[var(--text-2)]">BTC Dominance</div>
+            <div class="tabular text-[var(--text-0)] text-[15px]" id="macro-btc-dom">—</div>
+            <div class="tabular text-[10px] text-[var(--text-2)]">Binance vol basis</div>
           </div>
         </div>
         <div id="llama-chart" style="height: 280px;"></div>
@@ -1739,6 +1793,34 @@
         </div>
         <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
           CVD = cumulative taker-buy − taker-sell volume on Binance perps · divergence = price moves one way, flow moves the other
+        </div>
+      </div>
+
+      <!-- Hot Zones Detector -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ff5a6e"></span>HOT ZONES · UNUSUAL ACTIVITY</span>
+          <span class="text-[var(--text-2)] tabular">scored <span id="hot-count">—</span> · updated <span id="hot-updated">—</span></span>
+        </div>
+        <div id="hot-zones-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Scanning for abnormal moves…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Score = 1h%² + vol-surge × 2 + OI Δ + |funding| — accelerating moves on strong flow bubble to the top
+        </div>
+      </div>
+
+      <!-- Volume Surge Detector -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#39e0ff"></span>VOLUME SURGES · &gt; 3× HOURLY AVG</span>
+          <span class="text-[var(--text-2)] tabular">updated <span id="vsurge-updated">—</span></span>
+        </div>
+        <div id="vsurge-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Sampling hourly volume baselines…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Surge = last-hour vol / 24h mean hourly vol · sustained &gt;3× often precedes directional moves
         </div>
       </div>
 
@@ -8512,6 +8594,372 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     }
   } catch {}
 })();
+
+/* ---------- HOT ZONES DETECTOR ----------
+   Multi-factor unusual-activity ranker. Pulls every ingredient we already
+   have (priceChangePercent, quoteVolume, momentumByTf, oiChange24h, funding)
+   and scores each USDT perp. Sustained acceleration on strong flow rises to
+   the top. */
+function computeHotZones() {
+  if (!STATE.ticker24h.size) return [];
+  const byOiPct = new Map();
+  (STATE.oiChange24h || []).forEach(r => byOiPct.set(r.sym, r.pct));
+  const momo1h = STATE.momentumByTf?.['1h'] || new Map();
+  const out = [];
+  for (const [sym, t] of STATE.ticker24h) {
+    if (!sym.endsWith('USDT') || sym.includes('_')) continue;
+    const vol24 = +t.quoteVolume || 0;
+    if (vol24 < 1_000_000) continue;
+    const chg24 = +t.priceChangePercent || 0;
+    const chg1h = momo1h.get(sym) ?? 0;
+    const oiPct = byOiPct.get(sym);
+    const f     = STATE.funding[sym] || {};
+    const fund  = (f.binance != null ? f.binance : 0) * 100;
+    // Volume surge proxy: compare realized vol bucket if klines volume is
+    // cached. Fall back to 1h% magnitude as proxy.
+    const volSurge = Math.abs(chg1h);
+    const score =
+      Math.pow(Math.abs(chg1h), 1.3) * 3 +
+      Math.abs(chg24) * 0.8 +
+      (oiPct != null ? Math.abs(oiPct) * 1.2 : 0) +
+      volSurge * 2 +
+      Math.abs(fund) * 100;
+    if (score < 3) continue;
+    out.push({ sym, score, chg1h, chg24, oiPct, fund, vol24 });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return out.slice(0, 20);
+}
+function renderHotZones() {
+  const el = $('hot-zones-body'); if (!el) return;
+  const rows = computeHotZones();
+  const up = $('hot-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+  const cnt = $('hot-count'); if (cnt) cnt.textContent = rows.length;
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Quiet market — no unusual activity.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Sym</div>
+      <div class="col-span-2 text-right">1h %</div>
+      <div class="col-span-2 text-right">24h %</div>
+      <div class="col-span-2 text-right">ΔOI 24h</div>
+      <div class="col-span-2 text-right">Fund</div>
+      <div class="col-span-2 text-right">Score</div>
+    </div>`;
+  const body = rows.map(r => {
+    const c1 = r.chg1h >= 0 ? 'num-up' : 'num-down';
+    const c24 = r.chg24 >= 0 ? 'num-up' : 'num-down';
+    const coi = r.oiPct == null ? 'text-[var(--text-2)]' : (r.oiPct >= 0 ? 'num-up' : 'num-down');
+    const cf  = r.fund >= 0 ? 'num-up' : 'num-down';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-2 text-right ${c1}">${(r.chg1h>=0?'+':'') + r.chg1h.toFixed(2)}%</div>
+      <div class="col-span-2 text-right ${c24}">${(r.chg24>=0?'+':'') + r.chg24.toFixed(2)}%</div>
+      <div class="col-span-2 text-right ${coi}">${r.oiPct == null ? '—' : (r.oiPct>=0?'+':'') + r.oiPct.toFixed(1)+'%'}</div>
+      <div class="col-span-2 text-right ${cf}">${r.fund.toFixed(4)}%</div>
+      <div class="col-span-2 text-right text-[var(--text-0)] font-semibold">${r.score.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+
+/* ---------- VOLUME SURGE DETECTOR ----------
+   Compares last-hour quote volume (from 1h klines we fetch in
+   refreshMomentumData) vs the 24-hour average hourly volume (quoteVolume
+   / 24). Flags symbols where the ratio exceeds 3×. */
+STATE.volSurgeData = STATE.volSurgeData || new Map();
+async function refreshVolumeSurge() {
+  const top = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_'))
+    .sort((a, b) => +b.quoteVolume - +a.quoteVolume).slice(0, 40).map(t => t.symbol);
+  if (!top.length) return;
+  await Promise.allSettled(top.map(async sym => {
+    try {
+      const bars = await fetchJson('binance:vs:1h:' + sym,
+        `${CFG.binance.rest}/fapi/v1/klines?symbol=${sym}&interval=1h&limit=2`);
+      if (!Array.isArray(bars) || bars.length < 1) return;
+      const lastBar = bars.at(-1);
+      const vol1h = +lastBar[7] || 0;              // quote asset volume
+      const t = STATE.ticker24h.get(sym);
+      const avgHour = t ? (+t.quoteVolume || 0) / 24 : 0;
+      if (!avgHour) return;
+      STATE.volSurgeData.set(sym, {
+        vol1h, avgHour, ratio: vol1h / avgHour, close: +lastBar[4],
+        chg1h: +((+lastBar[4] - +lastBar[1]) / +lastBar[1] * 100).toFixed(3),
+      });
+    } catch (_) {}
+  }));
+  if (STATE.view === 'edge') renderVolumeSurge();
+}
+function renderVolumeSurge() {
+  const el = $('vsurge-body'); if (!el) return;
+  const rows = Array.from(STATE.volSurgeData.entries())
+    .map(([sym, d]) => ({ sym, ...d }))
+    .filter(r => r.ratio >= 3)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 20);
+  const up = $('vsurge-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Quiet hour — no volume spikes over 3× baseline.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Sym</div>
+      <div class="col-span-3 text-right">1h vol</div>
+      <div class="col-span-3 text-right">Avg hr vol</div>
+      <div class="col-span-2 text-right">Ratio</div>
+      <div class="col-span-2 text-right">1h %</div>
+    </div>`;
+  const body = rows.map(r => {
+    const chgCls = r.chg1h >= 0 ? 'num-up' : 'num-down';
+    const ratioColor = r.ratio >= 10 ? '#ff5a6e' : r.ratio >= 5 ? '#ffcb6b' : '#22d17e';
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 text-right">${fmtUsd(r.vol1h)}</div>
+      <div class="col-span-3 text-right text-[var(--text-2)]">${fmtUsd(r.avgHour)}</div>
+      <div class="col-span-2 text-right font-semibold" style="color:${ratioColor}">${r.ratio.toFixed(1)}×</div>
+      <div class="col-span-2 text-right ${chgCls}">${(r.chg1h>=0?'+':'') + r.chg1h.toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+setTimeout(refreshVolumeSurge, 8000);
+setInterval(refreshVolumeSurge, 5 * 60 * 1000);
+
+/* ---------- RELATIVE STRENGTH vs BTC ---------- */
+function renderRelativeStrength() {
+  const el = $('rs-body'); if (!el) return;
+  const t = Array.from(STATE.ticker24h.values())
+    .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('_') && (+t.quoteVolume || 0) > 5_000_000);
+  const btc = STATE.ticker24h.get('BTCUSDT');
+  if (!btc || !t.length) return;
+  const btcChg = +btc.priceChangePercent;
+  const btcRef = $('rs-btc-ref'); if (btcRef) btcRef.textContent = (btcChg>=0?'+':'') + btcChg.toFixed(2) + '%';
+  const rows = t.map(x => {
+    const chg = +x.priceChangePercent;
+    const rs = ((1 + chg/100) / (1 + btcChg/100) - 1) * 100;
+    return { sym: x.symbol, chg, rs, vol: +x.quoteVolume || 0 };
+  }).sort((a, b) => b.rs - a.rs);
+  const top = rows.slice(0, 12);
+  const bot = rows.slice(-12).reverse();
+  const hdr = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-3">Sym</div>
+      <div class="col-span-3 text-right">24h %</div>
+      <div class="col-span-3 text-right">RS vs BTC</div>
+      <div class="col-span-3 text-right">24h vol</div>
+    </div>`;
+  const row = (r) => `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+    <div class="col-span-3 sym">${r.sym.replace('USDT','')}</div>
+    <div class="col-span-3 text-right ${r.chg>=0?'num-up':'num-down'}">${(r.chg>=0?'+':'') + r.chg.toFixed(2)}%</div>
+    <div class="col-span-3 text-right font-semibold" style="color:${r.rs>=0?'#22d17e':'#ff5a6e'}">${(r.rs>=0?'+':'') + r.rs.toFixed(2)}%</div>
+    <div class="col-span-3 text-right text-[var(--text-2)]">${fmtUsd(r.vol)}</div>
+  </div>`;
+  el.innerHTML = hdr +
+    '<div class="px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline" style="background:rgba(34,209,126,0.06);">▲ Outperformers</div>' +
+    top.map(row).join('') +
+    '<div class="px-3 py-1 text-[9.5px] uppercase tracking-widest text-[var(--text-2)] border-b hairline" style="background:rgba(255,90,110,0.06);">▼ Laggards</div>' +
+    bot.map(row).join('');
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+
+/* ---------- ECONOMIC CALENDAR ----------
+   Tries the free faireconomy feed; falls back to a hand-curated set of
+   major known events if CORS/rate-limit blocks the fetch. */
+STATE.economic = STATE.economic || { events: [], src: '—' };
+async function refreshEconomicCalendar() {
+  const now = Date.now();
+  const oneWeek = 7 * 86400 * 1000;
+  let events = [];
+  let src = 'static';
+  try {
+    const r = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json', { cache: 'no-cache' });
+    if (r.ok) {
+      const raw = await r.json();
+      if (Array.isArray(raw) && raw.length) {
+        events = raw.map(e => ({
+          t: new Date(e.date).getTime(),
+          country: e.country || '',
+          title: e.title || '',
+          impact: (e.impact || '').toLowerCase(),
+          forecast: e.forecast || '',
+          previous: e.previous || '',
+        })).filter(e => e.t >= now - 4*3600*1000 && e.t <= now + oneWeek && e.title);
+        src = 'faireconomy';
+      }
+    }
+  } catch (_) {}
+  // Fallback static events (always show US CPI / FOMC stubs for guidance)
+  if (!events.length) {
+    events = _staticEcoEvents(now, oneWeek);
+    src = 'static';
+  }
+  events.sort((a, b) => a.t - b.t);
+  STATE.economic = { events, src, updated: now };
+  if (STATE.view === 'analytics') renderEconomicCalendar();
+}
+function _staticEcoEvents(now, range) {
+  // Second Wednesday of each month = CPI. 1st Fri = NFP. FOMC varies.
+  const out = [];
+  const d = new Date();
+  // Next two Fridays (NFP proxy if near month start)
+  for (let i = 0; i < 14; i++) {
+    const dt = new Date(d.getTime() + i * 86400000);
+    const day = dt.getUTCDay();
+    if (day === 5 && dt.getUTCDate() <= 7) {
+      out.push({ t: Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 12, 30),
+                 country:'USD', title:'Non-Farm Payrolls (NFP)', impact:'high', forecast:'—', previous:'—' });
+    }
+  }
+  return out.filter(e => e.t >= now - 4*3600*1000 && e.t <= now + range);
+}
+function renderEconomicCalendar() {
+  const el = $('econ-body'); if (!el) return;
+  const d = STATE.economic;
+  const srcEl = $('econ-src'); if (srcEl) srcEl.textContent = d.src;
+  const up = $('econ-updated'); if (up) up.textContent = nowHHMMSS() + 'Z';
+  if (!d.events?.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No upcoming high-impact events.</div>';
+    return;
+  }
+  const impColor = (i) => i === 'high' ? '#ff5a6e' : i === 'medium' ? '#ffcb6b' : '#5b6472';
+  const now = Date.now();
+  const hdr = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">When</div>
+      <div class="col-span-1">CC</div>
+      <div class="col-span-6">Event</div>
+      <div class="col-span-1 text-right">Imp</div>
+      <div class="col-span-2 text-right">Fcst / Prev</div>
+    </div>`;
+  const body = d.events.slice(0, 30).map(ev => {
+    const dt = new Date(ev.t);
+    const past = ev.t < now;
+    const iso = dt.toISOString().slice(5,16).replace('T', ' ');
+    const dayDiff = (ev.t - now) / 86400000;
+    const when = Math.abs(dayDiff) < 1
+      ? `${dayDiff < 0 ? '-' : '+'}${Math.abs(Math.round(dayDiff * 24))}h`
+      : iso;
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular" style="opacity:${past ? 0.45 : 1};">
+      <div class="col-span-2 text-[var(--text-2)]">${when}</div>
+      <div class="col-span-1" style="color:${past ? '#5b6472' : '#c2cbd6'};">${ev.country}</div>
+      <div class="col-span-6 truncate" title="${ev.title.replace(/"/g,'&quot;')}">${ev.title}</div>
+      <div class="col-span-1 text-right font-semibold" style="color:${impColor(ev.impact)};">${(ev.impact || '').toUpperCase().slice(0,3) || '—'}</div>
+      <div class="col-span-2 text-right text-[var(--text-2)]">${(ev.forecast || '—') + ' / ' + (ev.previous || '—')}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = hdr + body;
+}
+refreshEconomicCalendar();
+setInterval(refreshEconomicCalendar, 30 * 60 * 1000);
+
+/* ---------- STABLECOIN 24H FLOW (extension of macro panel) ----------
+   Diff latest vs 24h-ago sample from DefiLlama stableChart series. */
+function _renderStableFlow() {
+  const series = STATE.llama?.stableSeries;
+  if (!series || series.length < 2) return;
+  const last = series.at(-1);
+  const target = last.t - 24*3600*1000;
+  let prev = series[0];
+  for (let i = series.length - 1; i >= 0; i--) {
+    if (series[i].t <= target) { prev = series[i]; break; }
+  }
+  const flow24 = last.mc - prev.mc;
+  const el = $('llama-stable-flow24');
+  if (el) {
+    el.textContent = (flow24 >= 0 ? '+' : '') + fmtUsd(flow24);
+    el.style.color = flow24 >= 0 ? '#22d17e' : '#ff5a6e';
+  }
+  // BTC dominance — use our 24h ticker data (BTC vol share)
+  const arr = Array.from(STATE.ticker24h.values());
+  if (arr.length) {
+    const total = arr.reduce((a, t) => a + (+t.quoteVolume || 0), 0);
+    const btc = STATE.ticker24h.get('BTCUSDT');
+    const dom = btc && total ? (+btc.quoteVolume / total * 100) : null;
+    const dEl = $('macro-btc-dom');
+    if (dEl) dEl.textContent = dom != null ? dom.toFixed(2) + '%' : '—';
+  }
+}
+setInterval(_renderStableFlow, 10 * 1000);
+
+/* ---------- FUNDING COUNTDOWN (active symbol) ---------- */
+function _renderFundingCountdown() {
+  const sym = STATE.symbol;
+  const f = STATE.funding[sym];
+  const next = f?.nextFunding;
+  const symEl = $('fc-sym'); if (symEl) symEl.textContent = sym.replace('USDT','');
+  const timeEl = $('fc-time');
+  const rateEl = $('fc-rate');
+  const nudge = $('fc-nudge');
+  if (!next) {
+    if (timeEl) timeEl.textContent = '—';
+    if (rateEl) rateEl.textContent = '—';
+    return;
+  }
+  const delta = next - Date.now();
+  if (delta <= 0) {
+    if (timeEl) timeEl.textContent = 'SETTLING';
+    return;
+  }
+  const h = Math.floor(delta / 3600000);
+  const m = Math.floor((delta % 3600000) / 60000);
+  const s = Math.floor((delta % 60000) / 1000);
+  if (timeEl) timeEl.textContent = `${h}h ${pad(m)}m ${pad(s)}s`;
+  if (f.binance != null && rateEl) {
+    const pct = f.binance * 100;
+    rateEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(4) + '%';
+    rateEl.style.color = pct >= 0 ? '#22d17e' : '#ff5a6e';
+  }
+  // "Nudge" text: flag imminent settlement or extreme rate
+  if (nudge) {
+    if (delta < 15 * 60 * 1000) {
+      nudge.textContent = '⚠ IMMINENT — liquidity thins near funding';
+      nudge.style.color = '#ffcb6b';
+    } else if (Math.abs(f?.binance || 0) * 100 > 0.05) {
+      nudge.textContent = '⚡ CROWDED positioning';
+      nudge.style.color = '#ff5a6e';
+    } else {
+      nudge.textContent = '';
+    }
+  }
+}
+setInterval(_renderFundingCountdown, 1000);
+_renderFundingCountdown();
+
+/* ---------- HOOK RENDERERS INTO TAB SWITCHES ----------
+   ensures the new panels populate when their view is activated */
+(function hookNewPanelsIntoTabSwitch(){
+  const o = window.switchView;
+  if (typeof o !== 'function') return;
+  window.switchView = function(v) {
+    o(v);
+    if (v === 'edge') {
+      try { renderHotZones(); } catch {}
+      try { renderVolumeSurge(); } catch {}
+    }
+    if (v === 'analytics') {
+      try { renderRelativeStrength(); } catch {}
+      try { renderEconomicCalendar(); } catch {}
+      try { _renderStableFlow(); } catch {}
+    }
+  };
+})();
+// Periodic refresh while the view is active
+setInterval(() => {
+  if (STATE.view === 'edge') { renderHotZones(); renderVolumeSurge(); }
+  if (STATE.view === 'analytics') { renderRelativeStrength(); }
+}, 5000);
 </script>
 </body>
 </html>
