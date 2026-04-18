@@ -1434,6 +1434,76 @@
         <div id="vol-leaders" style="height: 360px;"></div>
       </div>
 
+      <!-- Deribit options: IV term structure + skew -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>OPTIONS MARKET · IV / SKEW / OI</span>
+          <span class="text-[var(--text-2)] flex items-center gap-3">
+            <span class="tabular">Deribit · updated <span id="derib-updated">—</span></span>
+          </span>
+        </div>
+        <div class="grid grid-cols-12 gap-0">
+          <div class="col-span-12 md:col-span-6 md:border-r hairline" id="derib-btc">
+            <div class="px-3 py-2 border-b hairline flex items-center justify-between">
+              <span class="font-semibold" style="color:#f0b90b;letter-spacing:0.18em;">BTC</span>
+              <span class="text-[10px] text-[var(--text-2)] tracking-widest">
+                SPOT <b class="tabular text-[var(--text-0)]" id="derib-btc-spot">—</b>
+              </span>
+            </div>
+            <div class="grid grid-cols-4 text-center text-[10px] uppercase tracking-widest border-b hairline">
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">ATM IV 7d</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-btc-ivFront">—</div>
+              </div>
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">ATM IV 30d</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-btc-iv30">—</div>
+              </div>
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">10% Skew 30d</div>
+                <div class="tabular" id="derib-btc-skew30">—</div>
+              </div>
+              <div class="px-2 py-1.5">
+                <div class="text-[var(--text-2)]">P/C OI</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-btc-pc">—</div>
+              </div>
+            </div>
+            <div id="derib-btc-chart" style="height: 300px;"></div>
+          </div>
+          <div class="col-span-12 md:col-span-6" id="derib-eth">
+            <div class="px-3 py-2 border-b hairline flex items-center justify-between">
+              <span class="font-semibold" style="color:#627eea;letter-spacing:0.18em;">ETH</span>
+              <span class="text-[10px] text-[var(--text-2)] tracking-widest">
+                SPOT <b class="tabular text-[var(--text-0)]" id="derib-eth-spot">—</b>
+              </span>
+            </div>
+            <div class="grid grid-cols-4 text-center text-[10px] uppercase tracking-widest border-b hairline">
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">ATM IV 7d</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-eth-ivFront">—</div>
+              </div>
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">ATM IV 30d</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-eth-iv30">—</div>
+              </div>
+              <div class="px-2 py-1.5 border-r hairline">
+                <div class="text-[var(--text-2)]">10% Skew 30d</div>
+                <div class="tabular" id="derib-eth-skew30">—</div>
+              </div>
+              <div class="px-2 py-1.5">
+                <div class="text-[var(--text-2)]">P/C OI</div>
+                <div class="tabular text-[var(--text-0)]" id="derib-eth-pc">—</div>
+              </div>
+            </div>
+            <div id="derib-eth-chart" style="height: 300px;"></div>
+          </div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between flex-wrap gap-2">
+          <span>ATM IV = avg of nearest call+put · 10% skew = (IV 10% OTM put − IV 10% OTM call), positive = put-bid / fear</span>
+          <span>Total Deribit OI · <b class="text-[var(--text-0)]" id="derib-total-oi">—</b></span>
+        </div>
+      </div>
+
       <!-- OI Regime Quadrant -->
       <div class="panel col-span-12">
         <div class="panel-hd">
@@ -4557,6 +4627,7 @@ function switchView(v) {
       renderFearGreedGauge();
       renderCorrelationMatrix();
       renderOiRegime();
+      try { renderDeribit('BTC'); renderDeribit('ETH'); } catch {}
     }
     if (v === 'edge') {
       try { renderCrossVenueSpreads(); } catch {}
@@ -4980,6 +5051,10 @@ function ensureAnalyticsCharts() {
     STATE.charts.vlead = echarts.init($('vol-leaders'), 'cortex', {renderer:'canvas'});
   if (!STATE.charts.oiregime && $('oi-regime'))
     STATE.charts.oiregime = echarts.init($('oi-regime'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.deribBtc && $('derib-btc-chart'))
+    STATE.charts.deribBtc = echarts.init($('derib-btc-chart'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.deribEth && $('derib-eth-chart'))
+    STATE.charts.deribEth = echarts.init($('derib-eth-chart'), 'cortex', {renderer:'canvas'});
 }
 async function refreshMomentumData() {
   // Fetch top 30 by volume, one set of 1h klines (for 1h/4h) and one set
@@ -5225,6 +5300,209 @@ function renderOiRegime() {
 }
 // Keep the regime fresh while the analytics view is active
 setInterval(() => { if (STATE.view === 'analytics') renderOiRegime(); }, 15000);
+
+/* ---------- DERIBIT OPTIONS ----------
+   Fetches the full BTC / ETH option chain summary and extracts the signals
+   pros watch: ATM IV per expiry (term structure), 10%-OTM skew (put fear
+   gauge), total OI, put/call OI ratio. Deribit allows public CORS so we
+   can call the REST API directly from the browser. */
+STATE.deribit = STATE.deribit || {};
+const DERIBIT_MONTHS = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+
+function parseDeribitInstrument(name) {
+  // Format: BTC-25JUN25-65000-C  or  BTC-25JUN25-65000-P
+  const m = /^([A-Z]+)-(\d{1,2})([A-Z]{3})(\d{2})-(\d+)-([CP])$/.exec(name || '');
+  if (!m) return null;
+  const [, cur, dd, mon, yy, strike, cp] = m;
+  const mIdx = DERIBIT_MONTHS[mon];
+  if (mIdx == null) return null;
+  const year = 2000 + (+yy);
+  const expiry = Date.UTC(year, mIdx, +dd, 8, 0, 0); // Deribit expiry = 08:00 UTC
+  return { currency: cur, strike: +strike, type: cp, expiry };
+}
+
+async function refreshDeribit(currency) {
+  try {
+    const r = await fetchJson('deribit:'+currency,
+      `https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${currency}&kind=option`);
+    const items = r?.result || [];
+    if (!items.length) return;
+
+    const parsed = [];
+    for (const it of items) {
+      const p = parseDeribitInstrument(it.instrument_name);
+      if (!p) continue;
+      if (p.expiry < Date.now()) continue;
+      parsed.push({
+        ...p,
+        mark_iv: it.mark_iv,
+        mark_price: it.mark_price,
+        open_interest: +it.open_interest || 0,
+        underlying_price: +it.underlying_price || 0,
+      });
+    }
+    if (!parsed.length) return;
+    const spot = parsed[0].underlying_price;
+
+    // Group by expiry
+    const byExpiry = new Map();
+    parsed.forEach(p => {
+      const a = byExpiry.get(p.expiry) || [];
+      a.push(p);
+      byExpiry.set(p.expiry, a);
+    });
+
+    // Build term-structure rows
+    const rows = [];
+    for (const expiry of Array.from(byExpiry.keys()).sort()) {
+      const options = byExpiry.get(expiry);
+      const calls = options.filter(o => o.type === 'C' && o.mark_iv > 0);
+      const puts  = options.filter(o => o.type === 'P' && o.mark_iv > 0);
+      if (!calls.length || !puts.length) continue;
+      const nearest = (arr, target) => arr.reduce((a, b) =>
+        Math.abs(b.strike - target) < Math.abs(a.strike - target) ? b : a);
+      const atmC = nearest(calls, spot);
+      const atmP = nearest(puts, spot);
+      const atmIv = ((atmC.mark_iv || 0) + (atmP.mark_iv || 0)) / 2;
+      const p10   = nearest(puts, spot * 0.90);
+      const c10   = nearest(calls, spot * 1.10);
+      const skew10 = ((p10.mark_iv || 0) - (c10.mark_iv || 0));   // IV points
+      const totalCallOi = calls.reduce((s, o) => s + (o.open_interest || 0), 0);
+      const totalPutOi  = puts.reduce((s, o) => s + (o.open_interest || 0), 0);
+      rows.push({
+        expiry, ttm: (expiry - Date.now()) / 86400000,
+        atmIv, skew10,
+        callOi: totalCallOi, putOi: totalPutOi,
+      });
+    }
+
+    const totalOiNotional = parsed.reduce(
+      (s, o) => s + (o.open_interest || 0) * (o.mark_price || 0) * spot, 0);
+
+    STATE.deribit[currency] = { spot, rows, totalOiNotional, updated: Date.now() };
+
+    if (STATE.view === 'analytics') renderDeribit(currency);
+  } catch (e) {
+    if (e?.message !== 'CB_OPEN') console.warn('deribit ' + currency + ' fetch fail', e);
+  }
+}
+
+function _interpIv(rows, ttmDays) {
+  // Return ATM IV interpolated at the given days-to-expiry
+  if (!rows || !rows.length) return null;
+  if (ttmDays <= rows[0].ttm) return rows[0].atmIv;
+  if (ttmDays >= rows.at(-1).ttm) return rows.at(-1).atmIv;
+  for (let i = 0; i < rows.length - 1; i++) {
+    if (rows[i].ttm <= ttmDays && rows[i+1].ttm >= ttmDays) {
+      const f = (ttmDays - rows[i].ttm) / (rows[i+1].ttm - rows[i].ttm);
+      return rows[i].atmIv + f * (rows[i+1].atmIv - rows[i].atmIv);
+    }
+  }
+  return rows[0].atmIv;
+}
+function _interpSkew(rows, ttmDays) {
+  if (!rows || !rows.length) return null;
+  if (ttmDays <= rows[0].ttm) return rows[0].skew10;
+  if (ttmDays >= rows.at(-1).ttm) return rows.at(-1).skew10;
+  for (let i = 0; i < rows.length - 1; i++) {
+    if (rows[i].ttm <= ttmDays && rows[i+1].ttm >= ttmDays) {
+      const f = (ttmDays - rows[i].ttm) / (rows[i+1].ttm - rows[i].ttm);
+      return rows[i].skew10 + f * (rows[i+1].skew10 - rows[i].skew10);
+    }
+  }
+  return rows[0].skew10;
+}
+
+function renderDeribit(currency) {
+  ensureAnalyticsCharts();
+  const d = STATE.deribit[currency];
+  if (!d || !d.rows.length) return;
+  const key = currency.toLowerCase();
+  const $set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+
+  // KPIs
+  const iv7  = _interpIv(d.rows, 7);
+  const iv30 = _interpIv(d.rows, 30);
+  const sk30 = _interpSkew(d.rows, 30);
+  const totCall = d.rows.reduce((s,r) => s + r.callOi, 0);
+  const totPut  = d.rows.reduce((s,r) => s + r.putOi, 0);
+  const pcRatio = totCall ? totPut / totCall : null;
+
+  $set(`derib-${key}-spot`,     d.spot ? '$' + fmt(d.spot, d.spot > 1000 ? 0 : 2) : '—');
+  $set(`derib-${key}-ivFront`,  iv7  != null ? iv7.toFixed(1) + '%'  : '—');
+  $set(`derib-${key}-iv30`,     iv30 != null ? iv30.toFixed(1) + '%' : '—');
+  const skEl = $(`derib-${key}-skew30`);
+  if (skEl && sk30 != null) {
+    skEl.textContent = (sk30 >= 0 ? '+' : '') + sk30.toFixed(2);
+    skEl.style.color = sk30 >= 0 ? '#ff9f5a' : '#22d17e'; // +ve = put bid = fear
+  }
+  $set(`derib-${key}-pc`, pcRatio != null ? pcRatio.toFixed(2) : '—');
+  $set('derib-updated', nowHHMMSS() + 'Z');
+
+  // Aggregate total OI across both currencies for bottom line
+  const all = Object.values(STATE.deribit || {});
+  const totOi = all.reduce((s, x) => s + (x.totalOiNotional || 0), 0);
+  $set('derib-total-oi', totOi ? fmtUsd(totOi) : '—');
+
+  // Chart: ATM IV line (primary) + skew bars (secondary axis)
+  const chart = currency === 'BTC' ? STATE.charts.deribBtc : STATE.charts.deribEth;
+  if (!chart) return;
+  const rows = d.rows.filter(r => r.ttm > 0 && r.ttm <= 365);
+  const labels = rows.map(r => r.ttm.toFixed(0) + 'd');
+  const iv = rows.map(r => +r.atmIv.toFixed(1));
+  const skew = rows.map(r => +r.skew10.toFixed(2));
+  chart.setOption({
+    animation: false,
+    grid: { top: 26, left: 44, right: 48, bottom: 30 },
+    tooltip: {
+      trigger: 'axis', backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+      formatter: (ps) => {
+        if (!ps || !ps.length) return '';
+        const i = ps[0].dataIndex;
+        const r = rows[i]; if (!r) return '';
+        const expDate = new Date(r.expiry).toISOString().slice(0,10);
+        return `<b>${currency} · ${expDate}</b> <span style="color:#9aa4b2;">(${r.ttm.toFixed(1)}d)</span><br/>
+                ATM IV: <b style="color:#b28cff">${r.atmIv.toFixed(2)}%</b><br/>
+                10% Skew: <b style="color:${r.skew10>=0?'#ff9f5a':'#22d17e'}">${(r.skew10>=0?'+':'')+r.skew10.toFixed(2)}</b><br/>
+                OI — Calls: ${fmt(r.callOi)} · Puts: ${fmt(r.putOi)}`;
+      }
+    },
+    xAxis: {
+      type:'category', data: labels,
+      axisLine:{lineStyle:{color:'#2a3443'}},
+      axisLabel:{color:'#9aa4b2', fontSize:9},
+      splitLine:{show:false},
+    },
+    yAxis: [
+      { type:'value', name:'ATM IV %',
+        nameTextStyle:{color:'#9aa4b2', fontSize:9, padding:[0,0,0,-12]},
+        axisLine:{lineStyle:{color:'#2a3443'}},
+        axisLabel:{color:'#9aa4b2', fontSize:9, formatter: v => v.toFixed(0)+'%'},
+        splitLine:{lineStyle:{color:'rgba(255,255,255,0.035)'}} },
+      { type:'value', name:'Skew',
+        nameTextStyle:{color:'#9aa4b2', fontSize:9},
+        axisLine:{lineStyle:{color:'#2a3443'}},
+        axisLabel:{color:'#9aa4b2', fontSize:9, formatter: v => (v>=0?'+':'')+v.toFixed(1)},
+        splitLine:{show:false} },
+    ],
+    series: [
+      { name:'ATM IV', type:'line', data: iv, yAxisIndex: 0,
+        smooth: 0.2, showSymbol: true, symbolSize: 5,
+        lineStyle:{ color:'#b28cff', width: 2 },
+        areaStyle:{ color:{ type:'linear', x:0,y:0,x2:0,y2:1,
+          colorStops:[{offset:0, color:'rgba(178,140,255,0.22)'},{offset:1, color:'rgba(0,0,0,0)'}]}},
+      },
+      { name:'10% Skew', type:'bar', data: skew, yAxisIndex: 1, barWidth: '40%',
+        itemStyle:{ color: (p) => p.value >= 0 ? 'rgba(255,159,90,0.55)' : 'rgba(34,209,126,0.55)' }
+      },
+    ],
+  }, true);
+}
+
+// Boot fetch + refresh every 60s
+refreshDeribit('BTC'); refreshDeribit('ETH');
+setInterval(() => { refreshDeribit('BTC'); refreshDeribit('ETH'); }, 60 * 1000);
 
 /* ====================================================================
    FEAR & GREED
