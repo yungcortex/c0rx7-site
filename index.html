@@ -2490,21 +2490,36 @@ async function fetchAsterTicker() {
    per-symbol /fapi/v1/openInterest for the set of symbols we actually
    render. Low cadence (2 min) since OI moves slowly and this is ~30 RPS
    in a short burst. */
+// Aster OI symbols the API has rejected with -1121 (unknown) or -4108
+// (settling/delivering). We cache them so retries stop making noise.
+const _asterOiSkip = new Set();
 async function fetchAsterOpenInterest() {
-  // Only poll symbols we've confirmed exist on Aster (price seen via REST or
-  // WS) — otherwise we burn 400s on delisted / unlisted tickers.
   const candidates = (STATE._fundingSyms && STATE._fundingSyms.length)
     ? STATE._fundingSyms : CFG.symbols;
-  const targets = candidates.filter(s => STATE.prices.aster.has(s));
+  const targets = candidates.filter(s =>
+    STATE.prices.aster.has(s) && !_asterOiSkip.has(s)
+  );
   if (!targets.length) return;
   const LIMIT = 6;
   let i = 0, got = 0;
   async function worker() {
     while (i < targets.length) {
       const sym = targets[i++];
+      const url = CFG.aster.rest + `/fapi/v1/openInterest?symbol=${sym}`;
       try {
-        const j = await fetchJson('aster:oi:' + sym,
-          CFG.aster.rest + `/fapi/v1/openInterest?symbol=${sym}`);
+        // Custom fetch path — we need response bodies on 400 to decide
+        // whether to blacklist the symbol.
+        const r = await fetch(url);
+        if (!r.ok) {
+          if (r.status === 400) {
+            try {
+              const j = await r.json();
+              if (j?.code === -1121 || j?.code === -4108) _asterOiSkip.add(sym);
+            } catch {}
+          }
+          continue;
+        }
+        const j = await r.json();
         const oiCoin = j?.openInterest != null ? +j.openInterest : null;
         const px     = STATE.prices.aster.get(sym);
         if (oiCoin != null && !isNaN(oiCoin) && px) {
@@ -2513,7 +2528,7 @@ async function fetchAsterOpenInterest() {
           STATE.openInterestByEx[sym] = ox;
           got++;
         }
-      } catch (_) { /* single-symbol failure is fine */ }
+      } catch (_) { /* network hiccup — retry next cycle */ }
     }
   }
   await Promise.all(Array.from({length: Math.min(LIMIT, targets.length)}, worker));
