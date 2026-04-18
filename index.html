@@ -8784,7 +8784,9 @@ async function refreshEconomicCalendar() {
   let events = [];
   let src = 'static';
   try {
-    const r = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json', { cache: 'no-cache' });
+    // Proxy via Vercel rewrite — faireconomy.media doesn't send CORS headers
+    // so a direct browser fetch fails. The rewrite forwards server-side.
+    const r = await fetch('/econcal/ff_calendar_thisweek.json', { cache: 'no-cache' });
     if (r.ok) {
       const raw = await r.json();
       if (Array.isArray(raw) && raw.length) {
@@ -8810,16 +8812,45 @@ async function refreshEconomicCalendar() {
   if (STATE.view === 'analytics') renderEconomicCalendar();
 }
 function _staticEcoEvents(now, range) {
-  // Second Wednesday of each month = CPI. 1st Fri = NFP. FOMC varies.
+  // Projects a rolling calendar of recurring high-impact US macro prints
+  // that are on a known weekly / monthly cadence. Used when faireconomy
+  // is unreachable.  All times UTC.
   const out = [];
-  const d = new Date();
-  // Next two Fridays (NFP proxy if near month start)
+  const base = new Date();
   for (let i = 0; i < 14; i++) {
-    const dt = new Date(d.getTime() + i * 86400000);
-    const day = dt.getUTCDay();
-    if (day === 5 && dt.getUTCDate() <= 7) {
-      out.push({ t: Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 12, 30),
-                 country:'USD', title:'Non-Farm Payrolls (NFP)', impact:'high', forecast:'—', previous:'—' });
+    const dt = new Date(base.getTime() + i * 86400000);
+    const day   = dt.getUTCDay();
+    const date  = dt.getUTCDate();
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+    // First Friday of the month @ 12:30 UTC → Non-Farm Payrolls
+    if (day === 5 && date <= 7) {
+      out.push({ t: Date.UTC(y, m, d, 12, 30), country:'USD',
+                 title:'Non-Farm Payrolls (NFP)', impact:'high',
+                 forecast:'—', previous:'—' });
+    }
+    // Second Wednesday of the month @ 12:30 UTC → US CPI (rough proxy)
+    if (day === 3 && date >= 8 && date <= 14) {
+      out.push({ t: Date.UTC(y, m, d, 12, 30), country:'USD',
+                 title:'US CPI / Core CPI (YoY)', impact:'high',
+                 forecast:'—', previous:'—' });
+    }
+    // Third Wednesday of the month @ 18:00 UTC → FOMC statement (approx)
+    if (day === 3 && date >= 15 && date <= 21) {
+      out.push({ t: Date.UTC(y, m, d, 18, 0), country:'USD',
+                 title:'FOMC Rate Decision (approx window)', impact:'high',
+                 forecast:'—', previous:'—' });
+    }
+    // Every Thursday @ 12:30 UTC → Initial Jobless Claims
+    if (day === 4) {
+      out.push({ t: Date.UTC(y, m, d, 12, 30), country:'USD',
+                 title:'Initial Jobless Claims', impact:'medium',
+                 forecast:'—', previous:'—' });
+    }
+    // Every Wednesday @ 14:30 UTC → US Crude Oil Inventories (vol mover)
+    if (day === 3) {
+      out.push({ t: Date.UTC(y, m, d, 14, 30), country:'USD',
+                 title:'US Crude Oil Inventories', impact:'medium',
+                 forecast:'—', previous:'—' });
     }
   }
   return out.filter(e => e.t >= now - 4*3600*1000 && e.t <= now + range);
