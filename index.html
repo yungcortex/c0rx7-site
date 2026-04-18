@@ -1189,12 +1189,28 @@
         </div>
         <div class="p-3 grid grid-cols-12 gap-2 text-[11px] border-b hairline">
           <select class="col-span-3" id="alert-sym"></select>
-          <select class="col-span-3" id="alert-type">
-            <option value="price>">Price &gt;</option>
-            <option value="price<">Price &lt;</option>
-            <option value="fundingFlip">Funding sign flip</option>
+          <select class="col-span-4" id="alert-type">
+            <optgroup label="Price">
+              <option value="price>">Price &gt; (USD)</option>
+              <option value="price<">Price &lt; (USD)</option>
+            </optgroup>
+            <optgroup label="Funding">
+              <option value="fundingFlip">Funding sign flip (any)</option>
+              <option value="fundingAbs">|Funding| &gt; X % per 8h</option>
+              <option value="fundingSpreadBp">Cross-venue funding spread &gt; X bp</option>
+            </optgroup>
+            <optgroup label="Open Interest">
+              <option value="oiPctUp">24h Δ OI &gt; +X %</option>
+              <option value="oiPctDown">24h Δ OI &lt; −X %</option>
+            </optgroup>
+            <optgroup label="Cross-venue">
+              <option value="spreadBp">Cross-venue price spread &gt; X bp</option>
+            </optgroup>
+            <optgroup label="Liquidations">
+              <option value="liqUsd">Single liq &gt; $X</option>
+            </optgroup>
           </select>
-          <input class="col-span-4 tabular" id="alert-val" type="number" placeholder="Threshold" step="any" />
+          <input class="col-span-3 tabular" id="alert-val" type="number" placeholder="Threshold" step="any" />
           <button class="col-span-2 btn" id="alert-add">ARM</button>
         </div>
         <div class="grid grid-cols-2">
@@ -1415,6 +1431,28 @@
       <div class="panel col-span-12 xl:col-span-6">
         <div class="panel-hd"><span><span class="dot" style="background:#ffb547"></span>VOLUME LEADERS · 24H</span><span class="text-[var(--text-2)]">USD quote vol</span></div>
         <div id="vol-leaders" style="height: 360px;"></div>
+      </div>
+
+      <!-- OI Regime Quadrant -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#00ffa3;box-shadow:0 0 10px #00ffa3"></span>OI REGIME QUADRANT · 24H · TOP 24</span>
+          <span class="text-[var(--text-2)] flex items-center gap-3">
+            <span class="tabular">updated <span id="oireg-updated">—</span></span>
+            <span class="hidden md:inline" style="color:var(--up);">↑ price · ↑ OI = longs adding</span>
+            <span class="hidden md:inline" style="color:#ffcb6b;">↓ price · ↑ OI = shorts adding</span>
+          </span>
+        </div>
+        <div id="oi-regime" style="height: 520px;"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex items-center justify-between flex-wrap gap-2">
+          <span>X = 24h Δ OI % · Y = 24h Δ price % · bubble size = 24h quote volume</span>
+          <span class="flex gap-3 flex-wrap">
+            <span>Q1 <b style="color:var(--up);">longs adding</b></span>
+            <span>Q2 <b style="color:#ffcb6b;">shorts adding</b></span>
+            <span>Q3 <b style="color:var(--down);">longs capitulating</b></span>
+            <span>Q4 <b style="color:#39e0ff;">shorts covering</b></span>
+          </span>
+        </div>
       </div>
 
       <!-- Live correlation matrix -->
@@ -1895,27 +1933,88 @@ function wireResize() {
 function evalAlerts() {
   if (!STATE.alerts || !STATE.alerts.length) return;
   STATE.alerts.forEach(al => {
-    const p = STATE.prices.binance.get(al.symbol);
-    if (p == null) return;
     let hit = false, detail = '';
-    if (al.type === 'price>' && p > +al.value) { hit = true; detail = `${al.symbol} > ${fmt(al.value)} (now ${fmt(p)})`; }
-    if (al.type === 'price<' && p < +al.value) { hit = true; detail = `${al.symbol} < ${fmt(al.value)} (now ${fmt(p)})`; }
-    if (al.type === 'fundingFlip') {
+
+    // PRICE
+    if (al.type === 'price>' || al.type === 'price<') {
+      const p = STATE.prices.binance.get(al.symbol);
+      if (p == null) return;
+      if (al.type === 'price>' && p > +al.value) { hit = true; detail = `${al.symbol} > ${fmt(al.value)} (now ${fmt(p)})`; }
+      if (al.type === 'price<' && p < +al.value) { hit = true; detail = `${al.symbol} < ${fmt(al.value)} (now ${fmt(p)})`; }
+    }
+
+    // FUNDING SIGN FLIP
+    else if (al.type === 'fundingFlip') {
       const r = STATE.funding[al.symbol]?.binance;
       if (r != null && al._lastSign != null && Math.sign(r) !== al._lastSign && Math.sign(r) !== 0) {
         hit = true; detail = `${al.symbol} funding flipped to ${(r*100).toFixed(4)}%`;
       }
       if (r != null) al._lastSign = Math.sign(r);
     }
+
+    // FUNDING ABSOLUTE (|r| > X%) — threshold is % per 8h
+    else if (al.type === 'fundingAbs') {
+      const r = STATE.funding[al.symbol]?.binance;
+      if (r != null && Math.abs(r) * 100 > +al.value) {
+        hit = true; detail = `${al.symbol} funding ${(r*100).toFixed(4)}% > ±${al.value}%`;
+      }
+    }
+
+    // CROSS-VENUE FUNDING SPREAD
+    else if (al.type === 'fundingSpreadBp') {
+      const f = STATE.funding[al.symbol] || {};
+      const venues = EDGE_VENUES.filter(v => f[v] != null && !Number.isNaN(f[v]));
+      if (venues.length >= 2) {
+        const rates = venues.map(v => f[v]);
+        const spreadBp = (Math.max(...rates) - Math.min(...rates)) * 10000;
+        if (spreadBp > +al.value) {
+          hit = true; detail = `${al.symbol} funding spread ${spreadBp.toFixed(1)}bp > ${al.value}bp`;
+        }
+      }
+    }
+
+    // OI 24H DIRECTIONAL
+    else if (al.type === 'oiPctUp' || al.type === 'oiPctDown') {
+      const row = (STATE.oiChange24h || []).find(r => r.sym === al.symbol);
+      if (row) {
+        if (al.type === 'oiPctUp'   && row.pct >  +al.value) { hit = true; detail = `${al.symbol} ΔOI 24h +${row.pct.toFixed(2)}% > ${al.value}%`; }
+        if (al.type === 'oiPctDown' && row.pct < -Math.abs(+al.value)) { hit = true; detail = `${al.symbol} ΔOI 24h ${row.pct.toFixed(2)}% < -${al.value}%`; }
+      }
+    }
+
+    // CROSS-VENUE PRICE SPREAD
+    else if (al.type === 'spreadBp') {
+      const ps = [];
+      EDGE_VENUES.forEach(v => { const p = STATE.prices[v]?.get(al.symbol); if (p) ps.push(p); });
+      if (ps.length >= 3) {
+        const mid = (Math.max(...ps) + Math.min(...ps)) / 2;
+        const bp = ((Math.max(...ps) - Math.min(...ps)) / mid) * 10000;
+        if (bp > +al.value) {
+          hit = true; detail = `${al.symbol} cross-venue spread ${bp.toFixed(1)}bp > ${al.value}bp`;
+        }
+      }
+    }
+
+    // LARGE LIQUIDATION (polled against recent event buffer)
+    else if (al.type === 'liqUsd') {
+      const recent = (STATE.liqEventsAll || []).slice(-200);
+      const big = recent.find(e => e.symbol === al.symbol && e.usd > +al.value && (!al._seenLiqAt || e.time > al._seenLiqAt));
+      if (big) {
+        al._seenLiqAt = big.time;
+        hit = true;
+        detail = `${al.symbol} ${big.side} liq $${fmt(big.usd)} @ ${fmt(big.price)}`;
+      }
+    }
+
     if (hit && !al._fired) {
       al._fired = Date.now();
-      STATE.alertsFired.unshift({ at: Date.now(), text: detail });
-      if (STATE.alertsFired.length > 20) STATE.alertsFired.pop();
+      STATE.alertsFired.unshift({ at: Date.now(), text: detail, type: al.type });
+      if (STATE.alertsFired.length > 30) STATE.alertsFired.pop();
       flashAlert(detail);
       try { if (Notification && Notification.permission === 'granted') new Notification('Cortex alert', { body: detail }); } catch {}
     }
-    // rearm after 60s
-    if (al._fired && Date.now()-al._fired > 60000) al._fired = 0;
+    // Rearm after 60s so the same threshold can trip again after it clears + re-crosses
+    if (al._fired && Date.now() - al._fired > 60000) al._fired = 0;
   });
   renderAlertsPanel();
 }
@@ -1950,9 +2049,17 @@ function renderAlertsPanel() {
     box.innerHTML = STATE.alerts.map(a => {
       const p = STATE.prices.binance.get(a.symbol);
       const cur = p != null ? fmt(p) : '—';
-      const label = a.type==='price>' ? `${a.symbol} > ${fmt(a.value)}` :
-                    a.type==='price<' ? `${a.symbol} < ${fmt(a.value)}` :
-                    a.type==='fundingFlip' ? `${a.symbol} funding sign flip` : a.type;
+      const label =
+        a.type==='price>'            ? `${a.symbol} > ${fmt(a.value)}` :
+        a.type==='price<'            ? `${a.symbol} < ${fmt(a.value)}` :
+        a.type==='fundingFlip'       ? `${a.symbol} funding sign flip` :
+        a.type==='fundingAbs'        ? `${a.symbol} |funding| > ${a.value}%` :
+        a.type==='fundingSpreadBp'   ? `${a.symbol} funding spread > ${a.value}bp` :
+        a.type==='oiPctUp'           ? `${a.symbol} ΔOI 24h > +${a.value}%` :
+        a.type==='oiPctDown'         ? `${a.symbol} ΔOI 24h < −${a.value}%` :
+        a.type==='spreadBp'          ? `${a.symbol} cross-venue spread > ${a.value}bp` :
+        a.type==='liqUsd'            ? `${a.symbol} liq > $${fmt(a.value)}` :
+        a.type;
       return `<div class="flex items-center justify-between px-3 py-1.5 border-b hairline text-[11px] tabular">
         <span>${label}</span>
         <span class="text-[var(--text-2)]">now ${cur}</span>
@@ -1986,8 +2093,9 @@ function wireAlertsForm() {
     const sym = $('alert-sym').value;
     const type = $('alert-type').value;
     const v = $('alert-val').value;
-    if (type.startsWith('price') && !(+v > 0)) { flashAlert('Enter a positive threshold'); return; }
-    addAlert({ symbol: sym, type, value: type==='fundingFlip' ? null : +v });
+    const needsValue = type !== 'fundingFlip';
+    if (needsValue && !(+v > 0)) { flashAlert('Enter a positive threshold'); return; }
+    addAlert({ symbol: sym, type, value: needsValue ? +v : null });
     $('alert-val').value = '';
   });
   const pBtn = $('alerts-permission');
@@ -4420,6 +4528,7 @@ function switchView(v) {
       renderTopTraderChart();
       renderFearGreedGauge();
       renderCorrelationMatrix();
+      renderOiRegime();
     }
     if (v === 'edge') {
       try { renderCrossVenueSpreads(); } catch {}
@@ -4840,6 +4949,8 @@ function ensureAnalyticsCharts() {
     STATE.charts.oich = echarts.init($('oi-change'), 'cortex', {renderer:'canvas'});
   if (!STATE.charts.vlead && $('vol-leaders'))
     STATE.charts.vlead = echarts.init($('vol-leaders'), 'cortex', {renderer:'canvas'});
+  if (!STATE.charts.oiregime && $('oi-regime'))
+    STATE.charts.oiregime = echarts.init($('oi-regime'), 'cortex', {renderer:'canvas'});
 }
 async function refreshMomentumData() {
   // Fetch top 30 by volume, one set of 1h klines (for 1h/4h) and one set
@@ -4969,6 +5080,122 @@ function renderVolLeaders() {
     })}]
   }, true);
 }
+
+/* ---------- OI REGIME QUADRANT ----------
+   Scatter of symbols on (Δ OI 24h %, Δ price 24h %). Quadrant interpretation:
+     Q1 (↑OI ↑Px): longs adding — bullish conviction
+     Q2 (↑OI ↓Px): shorts adding — bearish, often tops
+     Q3 (↓OI ↓Px): longs capitulating — washout
+     Q4 (↓OI ↑Px): shorts covering — weak rally / short squeeze  */
+function renderOiRegime() {
+  const chart = STATE.charts.oiregime; if (!chart) return;
+  const rows = (STATE.oiChange24h || []).filter(r => r && typeof r.pct === 'number');
+  if (!rows.length) {
+    chart.setOption({
+      title:{ text:'Awaiting OI history…', left:'center', top:'center',
+              textStyle:{ color:'#5b6472', fontSize:12, fontFamily:'JetBrains Mono' } }
+    }, true);
+    return;
+  }
+  const points = [];
+  rows.forEach(r => {
+    const t = STATE.ticker24h.get(r.sym);
+    if (!t) return;
+    const pxPct = +t.priceChangePercent;
+    if (Number.isNaN(pxPct)) return;
+    const vol = +t.quoteVolume || 0;
+    const oiPct = r.pct;
+    // Colour by quadrant semantics
+    const color =
+      (oiPct >= 0 && pxPct >= 0) ? '#22d17e' :
+      (oiPct >= 0 && pxPct <  0) ? '#ffcb6b' :
+      (oiPct <  0 && pxPct <  0) ? '#ff5a6e' :
+                                   '#39e0ff';
+    points.push({
+      name: r.sym.replace('USDT',''),
+      value: [+oiPct.toFixed(2), +pxPct.toFixed(2), vol],
+      oiUsd: r.oi,
+      itemStyle:{ color, borderColor:'#05070a', borderWidth:0.8, opacity: 0.9 },
+    });
+  });
+  // Axis bounds with a touch of padding so labels don't clip
+  const ox = points.map(p => p.value[0]);
+  const oy = points.map(p => p.value[1]);
+  const oxMax = Math.max(Math.abs(Math.min(...ox, -5)), Math.abs(Math.max(...ox, 5)));
+  const oyMax = Math.max(Math.abs(Math.min(...oy, -5)), Math.abs(Math.max(...oy, 5)));
+  const xBound = Math.max(5, Math.ceil(oxMax * 1.15));
+  const yBound = Math.max(5, Math.ceil(oyMax * 1.15));
+  chart.setOption({
+    animation: false,
+    grid:{ top: 40, left: 60, right: 30, bottom: 48 },
+    tooltip:{
+      backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{ color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize: 11 },
+      formatter: (p) => {
+        const [oi, px] = p.data.value;
+        const quad =
+          (oi >= 0 && px >= 0) ? 'LONGS ADDING (Q1)' :
+          (oi >= 0 && px <  0) ? 'SHORTS ADDING (Q2)' :
+          (oi <  0 && px <  0) ? 'LONGS CAPITULATING (Q3)' :
+                                 'SHORTS COVERING (Q4)';
+        return `<b>${p.data.name}</b><br/>
+                Δ OI 24h: <b style="color:${oi>=0?'#22d17e':'#ff5a6e'}">${oi>=0?'+':''}${oi.toFixed(2)}%</b><br/>
+                Δ Px 24h: <b style="color:${px>=0?'#22d17e':'#ff5a6e'}">${px>=0?'+':''}${px.toFixed(2)}%</b><br/>
+                Vol 24h: <b>${fmtUsd(p.data.value[2])}</b><br/>
+                <span style="color:#9aa4b2;">${quad}</span>`;
+      },
+    },
+    xAxis:{
+      type:'value', min:-xBound, max: xBound, name:'Δ OI 24h %',
+      nameGap: 28, nameLocation:'middle', nameTextStyle:{ color:'#9aa4b2', fontSize: 11 },
+      axisLine:{ lineStyle:{ color:'#2a3443' } },
+      axisLabel:{ color:'#5b6472', fontSize: 9, formatter: v => (v>0?'+':'') + v + '%' },
+      splitLine:{ lineStyle:{ color:'rgba(255,255,255,0.035)' } },
+    },
+    yAxis:{
+      type:'value', min:-yBound, max: yBound, name:'Δ Price 24h %',
+      nameGap: 40, nameLocation:'middle', nameTextStyle:{ color:'#9aa4b2', fontSize: 11 },
+      axisLine:{ lineStyle:{ color:'#2a3443' } },
+      axisLabel:{ color:'#5b6472', fontSize: 9, formatter: v => (v>0?'+':'') + v + '%' },
+      splitLine:{ lineStyle:{ color:'rgba(255,255,255,0.035)' } },
+    },
+    series: [
+      // Quadrant background tints — 4 big silent markAreas
+      {
+        type:'scatter', data: [], silent: true,
+        markArea:{ silent: true, itemStyle:{ color:'transparent' },
+          data: [
+            [{ coord:[0, 0],            itemStyle:{ color:'rgba(34,209,126,0.05)'} },
+             { coord:[xBound, yBound] }],
+            [{ coord:[-xBound, 0],      itemStyle:{ color:'rgba(57,224,255,0.05)'} },
+             { coord:[0, yBound] }],
+            [{ coord:[-xBound,-yBound], itemStyle:{ color:'rgba(255,90,110,0.05)'} },
+             { coord:[0, 0] }],
+            [{ coord:[0, -yBound],      itemStyle:{ color:'rgba(255,203,107,0.05)'} },
+             { coord:[xBound, 0] }],
+          ]
+        },
+        markLine:{ silent:true, symbol:'none',
+          lineStyle:{ color:'#2a3443', width: 1, type:'solid', opacity: 0.6 },
+          data: [{ xAxis: 0 }, { yAxis: 0 }] }
+      },
+      {
+        type:'scatter', data: points, symbolSize: (d) => {
+          const v = d[2] || 0;
+          return Math.max(8, Math.min(34, 6 + Math.sqrt(v) / 800));
+        },
+        label:{ show:true, position:'right', fontSize: 9.5, color:'#c2cbd6',
+                fontFamily:'JetBrains Mono', formatter: p => p.name,
+                distance: 4 },
+        emphasis:{ scale: 1.3, label:{ fontWeight: 700, color:'#e6edf3' } },
+        z: 3,
+      },
+    ],
+  }, true);
+  const upd = $('oireg-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+}
+// Keep the regime fresh while the analytics view is active
+setInterval(() => { if (STATE.view === 'analytics') renderOiRegime(); }, 15000);
 
 /* ====================================================================
    FEAR & GREED
