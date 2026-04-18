@@ -6129,6 +6129,28 @@ async function boot() {
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => setTimeout(savePrefs, 50)));
   // Expose for DevTools inspection (top-level const doesn't attach to window)
   try { window.STATE = STATE; window.CFG = CFG; } catch {}
+
+  // Mobile safety net: some iOS Safari builds render ECharts with stale layout
+  // when the container's box hasn't finished its first paint. Force a resize +
+  // re-render of every chart once the page has settled; ECharts merges so this
+  // is effectively a no-op on browsers that already painted correctly.
+  const forceRepaint = () => {
+    try {
+      const c = STATE.charts || {};
+      Object.values(c).forEach(inst => { try { inst && inst.resize && inst.resize(); } catch {} });
+      try { renderTreemap(); } catch {}
+      try { renderFundingHeatmap(); } catch {}
+      try { renderFundingTable(); } catch {}
+      try { renderLiqMap(); } catch {}
+      try { renderCrossExchangeOI(); } catch {}
+      try { renderDepthHeatmap(); } catch {}
+      try { renderLiquidationHeatmap(); } catch {}
+      try { if (typeof priceChart !== 'undefined' && priceChart) priceChart.timeScale().fitContent(); } catch {}
+    } catch {}
+  };
+  setTimeout(forceRepaint, 1500);
+  setTimeout(forceRepaint, 4000);
+  window.addEventListener('orientationchange', () => setTimeout(forceRepaint, 400));
 }
 boot();
 
