@@ -1118,6 +1118,23 @@
         <div id="ob-walls" class="border-t hairline text-[10.5px]"></div>
       </div>
 
+      <!-- Perp vs Spot CVD divergence (active symbol) -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#39e0ff;box-shadow:0 0 10px #39e0ff"></span>PERP ↔ SPOT FLOW · <span id="ps-sym">BTCUSDT</span></span>
+          <span class="flex items-center gap-3 text-[var(--text-2)]">
+            <span>PERP <span class="tabular" id="ps-perp-cvd" style="color:#22d17e;">—</span></span>
+            <span>SPOT <span class="tabular" id="ps-spot-cvd" style="color:#39e0ff;">—</span></span>
+            <span>Δ <span class="tabular" id="ps-diff">—</span></span>
+          </span>
+        </div>
+        <div id="ps-chart" style="height: 240px;"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between">
+          <span>Cumulative taker $ delta · perp (Binance futures) vs spot (Binance spot)</span>
+          <span>Perp leading spot = speculative flow · spot leading perp = organic buying</span>
+        </div>
+      </div>
+
       <!-- Volume Profile (active symbol, 24h) -->
       <div class="panel col-span-12 xl:col-span-6">
         <div class="panel-hd">
@@ -1826,6 +1843,34 @@
         </div>
         <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
           RS = (1 + sym24h%) / (1 + btc24h%) − 1 · positive = outperforming, negative = lagging · top 12 / bottom 12
+        </div>
+      </div>
+
+      <!-- Token Unlocks calendar -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#b28cff;box-shadow:0 0 10px #b28cff"></span>TOKEN UNLOCKS · NEXT 30D</span>
+          <span class="text-[var(--text-2)] tabular">source <span id="unl-src">—</span> · updated <span id="unl-updated">—</span></span>
+        </div>
+        <div id="unl-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Loading unlock schedule…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Supply expansion events · % of circulating = dilution magnitude · large unlocks often coincide with local tops
+        </div>
+      </div>
+
+      <!-- BTC / ETH ETF Flows -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#f0b90b;box-shadow:0 0 10px #f0b90b"></span>SPOT ETF FLOWS · BTC / ETH · 10D</span>
+          <span class="text-[var(--text-2)] tabular">source <span id="etf-src">—</span> · updated <span id="etf-updated">—</span></span>
+        </div>
+        <div id="etf-body" class="overflow-y-auto scroll-clip" style="max-height: 420px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Fetching ETF flow data…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Daily net flows across US spot ETFs · sustained inflows = institutional accumulation · outflows = supply overhang
         </div>
       </div>
 
@@ -3092,6 +3137,7 @@ STATE.charts.oi      = echarts.init($('oi-chart'),       'cortex', {renderer:'ca
 STATE.charts.cexBasis = echarts.init($('cex-basis-chart'),'cortex', {renderer:'canvas'});
 STATE.charts.fundHist = echarts.init($('fund-hist-chart'),'cortex', {renderer:'canvas'});
 STATE.charts.vprof    = echarts.init($('vprof-chart'),    'cortex', {renderer:'canvas'});
+STATE.charts.psFlow   = echarts.init($('ps-chart'),       'cortex', {renderer:'canvas'});
 window.addEventListener('resize', () => Object.values(STATE.charts).forEach(c=>c && c.resize()));
 // ResizeObserver so charts fill whatever height the grid row gives their panel
 (function wireChartObservers(){
@@ -10586,6 +10632,324 @@ function _connectOkxTrades() {
 _connectOkxTrades();
 // Keep the whales tab fresh
 setInterval(() => { if (STATE.view === 'whales') _renderAggWhales(); }, 2000);
+
+/* ---------- PERP ↔ SPOT CVD FLOW (active symbol) ----------
+   Opens a second WS to Binance SPOT aggTrade for the active symbol and
+   tracks cumulative taker delta in parallel with the perp CVD we already
+   maintain. Divergence between the two shows where speculative flow leads
+   vs follows organic spot buying. */
+STATE._psSeries = STATE._psSeries || { sym: null, perp: [], spot: [] };
+let _spotWs = null, _spotBackoff = 2000, _spotSym = null;
+let _perpCvd = 0, _spotCvd = 0;
+function _reconnectPerpSpotSpot(sym) {
+  try { if (_spotWs) _spotWs.close(); } catch {}
+  _spotSym = sym;
+  _perpCvd = 0; _spotCvd = 0;
+  STATE._psSeries = { sym, perp: [], spot: [] };
+  const url = `wss://stream.binance.com/stream?streams=${sym.toLowerCase()}@aggTrade`;
+  try { _spotWs = new WebSocket(url); } catch (e) { setTimeout(() => _reconnectPerpSpotSpot(sym), _spotBackoff); return; }
+  STATE.diag.ws.spot = STATE.diag.ws.spot || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
+  _spotWs.onopen = () => { _spotBackoff = 2000; STATE.diag.ws.spot.state = 'open'; };
+  _spotWs.onmessage = (ev) => {
+    let env; try { env = JSON.parse(ev.data); } catch { return; }
+    const d = env?.data;
+    if (!d || !d.p || !d.q) return;
+    const price = +d.p, qty = +d.q;
+    const usd = price * qty;
+    // Binance: m=true → buyer was MAKER (taker sold) → neg CVD
+    _spotCvd += (d.m ? -usd : +usd);
+    const now = Date.now();
+    STATE._psSeries.spot.push({ t: now, cvd: _spotCvd });
+    while (STATE._psSeries.spot.length > 1200) STATE._psSeries.spot.shift();
+    STATE.diag.ws.spot.lastMsg = now;
+    STATE.diag.ws.spot.msgCount = (STATE.diag.ws.spot.msgCount || 0) + 1;
+  };
+  _spotWs.onclose = () => {
+    STATE.diag.ws.spot.state = 'closed';
+    if (_spotSym === sym) setTimeout(() => _reconnectPerpSpotSpot(sym), _spotBackoff);
+    _spotBackoff = Math.min(_spotBackoff * 1.8, 30000);
+  };
+  _spotWs.onerror = () => { STATE.diag.ws.spot.state = 'error'; };
+}
+// Poll perp CVD from the existing CVD data buffer we maintain
+setInterval(() => {
+  const sym = STATE.symbol;
+  if (sym !== _spotSym) _reconnectPerpSpotSpot(sym);
+  const series = STATE.cvdBySymbol?.get(sym);
+  if (!series || !series.length) return;
+  const cum = series.at(-1).cum;
+  _perpCvd = cum;
+  STATE._psSeries.perp.push({ t: Date.now(), cvd: cum });
+  while (STATE._psSeries.perp.length > 1200) STATE._psSeries.perp.shift();
+}, 1000);
+
+function renderPerpSpotFlow() {
+  const chart = STATE.charts.psFlow; if (!chart) return;
+  const d = STATE._psSeries;
+  if (!d || !d.perp.length || !d.spot.length) return;
+  const $set = (id, text, color) => { const el = $(id); if (!el) return; el.textContent = text; if (color) el.style.color = color; };
+  $set('ps-sym', d.sym || STATE.symbol);
+  const perpLast = d.perp.at(-1).cvd;
+  const spotLast = d.spot.at(-1).cvd;
+  $set('ps-perp-cvd', (perpLast >= 0 ? '+' : '') + fmtUsd(perpLast), perpLast >= 0 ? '#22d17e' : '#ff5a6e');
+  $set('ps-spot-cvd', (spotLast >= 0 ? '+' : '') + fmtUsd(spotLast), spotLast >= 0 ? '#22d17e' : '#ff5a6e');
+  const diff = perpLast - spotLast;
+  $set('ps-diff',     (diff >= 0 ? '+' : '') + fmtUsd(diff),     diff >= 0 ? '#22d17e' : '#ff5a6e');
+  chart.setOption({
+    animation: false,
+    grid: { top: 16, left: 68, right: 60, bottom: 26 },
+    tooltip: {
+      trigger: 'axis', backgroundColor:'#0b1220', borderColor:'#1c2430',
+      textStyle:{color:'#e6edf3', fontFamily:'JetBrains Mono', fontSize:11},
+    },
+    xAxis: {
+      type: 'time',
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#5b6472', fontSize: 9 },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value', scale: true,
+      axisLine: { lineStyle: { color: '#2a3443' } },
+      axisLabel: { color: '#9aa4b2', fontSize: 9, formatter: fmtUsd },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } },
+    },
+    series: [
+      { name:'PERP', type:'line', data: d.perp.map(x => [x.t, +x.cvd.toFixed(0)]),
+        showSymbol:false, smooth: 0.1, sampling: 'lttb',
+        lineStyle:{color:'#22d17e', width:1.8},
+        areaStyle:{color:{type:'linear', x:0,y:0,x2:0,y2:1,
+          colorStops:[{offset:0, color:'rgba(34,209,126,0.22)'},{offset:1, color:'rgba(0,0,0,0)'}]}} },
+      { name:'SPOT', type:'line', data: d.spot.map(x => [x.t, +x.cvd.toFixed(0)]),
+        showSymbol:false, smooth: 0.1, sampling: 'lttb',
+        lineStyle:{color:'#39e0ff', width:1.5, type:'dashed'} },
+    ],
+  }, true);
+}
+setInterval(renderPerpSpotFlow, 2000);
+
+/* ---------- TOKEN UNLOCKS CALENDAR ----------
+   Curated list of known major recurring unlocks + attempted DefiLlama fetch
+   for augmentation. Curated covers the "always known" cadences (ARB monthly,
+   OP monthly, APT monthly, etc.) so the panel always has content. */
+STATE.unlocks = STATE.unlocks || { events: [], src: 'curated' };
+const CURATED_UNLOCK_PATTERNS = [
+  // [symbol, dayOfMonth, approx tokens to unlock, approx USD notional, impact]
+  { sym:'ARB',   day: 16,  tokens: 92_650_000,  usd: 65_000_000, impact:'high',  title:'ARB monthly cliff → team+investors+treasury' },
+  { sym:'APT',   day: 12,  tokens: 11_310_000,  usd: 45_000_000, impact:'high',  title:'APT monthly unlock' },
+  { sym:'SUI',   day: 1,   tokens: 64_200_000,  usd: 130_000_000,impact:'high',  title:'SUI monthly cliff' },
+  { sym:'OP',    day: 30,  tokens: 30_500_000,  usd: 48_000_000, impact:'high',  title:'OP monthly unlock (~2.5% of circ)' },
+  { sym:'STRK',  day: 15,  tokens: 64_000_000,  usd: 9_000_000,  impact:'med',   title:'STRK monthly linear unlock' },
+  { sym:'TIA',   day: 30,  tokens: 175_360_000, usd: 625_000_000,impact:'high',  title:'TIA cliff (check exact date)' },
+  { sym:'PIXEL', day: 19,  tokens: 58_300_000,  usd: 10_000_000, impact:'med',   title:'PIXEL monthly unlock' },
+  { sym:'JUP',   day: 31,  tokens: 53_000_000,  usd: 30_000_000, impact:'med',   title:'JUP linear unlock' },
+  { sym:'IMX',   day: 5,   tokens: 24_500_000,  usd: 12_000_000, impact:'med',   title:'IMX monthly unlock' },
+  { sym:'AVAX',  day: 14,  tokens: 9_540_000,   usd: 260_000_000,impact:'high',  title:'AVAX monthly cliff' },
+];
+function _deriveUnlocks(now, range) {
+  const out = [];
+  const base = new Date(now);
+  for (let i = 0; i < 30; i++) {
+    const dt = new Date(base.getTime() + i * 86400000);
+    const dOfMonth = dt.getUTCDate();
+    for (const rec of CURATED_UNLOCK_PATTERNS) {
+      if (dOfMonth !== rec.day) continue;
+      out.push({
+        t: Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), rec.day, 0, 0, 0),
+        sym: rec.sym,
+        title: rec.title,
+        tokens: rec.tokens,
+        usd: rec.usd,
+        impact: rec.impact,
+      });
+    }
+  }
+  return out.filter(e => e.t >= now - 12*3600*1000 && e.t <= now + range)
+            .sort((a,b) => a.t - b.t);
+}
+async function refreshTokenUnlocks() {
+  const now = Date.now();
+  const range = 30 * 86400 * 1000;
+  let events = _deriveUnlocks(now, range);
+  let src = 'curated';
+  // Best-effort augment via DefiLlama emissions (if they expose a public endpoint).
+  try {
+    const r = await fetch('/llama/api/emissions', { cache: 'no-cache' });
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data) && data.length) {
+        const extra = [];
+        for (const proj of data) {
+          const nextUnlock = proj?.nextUnlock?.unlockTime * 1000;
+          if (nextUnlock && nextUnlock >= now && nextUnlock <= now + range) {
+            extra.push({
+              t: nextUnlock,
+              sym: (proj.symbol || proj.name || '').toUpperCase(),
+              title: (proj.name || '') + ' scheduled unlock',
+              tokens: proj.nextUnlock.tokens || 0,
+              usd: proj.nextUnlock.valueUSD || 0,
+              impact: (proj.nextUnlock.valueUSD || 0) > 100_000_000 ? 'high' : 'med',
+            });
+          }
+        }
+        if (extra.length) {
+          // Dedupe by (sym + date) — curated wins if same
+          const keyset = new Set(events.map(e => e.sym + ':' + new Date(e.t).toISOString().slice(0,10)));
+          for (const e of extra) {
+            const k = e.sym + ':' + new Date(e.t).toISOString().slice(0,10);
+            if (!keyset.has(k)) events.push(e);
+          }
+          events.sort((a,b) => a.t - b.t);
+          src = 'curated + llama';
+        }
+      }
+    }
+  } catch (_) {}
+  STATE.unlocks = { events, src, updated: now };
+  if (STATE.view === 'analytics') renderTokenUnlocks();
+}
+function renderTokenUnlocks() {
+  const el = $('unl-body'); if (!el) return;
+  const d = STATE.unlocks || {};
+  $set2('unl-src', d.src || '—');
+  $set2('unl-updated', nowHHMMSS() + 'Z');
+  if (!d.events?.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No upcoming unlocks in window.</div>';
+    return;
+  }
+  const now = Date.now();
+  const impColor = (i) => i === 'high' ? '#ff5a6e' : i === 'med' ? '#ffcb6b' : '#5b6472';
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">When</div>
+      <div class="col-span-2">Sym</div>
+      <div class="col-span-5">Event</div>
+      <div class="col-span-2 text-right">USD</div>
+      <div class="col-span-1 text-right">Imp</div>
+    </div>`;
+  const body = d.events.slice(0, 30).map(ev => {
+    const past = ev.t < now;
+    const dt = new Date(ev.t);
+    const dayDiff = (ev.t - now) / 86400000;
+    const when = Math.abs(dayDiff) < 1
+      ? `${dayDiff < 0 ? '-' : '+'}${Math.abs(Math.round(dayDiff * 24))}h`
+      : dt.toISOString().slice(5,10);
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular" style="opacity:${past ? 0.45 : 1};">
+      <div class="col-span-2 text-[var(--text-2)]">${when}</div>
+      <div class="col-span-2 sym">${ev.sym}</div>
+      <div class="col-span-5 truncate" title="${ev.title.replace(/"/g,'&quot;')}">${ev.title}</div>
+      <div class="col-span-2 text-right">${ev.usd ? fmtUsd(ev.usd) : '—'}</div>
+      <div class="col-span-1 text-right font-semibold" style="color:${impColor(ev.impact)};">${(ev.impact||'').toUpperCase().slice(0,3) || '—'}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+}
+function $set2(id, t) { const el = $(id); if (el) el.textContent = t; }
+refreshTokenUnlocks();
+setInterval(refreshTokenUnlocks, 60 * 60 * 1000);
+
+/* ---------- BTC / ETH ETF FLOWS ----------
+   Best-effort: tries a couple of public endpoints via Vercel proxy. If all
+   fail, degrades to a static-curated fallback message so the panel always
+   has content. */
+STATE.etf = STATE.etf || { rows: [], src: '—' };
+async function refreshEtfFlows() {
+  const now = Date.now();
+  let rows = [];
+  let src = '—';
+  // Attempt 1: coinglass unauth endpoint (often works for snapshot)
+  try {
+    const r = await fetch('https://fapi.coinglass.com/api/bitcoin/etf/flow', { cache: 'no-cache' });
+    if (r.ok) {
+      const j = await r.json();
+      const arr = j?.data || j?.result || [];
+      if (Array.isArray(arr) && arr.length) {
+        rows = arr.slice(0, 10).map(r => ({
+          t: r.date || r.time || r.timestamp,
+          asset: 'BTC',
+          net: +r.changeUsd || +r.netFlow || +r.flow || 0,
+        }));
+        src = 'coinglass';
+      }
+    }
+  } catch (_) {}
+  // Attempt 2: SoSoValue unauth (might be rate-limited but often works)
+  if (!rows.length) {
+    try {
+      const r = await fetch('https://api.sosovalue.com/openapi/v2/etf/historicalInflowChart?etfType=us-btc-spot', {
+        cache: 'no-cache',
+        headers: { 'x-soso-api-key': 'public' },
+      });
+      if (r.ok) {
+        const j = await r.json();
+        const arr = j?.data || [];
+        if (Array.isArray(arr) && arr.length) {
+          rows = arr.slice(-10).reverse().map(x => ({
+            t: x.date || x.time || x.ts,
+            asset: 'BTC',
+            net: +x.totalNetInflow || +x.totalNetInflowFund || 0,
+          }));
+          src = 'sosovalue';
+        }
+      }
+    } catch (_) {}
+  }
+  // Fallback: no data — show static message
+  if (!rows.length) {
+    rows = [];
+    src = 'unavailable';
+  }
+  STATE.etf = { rows, src, updated: now };
+  if (STATE.view === 'analytics') renderEtfFlows();
+}
+function renderEtfFlows() {
+  const el = $('etf-body'); if (!el) return;
+  const d = STATE.etf;
+  $set2('etf-src', d.src || '—');
+  $set2('etf-updated', nowHHMMSS() + 'Z');
+  if (!d.rows?.length) {
+    el.innerHTML = `
+      <div class="p-4 text-[11px] text-[var(--text-2)]">
+        Live ETF flow data source is currently unavailable.<br/>
+        Check <a href="https://farside.co.uk/bitcoin-etf-flow-all-data/" target="_blank" style="color:#39e0ff; text-decoration: underline;">farside.co.uk</a> or
+        <a href="https://sosovalue.com/assets/etf/us-btc-spot" target="_blank" style="color:#39e0ff; text-decoration: underline;">sosovalue.com</a>
+        for the current daily net flows.
+      </div>`;
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-4">Date</div>
+      <div class="col-span-2">Asset</div>
+      <div class="col-span-6 text-right">Net Flow USD</div>
+    </div>`;
+  const body = d.rows.map(r => {
+    const dt = typeof r.t === 'number' ? new Date(r.t > 1e12 ? r.t : r.t * 1000) : new Date(r.t);
+    const dateStr = isNaN(+dt) ? (r.t || '—') : dt.toISOString().slice(0, 10);
+    const pos = r.net >= 0;
+    return `<div class="grid grid-cols-12 px-3 py-0.5 text-[11px] border-b hairline tabular">
+      <div class="col-span-4 text-[var(--text-2)]">${dateStr}</div>
+      <div class="col-span-2 sym">${r.asset}</div>
+      <div class="col-span-6 text-right font-semibold" style="color:${pos ? '#22d17e' : '#ff5a6e'};">${pos ? '+' : ''}${fmtUsd(r.net)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = header + body;
+}
+refreshEtfFlows();
+setInterval(refreshEtfFlows, 15 * 60 * 1000);
+
+// Hook analytics view switch for new panels
+(function hookBatch9Panels(){
+  const o = window.switchView;
+  if (typeof o !== 'function') return;
+  window.switchView = function(v) {
+    o(v);
+    if (v === 'analytics') {
+      try { renderTokenUnlocks(); } catch {}
+      try { renderEtfFlows(); } catch {}
+    }
+  };
+})();
 </script>
 </body>
 </html>

@@ -6,7 +6,9 @@
     { "source": "/gatefx/:path*",  "destination": "https://fx-api.gateio.ws/:path*" },
     { "source": "/kucoin/:path*",  "destination": "https://api-futures.kucoin.com/:path*" },
     { "source": "/cbintx/:path*",  "destination": "https://api.international.coinbase.com/:path*" },
-    { "source": "/econcal/:path*", "destination": "https://nfs.faireconomy.media/:path*" }
+    { "source": "/econcal/:path*", "destination": "https://nfs.faireconomy.media/:path*" },
+    { "source": "/farside/:path*", "destination": "https://farside.co.uk/:path*" },
+    { "source": "/llama/:path*",   "destination": "https://api.llama.fi/:path*" }
   ],
   "headers": [
     {
