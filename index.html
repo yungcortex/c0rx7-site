@@ -737,6 +737,7 @@
 <nav class="nav-tabs">
   <div class="nav-tab active" data-view="overview">OVERVIEW</div>
   <div class="nav-tab" data-view="screener">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
+  <div class="nav-tab" data-view="edge">EDGE <span class="badge" id="tab-edge-count">0</span></div>
   <div class="nav-tab" data-view="whales">WHALES <span class="badge" id="tab-whales-count">0</span></div>
   <div class="nav-tab" data-view="analytics">ANALYTICS</div>
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
@@ -1442,6 +1443,54 @@
   </div>
 </div>
 
+<!-- ============ EDGE VIEW: unique cross-venue analytics ============ -->
+<div id="view-edge" class="view hidden">
+  <div class="px-3 md:px-4 py-3 space-y-3">
+    <div class="grid grid-cols-12 gap-3">
+      <!-- Cross-venue spread scanner -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#39e0ff"></span>CROSS-VENUE SPREAD · TOP 30</span>
+          <span class="text-[var(--text-2)]">max − min across 9 venues · updated <span id="xvs-updated" class="tabular">—</span></span>
+        </div>
+        <div id="xvs-table" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">Awaiting cross-venue data…</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          Green symbols = spread above 10 bp round-trip taker fee estimate
+        </div>
+      </div>
+
+      <!-- Funding arbitrage scanner -->
+      <div class="panel col-span-12 xl:col-span-6">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#ffcb6b"></span>FUNDING ARBITRAGE · SPREAD &gt; 2 bp</span>
+          <span class="text-[var(--text-2)]">short high-fund / long low-fund · updated <span id="fa-updated" class="tabular">—</span></span>
+        </div>
+        <div id="fa-table" class="overflow-y-auto scroll-clip" style="max-height: 560px;">
+          <div class="p-4 text-[11px] text-[var(--text-2)]">No spreads &gt; 2 bp yet.</div>
+        </div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase">
+          APR = spread × 3 (per 8h funding) × 365 — ignores borrow/maker fees, size impact
+        </div>
+      </div>
+
+      <!-- Price-discovery leaders -->
+      <div class="panel col-span-12">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#00ffa3"></span>PRICE DISCOVERY LEADERS · LAST 5 MIN</span>
+          <span class="text-[var(--text-2)]">which venue's move arrived first · rolling <span id="pld-window">5 min</span></span>
+        </div>
+        <div id="pld-body" class="px-4 py-3"></div>
+        <div class="px-3 py-2 border-t hairline text-[10px] text-[var(--text-2)] tracking-widest uppercase flex justify-between">
+          <span>Sampled every 300 ms across top 10 symbols — venue with largest sample-to-sample Δ credited with the lead.</span>
+          <span><span class="text-[var(--text-0)] tabular" id="pld-total">0</span> moves scored</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /views -->
 
 <!-- ============ STATUS BAR ============ -->
@@ -1788,7 +1837,7 @@ function wireKeyboard() {
     const tag = (e.target && e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const map = {'1':'overview','2':'screener','3':'whales','4':'analytics'};
+    const map = {'1':'overview','2':'screener','3':'edge','4':'whales','5':'analytics'};
     if (map[e.key]) {
       const btn = document.querySelector(`.nav-tab[data-view="${map[e.key]}"]`);
       if (btn) btn.click();
@@ -4372,6 +4421,11 @@ function switchView(v) {
       renderFearGreedGauge();
       renderCorrelationMatrix();
     }
+    if (v === 'edge') {
+      try { renderCrossVenueSpreads(); } catch {}
+      try { renderFundingArb(); } catch {}
+      try { renderLeadership(); } catch {}
+    }
   }, 30);
 }
 // global search — filters screener
@@ -6037,6 +6091,240 @@ function connectAllTickerFeeds() {
   safe(connectHyperliquidWs,     'hyperliquid');
   try { console.info('[c0r7x] WS ticker feeds dispatched: bybit, okx, bitget, gate, kucoin, aster, hyperliquid'); } catch {}
 }
+
+/* ====================================================================
+   EDGE TAB — cross-venue spread, funding arbitrage, leadership
+   --------------------------------------------------------------------
+   Three analytics that are only possible because we stream from 9 venues
+   simultaneously: (1) live spread scanner ranking price dislocations,
+   (2) funding-rate carry arbitrage opportunities, (3) price-discovery
+   leadership (which venue moves first on rapid prints).
+   ==================================================================== */
+const EDGE_VENUES = ['binance','bybit','okx','bitget','gate','kucoin','aster','hyperliquid','coinbaseIntx'];
+const EDGE_VENUE_LABELS = {
+  binance:'BIN', bybit:'BYB', okx:'OKX', bitget:'BGT',
+  gate:'GATE', kucoin:'KCN', aster:'AST', hyperliquid:'HYPE', coinbaseIntx:'CBI'
+};
+const EDGE_VENUE_COLORS = {
+  binance:'#f0b90b', bybit:'#f7a600', okx:'#22d3ee',
+  bitget:'#00f0a0', gate:'#2354e6', kucoin:'#00d58b',
+  aster:'#b28cff', hyperliquid:'#50d0ff', coinbaseIntx:'#0052ff'
+};
+
+function computeCrossVenueSpreads() {
+  if (!STATE.ticker24h.size) return [];
+  const rows = [];
+  for (const [sym, t] of STATE.ticker24h) {
+    if (!sym.endsWith('USDT') || sym.includes('_')) continue;
+    const prices = {};
+    for (const v of EDGE_VENUES) {
+      const p = STATE.prices[v]?.get(sym);
+      if (p && p > 0) prices[v] = p;
+    }
+    const keys = Object.keys(prices);
+    if (keys.length < 3) continue;       // need ≥3 venues for a real consensus
+    let minV=null, minP=Infinity, maxV=null, maxP=-Infinity;
+    for (const v of keys) {
+      if (prices[v] < minP) { minP = prices[v]; minV = v; }
+      if (prices[v] > maxP) { maxP = prices[v]; maxV = v; }
+    }
+    // Skip stale outliers: if the extreme is > 200bp from median, it's likely
+    // a paused/dead venue feed rather than a real arb window.
+    const sorted = Object.values(prices).sort((a,b) => a-b);
+    const median = sorted[Math.floor(sorted.length/2)];
+    const deviation = Math.max(
+      Math.abs((minP - median) / median) * 10000,
+      Math.abs((maxP - median) / median) * 10000
+    );
+    if (deviation > 300) continue;
+    const mid = (minP + maxP) / 2;
+    const bps = ((maxP - minP) / mid) * 10000;
+    rows.push({
+      sym, minV, minP, maxV, maxP, bps,
+      edge: Math.max(0, bps - 10),   // net of ~10bp round-trip taker fees
+      venueCount: keys.length,
+      vol: +t.quoteVolume || 0,
+    });
+  }
+  rows.sort((a,b) => b.bps - a.bps);
+  return rows;
+}
+
+function renderCrossVenueSpreads() {
+  const el = $('xvs-table'); if (!el) return;
+  const rows = computeCrossVenueSpreads().slice(0, 30);
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">Awaiting cross-venue data…</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Symbol</div>
+      <div class="col-span-3">Low</div>
+      <div class="col-span-3">High</div>
+      <div class="col-span-2 text-right">Spread bp</div>
+      <div class="col-span-2 text-right">Edge bp</div>
+    </div>`;
+  const body = rows.map(r => `
+    <div class="grid grid-cols-12 px-3 py-1 text-[11px] border-b hairline cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 tabular">
+        <span style="color:${EDGE_VENUE_COLORS[r.minV]};">${EDGE_VENUE_LABELS[r.minV]}</span>
+        <span class="text-[var(--text-2)] ml-2">${fmt(r.minP)}</span>
+      </div>
+      <div class="col-span-3 tabular">
+        <span style="color:${EDGE_VENUE_COLORS[r.maxV]};">${EDGE_VENUE_LABELS[r.maxV]}</span>
+        <span class="text-[var(--text-2)] ml-2">${fmt(r.maxP)}</span>
+      </div>
+      <div class="col-span-2 text-right tabular ${r.bps > 15 ? 'num-up font-semibold' : 'text-[var(--text-1)]'}">${r.bps.toFixed(1)}</div>
+      <div class="col-span-2 text-right tabular ${r.edge > 5 ? 'num-up font-semibold' : 'text-[var(--text-2)]'}">${r.edge.toFixed(1)}</div>
+    </div>`).join('');
+  el.innerHTML = header + body;
+  const upd = $('xvs-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+  // Update the tab badge with count of actionable (edge > 5bp) opportunities
+  const actionable = rows.filter(r => r.edge > 5).length;
+  const badge = $('tab-edge-count'); if (badge) badge.textContent = actionable;
+}
+
+function computeFundingArb() {
+  const rows = [];
+  for (const sym of Object.keys(STATE.funding)) {
+    if (!sym.endsWith('USDT')) continue;
+    const f = STATE.funding[sym];
+    const rates = {};
+    for (const v of EDGE_VENUES) {
+      const r = f[v];
+      if (r != null && !Number.isNaN(r)) rates[v] = r;
+    }
+    const keys = Object.keys(rates);
+    if (keys.length < 2) continue;
+    let minV=null, minR=Infinity, maxV=null, maxR=-Infinity;
+    for (const v of keys) {
+      if (rates[v] < minR) { minR = rates[v]; minV = v; }
+      if (rates[v] > maxR) { maxR = rates[v]; maxV = v; }
+    }
+    const spreadBps = (maxR - minR) * 10000;
+    if (spreadBps < 2) continue;
+    // Funding is per 8h → ×3 per day × 365 days = annualized APR of the
+    // delta-neutral carry (long low-fund venue, short high-fund venue).
+    const apr = (maxR - minR) * 3 * 365 * 100;
+    rows.push({ sym, minV, minR, maxV, maxR, spreadBps, apr, venueCount: keys.length });
+  }
+  rows.sort((a,b) => b.spreadBps - a.spreadBps);
+  return rows;
+}
+
+function renderFundingArb() {
+  const el = $('fa-table'); if (!el) return;
+  const rows = computeFundingArb().slice(0, 30);
+  if (!rows.length) {
+    el.innerHTML = '<div class="p-4 text-[11px] text-[var(--text-2)]">No spreads &gt; 2 bp yet.</div>';
+    return;
+  }
+  const header = `
+    <div class="grid grid-cols-12 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[var(--text-2)] border-b hairline sticky top-0" style="background:rgba(5,7,10,0.96);z-index:1;">
+      <div class="col-span-2">Symbol</div>
+      <div class="col-span-3">Short (high)</div>
+      <div class="col-span-3">Long (low)</div>
+      <div class="col-span-2 text-right">Δ bp</div>
+      <div class="col-span-2 text-right">APR %</div>
+    </div>`;
+  const body = rows.map(r => `
+    <div class="grid grid-cols-12 px-3 py-1 text-[11px] border-b hairline cursor-pointer hover:bg-white/[0.03]" data-sym="${r.sym}">
+      <div class="col-span-2 sym">${r.sym.replace('USDT','')}</div>
+      <div class="col-span-3 tabular">
+        <span style="color:${EDGE_VENUE_COLORS[r.maxV]};">${EDGE_VENUE_LABELS[r.maxV]}</span>
+        <span class="text-[var(--text-2)] ml-2">${(r.maxR*100).toFixed(4)}%</span>
+      </div>
+      <div class="col-span-3 tabular">
+        <span style="color:${EDGE_VENUE_COLORS[r.minV]};">${EDGE_VENUE_LABELS[r.minV]}</span>
+        <span class="text-[var(--text-2)] ml-2">${(r.minR*100).toFixed(4)}%</span>
+      </div>
+      <div class="col-span-2 text-right tabular num-up font-semibold">${r.spreadBps.toFixed(1)}</div>
+      <div class="col-span-2 text-right tabular ${r.apr > 50 ? 'num-up font-semibold' : 'text-[var(--text-1)]'}">${r.apr.toFixed(1)}</div>
+    </div>`).join('');
+  el.innerHTML = header + body;
+  const upd = $('fa-updated'); if (upd) upd.textContent = nowHHMMSS() + 'Z';
+  el.querySelectorAll('[data-sym]').forEach(d => d.addEventListener('click', () => {
+    try { switchSymbol(d.dataset.sym); } catch {}
+  }));
+}
+
+const PLD_WINDOW_MS  = 5 * 60 * 1000;
+const PLD_TOP_SYMS   = ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','BNBUSDT','HYPEUSDT','SUIUSDT','AVAXUSDT','LINKUSDT'];
+const PLD_MIN_BPS    = 2;
+STATE.leadership = { events: [], prevSnapshot: {} };
+
+function sampleLeadership() {
+  const now = Date.now();
+  const prev = STATE.leadership.prevSnapshot;
+  const cur = {};
+  for (const sym of PLD_TOP_SYMS) {
+    cur[sym] = {};
+    for (const v of EDGE_VENUES) {
+      const p = STATE.prices[v]?.get(sym);
+      if (p) cur[sym][v] = p;
+    }
+    // Largest relative move vs prior 300ms snapshot = inferred leader.
+    const prevS = prev[sym] || {};
+    const curS  = cur[sym];
+    let leader = null, maxMag = 0;
+    for (const v of EDGE_VENUES) {
+      if (curS[v] == null || prevS[v] == null) continue;
+      const bps = Math.abs((curS[v] - prevS[v]) / prevS[v]) * 10000;
+      if (bps > maxMag) { maxMag = bps; leader = v; }
+    }
+    if (leader && maxMag > PLD_MIN_BPS) {
+      STATE.leadership.events.push({ t: now, venue: leader });
+    }
+  }
+  STATE.leadership.prevSnapshot = cur;
+  const cut = now - PLD_WINDOW_MS;
+  while (STATE.leadership.events.length && STATE.leadership.events[0].t < cut) {
+    STATE.leadership.events.shift();
+  }
+}
+setInterval(sampleLeadership, 300);
+
+function renderLeadership() {
+  const el = $('pld-body'); if (!el) return;
+  const total = STATE.leadership.events.length;
+  const totEl = $('pld-total'); if (totEl) totEl.textContent = total.toLocaleString();
+  if (!total) {
+    el.innerHTML = '<div class="text-[11px] text-[var(--text-2)] py-3">Warming up — collecting samples from all 9 venues.</div>';
+    return;
+  }
+  const counts = {};
+  EDGE_VENUES.forEach(v => { counts[v] = 0; });
+  STATE.leadership.events.forEach(e => { counts[e.venue] = (counts[e.venue] || 0) + 1; });
+  const rows = EDGE_VENUES.map(v => ({
+    v, n: counts[v] || 0, pct: total ? (counts[v]||0)/total*100 : 0,
+  })).sort((a,b) => b.n - a.n);
+  const maxN = rows[0].n || 1;
+  el.innerHTML = rows.map(r => `
+    <div class="grid grid-cols-12 items-center gap-2 py-1.5 text-[11.5px]">
+      <div class="col-span-2 font-semibold" style="color:${EDGE_VENUE_COLORS[r.v]};letter-spacing:0.12em;">${EDGE_VENUE_LABELS[r.v]}</div>
+      <div class="col-span-7">
+        <div style="height:16px;background:rgba(255,255,255,0.04);border-radius:3px;overflow:hidden;position:relative;">
+          <div style="width:${(r.n/maxN*100).toFixed(1)}%;height:100%;background:linear-gradient(90deg, ${EDGE_VENUE_COLORS[r.v]}, ${EDGE_VENUE_COLORS[r.v]}aa);opacity:0.85;"></div>
+        </div>
+      </div>
+      <div class="col-span-2 text-right tabular text-[var(--text-0)]">${r.n.toLocaleString()}</div>
+      <div class="col-span-1 text-right tabular text-[var(--text-2)]">${r.pct.toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+// While the Edge view is visible, refresh every 3s.
+setInterval(() => {
+  if (STATE.view === 'edge') {
+    try { renderCrossVenueSpreads(); } catch {}
+    try { renderFundingArb(); } catch {}
+    try { renderLeadership(); } catch {}
+  }
+}, 3000);
 
 /* ====================================================================
    BOOT
