@@ -744,31 +744,60 @@
   /* ================== LEFT SIDEBAR + STICKY MARKET BAR ================== */
   /* Default desktop layout: sidebar always visible */
   @media (min-width: 1024px) {
+    html, body { max-width: 100vw; overflow-x: hidden; }
     body {
       display: grid;
-      grid-template-columns: 210px 1fr;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-columns: 210px minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto;
       grid-template-areas:
         "sidebar marketbar"
-        "sidebar ticker"
         "sidebar main"
         "sidebar footer";
       min-height: 100vh;
     }
-    header           { grid-area: marketbar; }
-    #mega-strip      { grid-area: ticker; }
-    .main-body       { grid-area: main; }
-    footer           { grid-area: footer; position: static !important; }
-    #main-sidebar    { grid-area: sidebar; }
-    /* Hide the old horizontal nav on desktop (sidebar replaces it) */
-    nav.nav-tabs     { display: none !important; }
-    #smart-tabs      { display: none !important; }
-    /* Header becomes the compact market bar */
-    header { position: sticky; top: 0; z-index: 35; }
+    #main-sidebar   { grid-area: sidebar; }
+    header          { grid-area: marketbar; position: sticky; top: 0; z-index: 35; max-width: 100%; overflow: hidden; }
+    .main-body      { grid-area: main; min-width: 0; overflow-x: hidden; }
+    footer          { grid-area: footer; position: static !important; }
+    /* Hide old horizontal chrome on desktop (sidebar replaces it) */
+    nav.nav-tabs      { display: none !important; }
+    #smart-tabs       { display: none !important; }
+    #mega-strip       { display: none !important; }
+    /* Hide the old brand/chip row inside header — sidebar has brand, chips move to sidebar footer */
+    header.border-b > div.flex.items-center.justify-between { display: none !important; }
+    /* Hide the dense command bar row on desktop — market-bar covers the same */
+    .cmd-bar { display: none !important; }
+    /* Hide wireframes in mobile-only areas */
+    #fund-countdown-strip { display: none !important; }
+    #watchlist-bar         { display: none !important; }
+    /* Constrain market bar */
+    .market-bar { max-width: 100%; padding: 9px 18px; }
+    /* Panels in main area respect the grid width */
+    #views, #views > .view, main { max-width: 100%; min-width: 0; }
+    /* Inject a view title + quick-actions strip above main content */
+    .view-titlebar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(10,15,20,0.5), rgba(5,7,10,0.2));
+      font-family: 'JetBrains Mono', monospace;
+    }
   }
   /* Mobile / tablet keeps the existing top-nav layout */
   @media (max-width: 1023px) {
     #main-sidebar { display: none !important; }
+    /* Tighten the header chrome on mobile */
+    header.border-b { padding: 0; }
+    header.border-b > div.flex.items-center.justify-between { padding: 6px 10px !important; }
+    .market-bar { padding: 6px 10px; gap: 10px; font-size: 10.5px; }
+    .market-bar .m-chip { gap: 4px; }
+    .market-bar .m-label { font-size: 8.5px; }
+    .market-bar .m-divider { height: 12px; }
+    /* Hide chips row on mobile — reuses sidebar's place */
+    header.border-b .chip { display: none; }
+    /* Hide redundant funding strip on mobile */
+    #fund-countdown-strip { padding: 4px 10px; font-size: 10px; gap: 8px; }
+    /* Tickertape less noisy on mobile */
+    #mega-strip { border-top: 1px solid var(--line); }
   }
 
   /* Sidebar itself */
@@ -834,7 +863,7 @@
     margin-left: auto;
   }
   .side-footer {
-    border-top: 1px solid var(--line); margin-top: 12px; padding: 12px 18px 0;
+    border-top: 1px solid var(--line); margin-top: 12px; padding: 12px 18px;
     font-size: 10px; color: var(--text-2); letter-spacing: 0.14em;
   }
   .side-footer .cmdk-hint {
@@ -842,6 +871,43 @@
     border-radius: 3px; font-family: 'JetBrains Mono', monospace;
     color: var(--text-1); background: #0b1220; margin-right: 6px;
   }
+  /* Compact connection dots for sidebar */
+  .side-conn-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 4px; padding: 8px 14px 4px;
+  }
+  .side-conn {
+    display: flex; flex-direction: column; align-items: center;
+    font-size: 8.5px; color: var(--text-2); letter-spacing: 0.08em;
+    gap: 2px;
+  }
+  .side-conn .dotc {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #5b6472; box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .side-conn.live .dotc {
+    background: #22d17e; box-shadow: 0 0 6px rgba(34,209,126,0.5);
+  }
+  .side-conn.off .dotc { background: #ff5a6e; }
+
+  /* View title strip (injected at top of each view) */
+  .view-titlebar {
+    padding: 12px 20px; display: flex; align-items: center;
+    justify-content: space-between; gap: 16px;
+    background: linear-gradient(180deg, rgba(10,15,20,0.6), transparent);
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .view-titlebar h1 {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--text-0);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .view-titlebar h1 .vsub {
+    color: var(--text-2); font-weight: 500; font-size: 11px; letter-spacing: 0.2em;
+    margin-left: 8px;
+  }
+  .view-titlebar .vactions { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-2); }
 
   /* Desktop market ticker bar — compact, always-on */
   .market-bar {
@@ -941,8 +1007,24 @@
     <div class="side-item side-ws-item" data-ws="macro"><span>Macro</span></div>
     <div class="side-item side-ws-item" data-ws="degen"><span>Degen</span></div>
   </div>
+  <div class="side-section" style="margin-top:10px;">Connections</div>
+  <div id="side-conn-grid" class="side-conn-grid">
+    <div class="side-conn"         data-conn="binance"><span class="dotc"></span><span>BIN</span></div>
+    <div class="side-conn"         data-conn="bybit"><span class="dotc"></span><span>BYB</span></div>
+    <div class="side-conn"         data-conn="okx"><span class="dotc"></span><span>OKX</span></div>
+    <div class="side-conn"         data-conn="bitget"><span class="dotc"></span><span>BGT</span></div>
+    <div class="side-conn"         data-conn="gate"><span class="dotc"></span><span>GATE</span></div>
+    <div class="side-conn"         data-conn="kucoin"><span class="dotc"></span><span>KCN</span></div>
+    <div class="side-conn"         data-conn="aster"><span class="dotc"></span><span>AST</span></div>
+    <div class="side-conn"         data-conn="hyperliquid"><span class="dotc"></span><span>HYPE</span></div>
+    <div class="side-conn"         data-conn="coinbaseIntx"><span class="dotc"></span><span>CBI</span></div>
+    <div class="side-conn"         data-conn="coinbase"><span class="dotc"></span><span>CB</span></div>
+  </div>
   <div class="side-footer">
-    <span class="cmdk-hint">⌘K</span>Search
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span><span class="cmdk-hint">⌘K</span>Search</span>
+      <span id="side-uptime" class="tabular" style="font-size:10px; color:var(--text-2);">—</span>
+    </div>
   </div>
 </aside>
 
@@ -11667,6 +11749,59 @@ function _renderMarketBar() {
 }
 setInterval(_renderMarketBar, 2000);
 setTimeout(_renderMarketBar, 3000);
+
+/* ---------- SIDEBAR CONNECTION DOTS + UPTIME ---------- */
+function _syncSideConns() {
+  document.querySelectorAll('.side-conn').forEach(el => {
+    const k = el.dataset.conn;
+    const ok = !!STATE.connections[k];
+    el.classList.toggle('live', ok);
+    el.classList.toggle('off', !ok);
+  });
+  const up = $('side-uptime');
+  if (up) up.textContent = uptime();
+}
+setInterval(_syncSideConns, 1000);
+
+/* ---------- VIEW TITLEBAR (desktop only) ----------
+   Inject a clean h1 + quick-actions strip at the top of each view so the
+   main content has an anchor when the old nav is hidden. */
+const VIEW_META = {
+  'overview':  { title: 'Pulse',        sub: 'Price · Depth · Funding · Liquidations',           hero: 'price-chart' },
+  'screener':  { title: 'Screener',     sub: 'All USDT perps · ranked live',                     hero: 'screener-tbl' },
+  'edge':      { title: 'Flow',         sub: 'Cross-venue · CVD · Hot zones · Squeezes',         hero: 'xvs-table' },
+  'whales':    { title: 'Liquidations', sub: 'Cascade maps · whale tape · cross-venue',           hero: 'whale-feed' },
+  'analytics': { title: 'Analytics',    sub: 'Options · Macro · Momentum · Correlation',         hero: 'momentum-heatmap' },
+};
+function _injectViewTitlebars() {
+  Object.entries(VIEW_META).forEach(([v, meta]) => {
+    const view = document.getElementById('view-' + v);
+    if (!view || view.querySelector(':scope > .view-titlebar')) return;
+    const tb = document.createElement('div');
+    tb.className = 'view-titlebar';
+    tb.innerHTML = `
+      <h1>${meta.title.toUpperCase()}<span class="vsub">${meta.sub}</span></h1>
+      <div class="vactions">
+        <span class="tabular"><span style="color:var(--text-2);">Panels</span> <span id="vt-${v}-count" style="color:var(--text-0);">—</span></span>
+        <button class="btn" data-vt-scroll-top>↑ TOP</button>
+      </div>`;
+    view.insertBefore(tb, view.firstChild);
+    tb.querySelector('[data-vt-scroll-top]')?.addEventListener('click', () => {
+      view.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+  // Update panel counts per view
+  Object.keys(VIEW_META).forEach(v => {
+    const view = document.getElementById('view-' + v);
+    if (!view) return;
+    const c = view.querySelectorAll('.panel').length;
+    const el = document.getElementById(`vt-${v}-count`);
+    if (el) el.textContent = c;
+  });
+}
+setTimeout(_injectViewTitlebars, 1200);
+setTimeout(_injectViewTitlebars, 5000);
 
 // Smart-filter (category focus) interactions
 function _applySmartFilter(filter) {
