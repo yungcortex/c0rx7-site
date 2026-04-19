@@ -741,6 +741,137 @@
   }
   .ws-select:hover { border-color: rgba(0,255,163,0.4); color: var(--text-0); }
 
+  /* ================== LEFT SIDEBAR + STICKY MARKET BAR ================== */
+  /* Default desktop layout: sidebar always visible */
+  @media (min-width: 1024px) {
+    body {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas:
+        "sidebar marketbar"
+        "sidebar ticker"
+        "sidebar main"
+        "sidebar footer";
+      min-height: 100vh;
+    }
+    header           { grid-area: marketbar; }
+    #mega-strip      { grid-area: ticker; }
+    .main-body       { grid-area: main; }
+    footer           { grid-area: footer; position: static !important; }
+    #main-sidebar    { grid-area: sidebar; }
+    /* Hide the old horizontal nav on desktop (sidebar replaces it) */
+    nav.nav-tabs     { display: none !important; }
+    #smart-tabs      { display: none !important; }
+    /* Header becomes the compact market bar */
+    header { position: sticky; top: 0; z-index: 35; }
+  }
+  /* Mobile / tablet keeps the existing top-nav layout */
+  @media (max-width: 1023px) {
+    #main-sidebar { display: none !important; }
+  }
+
+  /* Sidebar itself */
+  #main-sidebar {
+    background: linear-gradient(180deg, #07090d 0%, #050709 100%);
+    border-right: 1px solid var(--line);
+    padding: 16px 0;
+    position: sticky; top: 0; max-height: 100vh;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    z-index: 30;
+  }
+  #main-sidebar::-webkit-scrollbar { width: 4px; }
+  #main-sidebar::-webkit-scrollbar-thumb { background: #1c2430; }
+  .side-brand {
+    display: flex; align-items: center; gap: 10px; padding: 0 18px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-brand .mark {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: #05070a; border: 2px solid rgba(0,255,163,0.4);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 16px rgba(0,255,163,0.25);
+  }
+  .side-brand .mark svg { width: 20px; height: 20px; }
+  .side-brand .name {
+    font-size: 17px; font-weight: 800; color: var(--text-0);
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 12px rgba(0,255,163,0.3);
+  }
+  .side-brand .tag {
+    font-size: 9px; color: var(--text-2); letter-spacing: 0.32em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  .side-group { padding: 12px 0 6px 0; }
+  .side-section {
+    padding: 4px 18px 6px 18px;
+    font-size: 9px; letter-spacing: 0.3em; color: var(--text-2);
+    text-transform: uppercase; font-weight: 700;
+  }
+  .side-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 18px; font-size: 11.5px; letter-spacing: 0.14em;
+    color: #c2cbd6; cursor: pointer; text-transform: uppercase;
+    font-weight: 600;
+    border-left: 2px solid transparent;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .side-item:hover { background: rgba(255,255,255,0.03); color: var(--text-0); }
+  .side-item.active {
+    background: rgba(0,255,163,0.06);
+    color: #00ffa3;
+    border-left-color: #00ffa3;
+    text-shadow: 0 0 6px rgba(0,255,163,0.4);
+  }
+  .side-item .k-hint {
+    font-size: 9px; color: var(--text-2); letter-spacing: 0.2em;
+    opacity: 0.6;
+  }
+  .side-item .badge {
+    font-size: 8.5px; letter-spacing: 0.1em; padding: 1px 5px;
+    border-radius: 2px; background: rgba(255,90,110,0.15); color: #ff5a6e;
+    margin-left: auto;
+  }
+  .side-footer {
+    border-top: 1px solid var(--line); margin-top: 12px; padding: 12px 18px 0;
+    font-size: 10px; color: var(--text-2); letter-spacing: 0.14em;
+  }
+  .side-footer .cmdk-hint {
+    display: inline-block; padding: 3px 6px; border: 1px solid var(--line);
+    border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-1); background: #0b1220; margin-right: 6px;
+  }
+
+  /* Desktop market ticker bar — compact, always-on */
+  .market-bar {
+    display: flex; align-items: center; gap: 18px; padding: 8px 16px;
+    background: linear-gradient(180deg, #0a0f14 0%, rgba(8,11,16,0.92) 100%);
+    border-bottom: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    flex-wrap: wrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .market-bar::-webkit-scrollbar { display: none; }
+  .market-bar .m-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text-1); white-space: nowrap;
+  }
+  .market-bar .m-chip .sym { color: var(--text-0); font-weight: 700; letter-spacing: 0.08em; }
+  .market-bar .m-chip .px  { color: var(--text-0); font-variant-numeric: tabular-nums; }
+  .market-bar .m-chip .chg { font-variant-numeric: tabular-nums; }
+  .market-bar .m-divider {
+    width: 1px; height: 14px; background: var(--line);
+  }
+  .market-bar .m-label {
+    color: var(--text-2); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  }
+  .market-bar .m-value {
+    color: var(--text-0); font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+
   /* Per-panel deep-link icon in panel headers */
   .panel-link {
     display: inline-block; margin-left: 8px; padding: 1px 6px;
@@ -770,7 +901,52 @@
 </head>
 <body class="min-h-screen">
 
-<!-- ============ TOP BAR ============ -->
+<!-- ============ LEFT SIDEBAR NAV (desktop only) ============ -->
+<aside id="main-sidebar">
+  <div class="side-brand">
+    <div class="mark">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <path d="M44 20a16 16 0 1 0 0 24" fill="none" stroke="#00ffa3" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="46" cy="20" r="3.5" fill="#39e0ff"/>
+      </svg>
+    </div>
+    <div>
+      <div class="name">c0r7x</div>
+      <div class="tag">perps terminal</div>
+    </div>
+  </div>
+  <div class="side-group">
+    <div class="side-section">Views</div>
+    <div class="side-item side-view-item active" data-view="overview"><span>Pulse</span><span class="k-hint">1</span></div>
+    <div class="side-item side-view-item" data-view="screener"><span>Screener</span><span class="k-hint">2</span></div>
+    <div class="side-item side-view-item" data-view="edge"><span>Flow</span><span class="k-hint">3</span></div>
+    <div class="side-item side-view-item" data-view="whales"><span>Liquidations</span><span class="k-hint">4</span></div>
+    <div class="side-item side-view-item" data-view="analytics"><span>Analytics</span><span class="k-hint">5</span></div>
+  </div>
+  <div class="side-group">
+    <div class="side-section">Focus</div>
+    <div class="side-item side-filter-item active" data-filter="all"><span>All panels</span></div>
+    <div class="side-item side-filter-item" data-filter="liquidations"><span>Liquidations</span></div>
+    <div class="side-item side-filter-item" data-filter="funding-oi"><span>Funding & OI</span></div>
+    <div class="side-item side-filter-item" data-filter="flow"><span>Flow</span></div>
+    <div class="side-item side-filter-item" data-filter="signals"><span>Signals</span></div>
+    <div class="side-item side-filter-item" data-filter="options"><span>Options</span></div>
+    <div class="side-item side-filter-item" data-filter="macro"><span>Macro</span></div>
+  </div>
+  <div class="side-group">
+    <div class="side-section">Layout</div>
+    <div class="side-item side-ws-item" data-ws="full"><span>Full</span></div>
+    <div class="side-item side-ws-item" data-ws="pro"><span>Pro</span></div>
+    <div class="side-item side-ws-item" data-ws="minimal"><span>Minimal</span></div>
+    <div class="side-item side-ws-item" data-ws="macro"><span>Macro</span></div>
+    <div class="side-item side-ws-item" data-ws="degen"><span>Degen</span></div>
+  </div>
+  <div class="side-footer">
+    <span class="cmdk-hint">⌘K</span>Search
+  </div>
+</aside>
+
+<!-- ============ TOP BAR (desktop: compact market bar · mobile: full nav) ============ -->
 <header class="border-b hairline" style="background: rgba(8,11,16,0.85); backdrop-filter: blur(8px);">
   <div class="flex items-center justify-between px-4 py-2">
     <div class="flex items-center gap-4">
@@ -888,7 +1064,7 @@
   <span class="smart-tab" data-filter="macro">Macro</span>
 </div>
 
-<div id="views">
+<div id="views" class="main-body">
 <div id="view-overview" class="view">
 <!-- ============ WATCHLIST BAR ============ -->
 <div id="watchlist-bar" class="px-3 md:px-4 pt-3 flex items-center gap-3 text-[11px] flex-wrap">
@@ -11360,6 +11536,137 @@ function _installResetLayoutBtn() {
   shareBtn.parentNode.insertBefore(btn, shareBtn);
 }
 setTimeout(_installResetLayoutBtn, 3000);
+
+/* ---------- SIDEBAR NAV (desktop) ----------
+   Mirrors tab nav + focus filter + workspace preset. Clicks route into
+   the existing handlers so no duplicated state. Active indicator sync'd
+   via periodic check. */
+function _wireSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  if (!sb) return;
+  sb.querySelectorAll('.side-view-item').forEach(el => {
+    el.addEventListener('click', () => {
+      try { switchView(el.dataset.view); } catch {}
+    });
+  });
+  sb.querySelectorAll('.side-filter-item').forEach(el => {
+    el.addEventListener('click', () => {
+      try { _applySmartFilter(el.dataset.filter); } catch {}
+    });
+  });
+  sb.querySelectorAll('.side-ws-item').forEach(el => {
+    el.addEventListener('click', () => {
+      try { _applyWorkspace(el.dataset.ws); } catch {}
+    });
+  });
+}
+function _syncSidebarActive() {
+  const sb = document.getElementById('main-sidebar');
+  if (!sb) return;
+  sb.querySelectorAll('.side-view-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.view === STATE.view));
+  const curFilter = (() => {
+    const m = document.body.className.match(/filter-(\w[\w-]*)/);
+    return m ? m[1] : 'all';
+  })();
+  sb.querySelectorAll('.side-filter-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.filter === curFilter));
+  const curWs = (() => {
+    const m = document.body.className.match(/workspace-(\w+)/);
+    return m ? m[1] : 'full';
+  })();
+  sb.querySelectorAll('.side-ws-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.ws === curWs));
+}
+setTimeout(_wireSidebar, 1500);
+setInterval(_syncSidebarActive, 1000);
+
+/* ---------- STICKY MARKET TICKER BAR (desktop) ----------
+   Injects a compact always-visible bar above the tab content showing
+   top-5 symbol prices + funding regime + F&G + BTC dom + next funding.
+   Uses data we already stream. */
+function _installMarketBar() {
+  if (document.getElementById('market-bar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'market-bar';
+  bar.className = 'market-bar';
+  bar.innerHTML = `
+    <div class="flex items-center gap-4" id="mb-prices"></div>
+    <span class="m-divider"></span>
+    <span class="m-chip"><span class="m-label">F&amp;G</span><span class="m-value" id="mb-fg">—</span></span>
+    <span class="m-chip"><span class="m-label">Funding</span><span class="m-value" id="mb-funding">—</span><span class="m-label" id="mb-funding-tag"></span></span>
+    <span class="m-chip"><span class="m-label">Next</span><span class="m-value" id="mb-next">—</span></span>
+    <span class="m-chip"><span class="m-label">BTC.D</span><span class="m-value" id="mb-btcd">—</span></span>
+    <span class="m-chip"><span class="m-label">Vol 24h</span><span class="m-value" id="mb-vol">—</span></span>
+    <span class="m-chip"><span class="m-label">Up/Dn</span><span class="m-value" id="mb-ud">—</span></span>
+  `;
+  // Insert as first child of body (grid area "marketbar" will position it)
+  // We use a wrapper to keep this above the existing header on desktop.
+  // Actually to match the grid-template-areas we need it inside the grid.
+  // Easiest: stick it as first child of the existing <header>.
+  const header = document.querySelector('header.border-b');
+  if (header) {
+    header.insertBefore(bar, header.firstChild);
+  } else {
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+}
+_installMarketBar();
+
+const MB_SYMS = ['BTCUSDT','ETHUSDT','SOLUSDT','HYPEUSDT','XRPUSDT'];
+function _renderMarketBar() {
+  const prices = document.getElementById('mb-prices');
+  if (prices) {
+    prices.innerHTML = MB_SYMS.map(sym => {
+      const t = STATE.ticker24h.get(sym);
+      const px = STATE.prices.binance.get(sym);
+      const chg = t ? +t.priceChangePercent : null;
+      const base = sym.replace('USDT','');
+      if (!px) return `<span class="m-chip"><span class="sym">${base}</span><span class="chg" style="color:var(--text-2);">—</span></span>`;
+      const chgCol = chg == null ? 'var(--text-2)' : (chg >= 0 ? '#22d17e' : '#ff5a6e');
+      const arrow  = chg == null ? '—' : (chg >= 0 ? '▲' : '▼');
+      return `<span class="m-chip">
+        <span class="sym">${base}</span>
+        <span class="px">${fmt(px, px > 1000 ? 0 : (px > 1 ? 2 : 4))}</span>
+        <span class="chg" style="color:${chgCol};">${arrow} ${chg != null ? Math.abs(chg).toFixed(2) + '%' : ''}</span>
+      </span>`;
+    }).join('<span class="m-divider"></span>');
+  }
+  // Fear & Greed
+  const fg = STATE.fearGreed;
+  const fgEl = document.getElementById('mb-fg');
+  if (fgEl) fgEl.textContent = fg?.value != null ? `${fg.value} ${fg.label || ''}` : '—';
+  // Market-wide funding regime (reuse what the regime strip computes)
+  const regTag  = document.getElementById('regime-tag')?.textContent || '—';
+  const regAvg  = document.getElementById('regime-avg-funding')?.textContent || '—';
+  const fEl = document.getElementById('mb-funding'); if (fEl) fEl.textContent = regAvg;
+  const ftEl = document.getElementById('mb-funding-tag'); if (ftEl) ftEl.textContent = ' ' + regTag;
+  // Next funding for active symbol
+  const nxtEl = document.getElementById('mb-next');
+  const nxt = STATE.funding[STATE.symbol]?.nextFunding;
+  if (nxtEl && nxt) {
+    const delta = nxt - Date.now();
+    if (delta > 0) {
+      const h = Math.floor(delta / 3600000);
+      const m = Math.floor((delta % 3600000) / 60000);
+      nxtEl.textContent = `${h}h ${pad(m)}m`;
+    } else nxtEl.textContent = 'settling';
+  }
+  // BTC dominance
+  const dEl = document.getElementById('mb-btcd');
+  if (dEl) dEl.textContent = document.getElementById('macro-btc-dom')?.textContent || document.getElementById('stat-btc-dom')?.textContent || '—';
+  // Total 24h vol + up/down
+  const volEl = document.getElementById('mb-vol');
+  if (volEl) volEl.textContent = document.getElementById('g-vol')?.textContent || '—';
+  const udEl = document.getElementById('mb-ud');
+  if (udEl) {
+    const up = document.getElementById('g-up')?.textContent;
+    const dn = document.getElementById('g-down')?.textContent;
+    if (up && dn) udEl.innerHTML = `<span style="color:#22d17e;">${up}</span> / <span style="color:#ff5a6e;">${dn}</span>`;
+  }
+}
+setInterval(_renderMarketBar, 2000);
+setTimeout(_renderMarketBar, 3000);
 
 // Smart-filter (category focus) interactions
 function _applySmartFilter(filter) {
