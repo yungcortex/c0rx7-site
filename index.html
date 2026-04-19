@@ -50,6 +50,29 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<!-- ============================================================================
+     CLOUD SYNC · SUPABASE
+     ============================================================================
+     To enable real accounts + cross-device sync, create a Supabase project
+     (free at supabase.com), run supabase-schema.sql in the SQL editor, then
+     paste your project URL + anon key below.
+
+     The site works 100% without this — if not configured, everything falls
+     back to localStorage (single-browser).
+     ============================================================================ -->
+<script>
+window.CORTEX_CLOUD = {
+  url: "",     // e.g. "https://xxx.supabase.co"
+  anonKey: ""  // public anon key — safe to ship to browser (RLS enforces access)
+};
+// Dev/user override: paste keys via browser console once, persisted to localStorage.
+// localStorage.setItem('cortex.cloud.v1', JSON.stringify({url, anonKey}));
+try {
+  const stored = JSON.parse(localStorage.getItem('cortex.cloud.v1') || 'null');
+  if (stored && stored.url && stored.anonKey) window.CORTEX_CLOUD = stored;
+} catch {}
+</script>
 <style>
   :root {
     --bg-0: #05070a;
@@ -751,7 +774,7 @@
     html, body { max-width: 100vw; overflow-x: hidden; }
     body {
       display: grid;
-      grid-template-columns: 210px minmax(0, 1fr);
+      grid-template-columns: 172px minmax(0, 1fr);
       grid-template-rows: auto 1fr auto;
       grid-template-areas:
         "sidebar marketbar"
@@ -759,6 +782,39 @@
         "sidebar footer";
       min-height: 100vh;
     }
+    body.sidebar-collapsed {
+      grid-template-columns: 44px minmax(0, 1fr);
+    }
+    body.sidebar-collapsed #main-sidebar .side-item span:not(.k-hint):not(.badge),
+    body.sidebar-collapsed #main-sidebar .side-section,
+    body.sidebar-collapsed #main-sidebar .side-brand .name,
+    body.sidebar-collapsed #main-sidebar .side-brand .tag,
+    body.sidebar-collapsed #main-sidebar .side-footer,
+    body.sidebar-collapsed #main-sidebar .side-item .k-hint,
+    body.sidebar-collapsed #main-sidebar .side-item .badge,
+    body.sidebar-collapsed #main-sidebar #side-conn-grid,
+    body.sidebar-collapsed #main-sidebar #side-auth-link { display: none !important; }
+    body.sidebar-collapsed #main-sidebar .side-item {
+      justify-content: center; padding: 8px 4px; font-size: 0;
+    }
+    body.sidebar-collapsed #main-sidebar .side-item::before {
+      content: attr(data-ico); font-size: 13px; color: inherit;
+      letter-spacing: 0; font-family: 'JetBrains Mono', monospace;
+    }
+    body.sidebar-collapsed #main-sidebar .side-brand {
+      padding: 0 0 10px 0; justify-content: center;
+    }
+    body.sidebar-collapsed #main-sidebar .side-brand > div:last-child { display: none; }
+    #sidebar-toggle {
+      position: sticky; bottom: 0; display: block; width: 100%;
+      padding: 6px 0; background: rgba(5,7,10,0.9); border-top: 1px solid var(--line);
+      color: #5b6472; text-align: center; cursor: pointer; font-size: 11px;
+      letter-spacing: 0.24em; font-family: 'JetBrains Mono', monospace;
+      transition: color 0.15s, background 0.15s;
+    }
+    #sidebar-toggle:hover { color: #00ffa3; background: rgba(0,255,163,0.05); }
+  }
+  @media (max-width: 1023px) { #sidebar-toggle { display: none !important; } }
     #main-sidebar   { grid-area: sidebar; }
     header          { grid-area: marketbar; position: sticky; top: 0; z-index: 35; max-width: 100%; overflow: hidden; }
     .main-body      { grid-area: main; min-width: 0; overflow-x: hidden; }
@@ -865,7 +921,7 @@
   #main-sidebar::-webkit-scrollbar { width: 4px; }
   #main-sidebar::-webkit-scrollbar-thumb { background: #1c2430; }
   .side-brand {
-    display: flex; align-items: center; gap: 10px; padding: 0 18px 18px;
+    display: flex; align-items: center; gap: 8px; padding: 0 12px 14px;
     border-bottom: 1px solid var(--line);
   }
   .side-brand .mark {
@@ -876,23 +932,23 @@
   }
   .side-brand .mark svg { width: 20px; height: 20px; }
   .side-brand .name {
-    font-size: 17px; font-weight: 800; color: var(--text-0);
+    font-size: 15px; font-weight: 800; color: var(--text-0);
     letter-spacing: 0.02em;
     text-shadow: 0 0 12px rgba(0,255,163,0.3);
   }
   .side-brand .tag {
-    font-size: 9px; color: var(--text-2); letter-spacing: 0.32em;
+    font-size: 8.5px; color: var(--text-2); letter-spacing: 0.26em;
     text-transform: uppercase; margin-top: 2px;
   }
-  .side-group { padding: 12px 0 6px 0; }
+  .side-group { padding: 10px 0 4px 0; }
   .side-section {
-    padding: 4px 18px 6px 18px;
-    font-size: 9px; letter-spacing: 0.3em; color: var(--text-2);
+    padding: 3px 12px 5px 12px;
+    font-size: 9px; letter-spacing: 0.26em; color: var(--text-2);
     text-transform: uppercase; font-weight: 700;
   }
   .side-item {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 18px; font-size: 11.5px; letter-spacing: 0.14em;
+    padding: 6px 12px; font-size: 11px; letter-spacing: 0.1em;
     color: #c2cbd6; cursor: pointer; text-transform: uppercase;
     font-weight: 600;
     border-left: 2px solid transparent;
@@ -915,8 +971,8 @@
     margin-left: auto;
   }
   .side-footer {
-    border-top: 1px solid var(--line); margin-top: 12px; padding: 12px 18px;
-    font-size: 10px; color: var(--text-2); letter-spacing: 0.14em;
+    border-top: 1px solid var(--line); margin-top: 12px; padding: 10px 12px;
+    font-size: 9.5px; color: var(--text-2); letter-spacing: 0.12em;
   }
   .side-footer .cmdk-hint {
     display: inline-block; padding: 3px 6px; border: 1px solid var(--line);
@@ -1262,34 +1318,34 @@
   </div>
   <div class="side-group">
     <div class="side-section">Workspace</div>
-    <div class="side-item side-view-item" data-view="dashboard"><span>★ My Dashboard</span><span class="k-hint">D</span></div>
-    <div class="side-item side-view-item" data-view="ideas"><span>◆ Ideas Feed</span><span class="k-hint">I</span></div>
+    <div class="side-item side-view-item" data-view="dashboard" data-ico="★"><span>★ My Dashboard</span><span class="k-hint">D</span></div>
+    <div class="side-item side-view-item" data-view="ideas" data-ico="◆"><span>◆ Ideas Feed</span><span class="k-hint">I</span></div>
   </div>
   <div class="side-group">
     <div class="side-section">Views</div>
-    <div class="side-item side-view-item active" data-view="overview"><span>Pulse</span><span class="k-hint">1</span></div>
-    <div class="side-item side-view-item" data-view="screener"><span>Screener</span><span class="k-hint">2</span></div>
-    <div class="side-item side-view-item" data-view="edge"><span>Flow</span><span class="k-hint">3</span></div>
-    <div class="side-item side-view-item" data-view="whales"><span>Liquidations</span><span class="k-hint">4</span></div>
-    <div class="side-item side-view-item" data-view="analytics"><span>Analytics</span><span class="k-hint">5</span></div>
+    <div class="side-item side-view-item active" data-view="overview" data-ico="1"><span>Pulse</span><span class="k-hint">1</span></div>
+    <div class="side-item side-view-item" data-view="screener" data-ico="2"><span>Screener</span><span class="k-hint">2</span></div>
+    <div class="side-item side-view-item" data-view="edge" data-ico="3"><span>Flow</span><span class="k-hint">3</span></div>
+    <div class="side-item side-view-item" data-view="whales" data-ico="4"><span>Liquidations</span><span class="k-hint">4</span></div>
+    <div class="side-item side-view-item" data-view="analytics" data-ico="5"><span>Analytics</span><span class="k-hint">5</span></div>
   </div>
   <div class="side-group">
     <div class="side-section">Focus</div>
-    <div class="side-item side-filter-item active" data-filter="all"><span>All panels</span></div>
-    <div class="side-item side-filter-item" data-filter="liquidations"><span>Liquidations</span></div>
-    <div class="side-item side-filter-item" data-filter="funding-oi"><span>Funding & OI</span></div>
-    <div class="side-item side-filter-item" data-filter="flow"><span>Flow</span></div>
-    <div class="side-item side-filter-item" data-filter="signals"><span>Signals</span></div>
-    <div class="side-item side-filter-item" data-filter="options"><span>Options</span></div>
-    <div class="side-item side-filter-item" data-filter="macro"><span>Macro</span></div>
+    <div class="side-item side-filter-item active" data-filter="all" data-ico="∷"><span>All panels</span></div>
+    <div class="side-item side-filter-item" data-filter="liquidations" data-ico="⚡"><span>Liquidations</span></div>
+    <div class="side-item side-filter-item" data-filter="funding-oi" data-ico="⇄"><span>Funding & OI</span></div>
+    <div class="side-item side-filter-item" data-filter="flow" data-ico="~"><span>Flow</span></div>
+    <div class="side-item side-filter-item" data-filter="signals" data-ico="◉"><span>Signals</span></div>
+    <div class="side-item side-filter-item" data-filter="options" data-ico="◈"><span>Options</span></div>
+    <div class="side-item side-filter-item" data-filter="macro" data-ico="◎"><span>Macro</span></div>
   </div>
   <div class="side-group">
     <div class="side-section">Layout</div>
-    <div class="side-item side-ws-item" data-ws="full"><span>Full</span></div>
-    <div class="side-item side-ws-item" data-ws="pro"><span>Pro</span></div>
-    <div class="side-item side-ws-item" data-ws="minimal"><span>Minimal</span></div>
-    <div class="side-item side-ws-item" data-ws="macro"><span>Macro</span></div>
-    <div class="side-item side-ws-item" data-ws="degen"><span>Degen</span></div>
+    <div class="side-item side-ws-item" data-ws="full" data-ico="▦"><span>Full</span></div>
+    <div class="side-item side-ws-item" data-ws="pro" data-ico="▤"><span>Pro</span></div>
+    <div class="side-item side-ws-item" data-ws="minimal" data-ico="▥"><span>Minimal</span></div>
+    <div class="side-item side-ws-item" data-ws="macro" data-ico="▧"><span>Macro</span></div>
+    <div class="side-item side-ws-item" data-ws="degen" data-ico="▨"><span>Degen</span></div>
   </div>
   <div class="side-section" style="margin-top:10px;">Connections</div>
   <div id="side-conn-grid" class="side-conn-grid">
@@ -1310,6 +1366,7 @@
       <span id="side-uptime" class="tabular" style="font-size:10px; color:var(--text-2);">—</span>
     </div>
   </div>
+  <div id="sidebar-toggle" title="Collapse sidebar">◀◀</div>
 </aside>
 
 <!-- ============ TOP BAR (desktop: compact market bar · mobile: full nav) ============ -->
@@ -13261,6 +13318,730 @@ document.addEventListener('keydown', (e) => {
     setTimeout(() => document.getElementById('idea-body')?.focus(), 250);
   }
 });
+
+/* ====================================================================
+   SIDEBAR COLLAPSE TOGGLE
+   ==================================================================== */
+(function(){
+  const KEY = 'cortex.sidebarCollapsed.v1';
+  try { if (localStorage.getItem(KEY) === '1') document.body.classList.add('sidebar-collapsed'); } catch {}
+  function updateLabel() {
+    const t = document.getElementById('sidebar-toggle');
+    if (t) t.innerHTML = document.body.classList.contains('sidebar-collapsed') ? '▶▶' : '◀◀';
+  }
+  setTimeout(() => {
+    const t = document.getElementById('sidebar-toggle');
+    if (!t) return;
+    updateLabel();
+    t.addEventListener('click', () => {
+      document.body.classList.toggle('sidebar-collapsed');
+      try { localStorage.setItem(KEY, document.body.classList.contains('sidebar-collapsed') ? '1' : '0'); } catch {}
+      updateLabel();
+      setTimeout(() => { Object.values(STATE?.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} }); }, 250);
+    });
+  }, 1500);
+})();
+
+/* ====================================================================
+   CLOUD SYNC · SUPABASE — real accounts, cross-device, realtime
+   Opt-in: requires window.CORTEX_CLOUD { url, anonKey }. Without config,
+   storage layer is a no-op passthrough (localStorage-only behaviour).
+   ==================================================================== */
+const CortexCloud = (function(){
+  const cfg = window.CORTEX_CLOUD || {};
+  const hasConfig = !!(cfg.url && cfg.anonKey && typeof window.supabase !== 'undefined');
+  let client = null;
+  let user = null;
+  let profile = null;
+  const listeners = { auth: [], ideas: [], comments: [] };
+  if (hasConfig) {
+    try {
+      client = window.supabase.createClient(cfg.url, cfg.anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
+    } catch (e) { console.warn('[cortex-cloud] init failed', e); }
+  }
+  function on(evt, fn) { (listeners[evt] = listeners[evt] || []).push(fn); }
+  function emit(evt, payload) { (listeners[evt] || []).forEach(fn => { try { fn(payload); } catch {} }); }
+  function isActive() { return !!(client && user); }
+  function isConfigured() { return !!client; }
+  // ---- AUTH ----
+  async function signUp(email, password, handle) {
+    if (!client) throw new Error('cloud not configured');
+    const clean = (handle || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 20) || ('user_' + Math.random().toString(36).slice(2, 8));
+    const { data, error } = await client.auth.signUp({
+      email, password,
+      options: { data: { handle: clean } }
+    });
+    if (error) throw error;
+    return data;
+  }
+  async function signIn(email, password) {
+    if (!client) throw new Error('cloud not configured');
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  }
+  async function signOut() {
+    if (!client) return;
+    await client.auth.signOut();
+  }
+  async function sendMagicLink(email) {
+    if (!client) throw new Error('cloud not configured');
+    const { error } = await client.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin } });
+    if (error) throw error;
+  }
+  async function sendReset(email) {
+    if (!client) throw new Error('cloud not configured');
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+    if (error) throw error;
+  }
+  async function fetchProfile() {
+    if (!client || !user) return null;
+    const { data } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    profile = data || null;
+    return profile;
+  }
+  async function updateProfile(patch) {
+    if (!client || !user) throw new Error('not signed in');
+    const clean = {};
+    if (patch.handle != null) clean.handle = String(patch.handle).replace(/[^A-Za-z0-9_]/g, '').slice(0, 20);
+    if (patch.bio != null) clean.bio = String(patch.bio).slice(0, 280);
+    if (patch.avatar_url != null) clean.avatar_url = String(patch.avatar_url).slice(0, 500);
+    clean.updated_at = new Date().toISOString();
+    const { data, error } = await client.from('profiles').update(clean).eq('id', user.id).select().maybeSingle();
+    if (error) throw error;
+    profile = data;
+    return profile;
+  }
+  // ---- IDEAS ----
+  async function listIdeas(opts = {}) {
+    if (!client) return [];
+    let q = client.from('ideas_with_author').select('*').order('created_at', { ascending: false }).limit(opts.limit || 100);
+    if (opts.sym)  q = q.eq('sym', opts.sym);
+    if (opts.bias) q = q.eq('bias', opts.bias);
+    const { data, error } = await q;
+    if (error) { console.warn('[cloud] listIdeas', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id, t: new Date(r.created_at).getTime(), handle: r.handle || 'anon',
+      sym: r.sym, bias: r.bias, body: r.body, tgt: r.tgt || '', inv: r.inv || '',
+      likes: r.like_count || 0, user_id: r.user_id, cloud: true
+    }));
+  }
+  async function createIdea(idea) {
+    if (!client || !user) throw new Error('not signed in');
+    const row = {
+      user_id: user.id, sym: idea.sym, bias: idea.bias,
+      body: idea.body, tgt: idea.tgt || null, inv: idea.inv || null
+    };
+    const { data, error } = await client.from('ideas').insert(row).select().maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  async function deleteIdea(id) {
+    if (!client || !user) throw new Error('not signed in');
+    const { error } = await client.from('ideas').delete().eq('id', id);
+    if (error) throw error;
+  }
+  async function toggleLike(ideaId) {
+    if (!client || !user) throw new Error('not signed in');
+    const { data: existing } = await client.from('idea_likes')
+      .select('idea_id').eq('idea_id', ideaId).eq('user_id', user.id).maybeSingle();
+    if (existing) {
+      await client.from('idea_likes').delete().eq('idea_id', ideaId).eq('user_id', user.id);
+      return false;
+    } else {
+      await client.from('idea_likes').insert({ idea_id: ideaId, user_id: user.id });
+      return true;
+    }
+  }
+  async function listUserLikes() {
+    if (!client || !user) return new Set();
+    const { data } = await client.from('idea_likes').select('idea_id').eq('user_id', user.id);
+    return new Set((data || []).map(r => r.idea_id));
+  }
+  // ---- COMMENTS ----
+  async function listComments(sym) {
+    if (!client) return [];
+    const { data, error } = await client.from('comments_with_author')
+      .select('*').eq('sym', sym).order('created_at', { ascending: false }).limit(200);
+    if (error) { console.warn('[cloud] listComments', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id, t: new Date(r.created_at).getTime(),
+      handle: r.handle || 'anon', body: r.body, user_id: r.user_id, cloud: true
+    }));
+  }
+  async function addComment(sym, body) {
+    if (!client || !user) throw new Error('not signed in');
+    const { data, error } = await client.from('comments')
+      .insert({ user_id: user.id, sym, body: body.slice(0, 240) })
+      .select().maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  async function deleteComment(id) {
+    if (!client || !user) throw new Error('not signed in');
+    const { error } = await client.from('comments').delete().eq('id', id);
+    if (error) throw error;
+  }
+  // ---- REALTIME ----
+  let realtimeStarted = false;
+  function startRealtime() {
+    if (!client || realtimeStarted) return;
+    realtimeStarted = true;
+    client.channel('public:ideas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ideas' }, () => emit('ideas', null))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'idea_likes' }, () => emit('ideas', null))
+      .subscribe();
+    client.channel('public:comments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (payload) => {
+        const sym = payload.new?.sym || payload.old?.sym;
+        emit('comments', sym);
+      })
+      .subscribe();
+  }
+  // ---- SESSION INIT ----
+  async function bootstrap() {
+    if (!client) return;
+    const { data: { session } } = await client.auth.getSession();
+    user = session?.user || null;
+    if (user) await fetchProfile();
+    emit('auth', { user, profile });
+    startRealtime();
+    client.auth.onAuthStateChange(async (_event, sess) => {
+      user = sess?.user || null;
+      profile = user ? await fetchProfile() : null;
+      emit('auth', { user, profile });
+    });
+  }
+  if (client) setTimeout(bootstrap, 300);
+  return {
+    isActive, isConfigured, getUser: () => user, getProfile: () => profile, client: () => client,
+    on,
+    auth: { signUp, signIn, signOut, sendMagicLink, sendReset, updateProfile, fetchProfile },
+    ideas: { list: listIdeas, create: createIdea, delete: deleteIdea, toggleLike, listUserLikes },
+    comments: { list: listComments, add: addComment, delete: deleteComment },
+  };
+})();
+window.CortexCloud = CortexCloud;
+
+/* ====================================================================
+   AUTH MODAL + SIDEBAR STATE
+   ==================================================================== */
+(function(){
+  if (!document.body) return;
+  // Inject modal HTML
+  const modal = document.createElement('div');
+  modal.id = 'auth-overlay';
+  modal.className = 'welcome-overlay';
+  modal.style.display = 'none';
+  modal.innerHTML = `
+    <div class="welcome-card" style="width:min(440px, 96vw);">
+      <div class="wc-hero">
+        <h1 id="auth-title"><span class="dot">▸</span> SIGN IN</h1>
+        <div class="wc-sub" id="auth-sub">
+          Sign in to sync ideas + comments + watchlists across devices.
+        </div>
+      </div>
+      <div class="wc-row">
+        <div id="auth-mode-tabs" style="display:flex; gap:6px; margin-bottom:12px;">
+          <button class="btn flex-1 active" data-mode="signin">SIGN IN</button>
+          <button class="btn flex-1" data-mode="signup">SIGN UP</button>
+          <button class="btn flex-1" data-mode="magic">MAGIC LINK</button>
+        </div>
+        <div id="auth-fields" style="display:grid; gap:8px;">
+          <input type="email" id="auth-email" placeholder="email" autocomplete="email"
+                 style="background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none;" />
+          <input type="password" id="auth-password" placeholder="password (6+ chars)" autocomplete="current-password"
+                 style="background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none;" />
+          <input type="text" id="auth-handle" placeholder="handle (for sign-up)" maxlength="20" style="display:none; background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none;" />
+        </div>
+        <div id="auth-error" style="color:#ff5c7a; font-size:11px; margin-top:8px; min-height:14px; letter-spacing:0.06em;"></div>
+        <div style="margin-top:10px; font-size:10px; color:#5b6472; letter-spacing:0.1em; line-height:1.5;" id="auth-help">
+          Free account. Email + password. <a id="auth-forgot" style="color:#39e0ff; cursor:pointer;">Forgot password?</a>
+        </div>
+      </div>
+      <div class="wc-actions">
+        <span class="wc-dismiss" id="auth-close">CLOSE</span>
+        <button class="wc-start" id="auth-submit">SIGN IN →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  let mode = 'signin';
+  const els = {
+    modal, title: modal.querySelector('#auth-title'),
+    sub: modal.querySelector('#auth-sub'),
+    email: modal.querySelector('#auth-email'),
+    pw: modal.querySelector('#auth-password'),
+    handle: modal.querySelector('#auth-handle'),
+    err: modal.querySelector('#auth-error'),
+    submit: modal.querySelector('#auth-submit'),
+    help: modal.querySelector('#auth-help'),
+  };
+  function open(m) {
+    if (!CortexCloud.isConfigured()) {
+      setErr('Cloud sync not configured yet. See supabase-schema.sql + SETUP.md.');
+      modal.style.display = 'flex';
+      return;
+    }
+    setMode(m || 'signin');
+    els.err.textContent = '';
+    modal.style.display = 'flex';
+    setTimeout(() => els.email?.focus(), 100);
+  }
+  function close() { modal.style.display = 'none'; }
+  function setErr(m) { els.err.textContent = m || ''; }
+  function setMode(m) {
+    mode = m;
+    modal.querySelectorAll('#auth-mode-tabs .btn').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+    els.handle.style.display = m === 'signup' ? 'block' : 'none';
+    els.pw.style.display = m === 'magic' ? 'none' : 'block';
+    const titles = { signin: '▸ SIGN IN', signup: '▸ CREATE ACCOUNT', magic: '▸ MAGIC LINK' };
+    els.title.innerHTML = titles[m] || titles.signin;
+    const subs = {
+      signin: 'Sign in to sync ideas + comments + watchlists across devices.',
+      signup: 'Free account. Just email, password, and a handle.',
+      magic:  'We\'ll email you a login link — no password needed.'
+    };
+    els.sub.textContent = subs[m];
+    const submits = { signin: 'SIGN IN →', signup: 'CREATE →', magic: 'SEND LINK →' };
+    els.submit.textContent = submits[m];
+  }
+  modal.querySelectorAll('#auth-mode-tabs .btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  modal.querySelector('#auth-close').addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal.querySelector('#auth-forgot').addEventListener('click', async () => {
+    const email = els.email.value.trim();
+    if (!email) { setErr('enter your email first'); return; }
+    try { await CortexCloud.auth.sendReset(email); setErr(''); setMode('signin'); els.sub.textContent = 'Reset email sent. Check your inbox.'; }
+    catch (e) { setErr(e.message || String(e)); }
+  });
+  els.submit.addEventListener('click', async () => {
+    setErr('');
+    els.submit.disabled = true;
+    const email = els.email.value.trim();
+    const pw = els.pw.value;
+    try {
+      if (mode === 'signin') {
+        await CortexCloud.auth.signIn(email, pw);
+        close();
+        try { flashAlert && flashAlert('signed in'); } catch {}
+      } else if (mode === 'signup') {
+        const handle = els.handle.value.trim() || 'user_' + Math.random().toString(36).slice(2, 8);
+        await CortexCloud.auth.signUp(email, pw, handle);
+        close();
+        try { flashAlert && flashAlert('account created · check your email to confirm'); } catch {}
+      } else if (mode === 'magic') {
+        await CortexCloud.auth.sendMagicLink(email);
+        els.sub.textContent = 'Magic link sent. Check your inbox — you can close this.';
+      }
+    } catch (e) {
+      setErr((e && e.message) ? e.message : String(e));
+    } finally {
+      els.submit.disabled = false;
+    }
+  });
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Enter') { e.preventDefault(); els.submit.click(); }
+  });
+  window._openAuth = open;
+  window._closeAuth = close;
+})();
+
+/* ---- sidebar auth widget: show handle when signed in, SIGN IN otherwise ---- */
+(function(){
+  function injectSignInLink() {
+    const sb = document.getElementById('main-sidebar'); if (!sb) return;
+    if (document.getElementById('side-auth-link')) return;
+    const footer = sb.querySelector('.side-footer');
+    if (!footer) return;
+    const btn = document.createElement('div');
+    btn.id = 'side-auth-link';
+    btn.style.cssText = 'margin:8px 0; padding:8px 10px; border:1px solid #1c2430; border-radius:4px; cursor:pointer; font-size:10px; letter-spacing:0.18em; text-align:center; color:#00ffa3; background:rgba(0,255,163,0.05); transition:background 0.15s;';
+    btn.textContent = 'SIGN IN / SIGN UP';
+    btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(0,255,163,0.12)');
+    btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(0,255,163,0.05)');
+    btn.addEventListener('click', () => window._openAuth && window._openAuth());
+    footer.parentNode.insertBefore(btn, footer);
+  }
+  function refresh() {
+    const user = CortexCloud.getUser();
+    const prof = CortexCloud.getProfile();
+    const link = document.getElementById('side-auth-link');
+    const nameEl = document.getElementById('side-handle');
+    const subEl  = document.getElementById('side-handle-sub');
+    if (user) {
+      const h = (prof && prof.handle) || (user.user_metadata && user.user_metadata.handle) || 'user';
+      if (nameEl) nameEl.textContent = h;
+      if (subEl) subEl.textContent = 'signed in · synced';
+      if (link) { link.textContent = 'SIGN OUT'; link.style.color = '#ff5c7a'; link.style.borderColor = 'rgba(255,92,122,0.3)'; link.style.background = 'transparent'; }
+    } else {
+      if (subEl) subEl.textContent = CortexCloud.isConfigured() ? 'local only · sign in to sync' : 'perps terminal';
+      if (link) { link.textContent = 'SIGN IN / SIGN UP'; link.style.color = '#00ffa3'; link.style.borderColor = '#1c2430'; link.style.background = 'rgba(0,255,163,0.05)'; }
+    }
+  }
+  document.addEventListener('click', e => {
+    const t = e.target;
+    if (t && t.id === 'side-auth-link') {
+      const user = CortexCloud.getUser();
+      if (user) {
+        if (confirm('Sign out?')) CortexCloud.auth.signOut();
+      } else {
+        window._openAuth && window._openAuth();
+      }
+    }
+  });
+  setTimeout(injectSignInLink, 2000);
+  setTimeout(refresh, 2200);
+  CortexCloud.on('auth', refresh);
+})();
+
+/* ====================================================================
+   HYBRID STORAGE MIGRATION
+   Replace the local-only Ideas/Comments stores with cloud-aware ones.
+   When cloud active: list/create/delete go through Supabase. When not:
+   fall back to the existing localStorage behaviour.
+   ==================================================================== */
+(function migrateIdeas(){
+  // Re-render with cloud data whenever auth changes or realtime fires
+  async function cloudRender() {
+    const feed = document.getElementById('ideas-feed');
+    if (!feed) return;
+    const cloudItems = await CortexCloud.ideas.list({ limit: 100 });
+    const likes = await CortexCloud.ideas.listUserLikes();
+    // Merge with any local-only items still in localStorage (show them too, marked local)
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem('cortex.ideas.v1') || '[]'); } catch {}
+    const combined = [...cloudItems, ...local.filter(l => !cloudItems.find(c => c.id === l.id)).map(l => ({ ...l, local: true }))];
+    combined.sort((a,b) => b.t - a.t);
+    const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c]);
+    const timeAgo = t => { const s = Math.max(0,(Date.now()-t)/1000); if(s<60)return Math.floor(s)+'s'; if(s<3600)return Math.floor(s/60)+'m'; if(s<86400)return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; };
+    // Stats
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const longs = combined.filter(i => i.bias === 'long').length;
+    const shorts = combined.filter(i => i.bias === 'short').length;
+    const top = combined.slice().sort((a,b) => (b.likes||0)-(a.likes||0))[0];
+    setText('ideas-stat-total', combined.length);
+    setText('ideas-stat-long', longs);
+    setText('ideas-stat-short', shorts);
+    setText('ideas-stat-top', top && top.likes ? '@' + top.handle + ' · ' + top.likes + '★' : '—');
+    setText('ideas-count', combined.length);
+    const sel = document.getElementById('ideas-filter-sym');
+    if (sel) {
+      const cur = sel.value;
+      const syms = [...new Set(combined.map(i => i.sym))].sort();
+      sel.innerHTML = '<option value="">All symbols</option>' + syms.map(s => `<option value="${esc(s)}">${esc(s.replace('USDT',''))}</option>`).join('');
+      sel.value = cur;
+    }
+    // Filter
+    const bias = document.querySelector('[data-bias-filter].active')?.dataset.biasFilter || '';
+    const symF = sel?.value || '';
+    let view = combined;
+    if (bias) view = view.filter(i => i.bias === bias);
+    if (symF) view = view.filter(i => i.sym === symF);
+    if (!view.length) {
+      feed.innerHTML = `<div class="panel"><div class="panel-body"><div class="empty-state">
+        <div class="es-icon">◆</div>
+        <div class="es-title">NO IDEAS YET</div>
+        <div class="es-sub">Publish your first thesis above. ${CortexCloud.isActive() ? 'Posts sync to your account across devices.' : 'Sign in to share with others; without an account, ideas stay local.'}</div>
+      </div></div></div>`;
+      return;
+    }
+    feed.innerHTML = view.map(it => {
+      const cls = it.bias === 'long' ? 'ic-bias-long' : it.bias === 'short' ? 'ic-bias-short' : 'ic-bias-note';
+      const label = (it.bias || 'note').toUpperCase();
+      const liked = likes.has(it.id);
+      const tagLocal = it.local ? '<span style="color:#5b6472; font-size:9px; letter-spacing:0.12em;">· LOCAL</span>' : (it.cloud ? '<span style="color:#00ffa3; font-size:9px; letter-spacing:0.12em;">· ☁</span>' : '');
+      const tgtInv = [];
+      if (it.tgt) tgtInv.push('<span style="color:#00ffa3;">tgt ' + esc(it.tgt) + '</span>');
+      if (it.inv) tgtInv.push('<span style="color:#ff5c7a;">inv ' + esc(it.inv) + '</span>');
+      const user = CortexCloud.getUser();
+      const canDelete = it.local || (user && it.user_id === user.id);
+      return `<div class="idea-card" data-id="${esc(it.id)}">
+        <div class="ic-head">
+          <span class="ic-handle">@${esc(it.handle)}</span>
+          <span class="ic-sym">${esc((it.sym||'').replace('USDT',''))}</span>
+          <span class="${cls}" style="font-size:10px; letter-spacing:0.14em; font-weight:700;">${label}</span>
+          ${tgtInv.length ? '<span style="font-size:10px; letter-spacing:0.08em;">' + tgtInv.join(' · ') + '</span>' : ''}
+          ${tagLocal}
+          <span class="ic-time">${timeAgo(it.t)}</span>
+        </div>
+        <div class="ic-body">${esc(it.body)}</div>
+        <div class="ic-foot">
+          <a class="idea-like ${liked ? 'liked' : ''}" data-id="${esc(it.id)}" data-cloud="${it.cloud ? '1':''}">★ ${it.likes || 0}</a>
+          <a class="idea-view" data-sym="${esc(it.sym)}" title="Switch to this symbol">↻ view pair</a>
+          <a class="idea-share" data-id="${esc(it.id)}">⎘ copy link</a>
+          <span class="sp"></span>
+          ${canDelete ? '<a class="idea-del" data-id="' + esc(it.id) + '" data-cloud="' + (it.cloud ? '1':'') + '">✕ delete</a>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  // Override the existing render when cloud is configured
+  function maybeCloudRender() {
+    if (CortexCloud.isConfigured()) cloudRender();
+    else if (window._ideasRender) window._ideasRender();
+  }
+  CortexCloud.on('auth', () => maybeCloudRender());
+  CortexCloud.on('ideas', () => maybeCloudRender());
+  // Hook view switch
+  setTimeout(() => {
+    const origView = window.switchView;
+    if (typeof origView === 'function') {
+      window.switchView = function(v) { origView(v); if (v === 'ideas') setTimeout(maybeCloudRender, 100); };
+    }
+  }, 1500);
+  // Intercept the post button to write to cloud when signed in
+  document.addEventListener('click', async (e) => {
+    const t = e.target;
+    if (!t) return;
+    if (t.id === 'idea-post' && CortexCloud.isActive()) {
+      e.stopImmediatePropagation();
+      const body = document.getElementById('idea-body');
+      const bodyText = (body?.value || '').trim();
+      if (!bodyText) { try { flashAlert && flashAlert('write something first'); } catch {} return; }
+      const symSel = document.getElementById('idea-sym');
+      const cus = document.getElementById('idea-sym-custom');
+      const raw = symSel?.value === 'OTHER' ? (cus?.value || '').toUpperCase() : symSel?.value;
+      const cleanSym = (raw || 'BTCUSDT').replace(/[^A-Z0-9]/g,'').slice(0,16) || 'BTCUSDT';
+      try {
+        await CortexCloud.ideas.create({
+          sym: cleanSym.endsWith('USDT') ? cleanSym : cleanSym + 'USDT',
+          bias: document.getElementById('idea-bias')?.value || 'note',
+          body: bodyText.slice(0, 600),
+          tgt: (document.getElementById('idea-tgt')?.value || '').slice(0,16) || null,
+          inv: (document.getElementById('idea-inv')?.value || '').slice(0,16) || null
+        });
+        if (body) body.value = '';
+        const cnt = document.getElementById('idea-body-count'); if (cnt) cnt.textContent = '0';
+        ['idea-tgt','idea-inv'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        try { flashAlert && flashAlert('posted ☁'); } catch {}
+      } catch (err) {
+        try { flashAlert && flashAlert('post failed: ' + (err.message || err)); } catch {}
+      }
+    }
+    // Cloud like
+    if (t.classList && t.classList.contains('idea-like') && t.dataset.cloud === '1' && CortexCloud.isActive()) {
+      e.stopImmediatePropagation();
+      try {
+        await CortexCloud.ideas.toggleLike(t.dataset.id);
+      } catch (err) {
+        try { flashAlert && flashAlert('sign in to like'); } catch {}
+      }
+    }
+    // Cloud delete
+    if (t.classList && t.classList.contains('idea-del') && t.dataset.cloud === '1' && CortexCloud.isActive()) {
+      e.stopImmediatePropagation();
+      if (!confirm('Delete this idea?')) return;
+      try { await CortexCloud.ideas.delete(t.dataset.id); } catch (err) { try { flashAlert && flashAlert('delete failed'); } catch {} }
+    }
+  }, true);
+})();
+
+/* Comments: cloud-aware render + post */
+(function migrateComments(){
+  let activeSym = null;
+  async function cloudRender() {
+    const list = document.getElementById('cmts-list'); if (!list) return;
+    const sym = (typeof STATE !== 'undefined' && STATE.symbol) || 'BTCUSDT';
+    activeSym = sym;
+    const symLabel = document.getElementById('cmts-sym'); if (symLabel) symLabel.textContent = sym.replace('USDT','');
+    let arr = [];
+    if (CortexCloud.isConfigured()) {
+      try { arr = await CortexCloud.comments.list(sym); } catch {}
+    }
+    // Merge local
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem('cortex.comments.v1') || '{}'); } catch {}
+    const localArr = (local[sym] || []).map(c => ({ ...c, local: true }));
+    const merged = [...arr, ...localArr.filter(l => !arr.find(a => a.id === l.id))]
+      .sort((a,b) => b.t - a.t);
+    const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c]);
+    const timeAgo = t => { const s = Math.max(0,(Date.now()-t)/1000); if(s<60)return Math.floor(s)+'s'; if(s<3600)return Math.floor(s/60)+'m'; if(s<86400)return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; };
+    if (!merged.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="es-icon">◎</div>
+        <div class="es-title">NO COMMENTS YET</div>
+        <div class="es-sub">Be the first to post on ${esc(sym.replace('USDT',''))}. ${CortexCloud.isActive() ? 'Posts are public and sync live.' : 'Sign in to post publicly; otherwise stays local to this browser.'}</div>
+      </div>`;
+      return;
+    }
+    const user = CortexCloud.getUser();
+    list.innerHTML = merged.map(c => {
+      const own = c.local || (user && c.user_id === user.id);
+      const tag = c.local ? '<span style="color:#5b6472; font-size:9px;"> · local</span>' : (c.cloud ? '<span style="color:#00ffa3; font-size:9px;"> · ☁</span>' : '');
+      return `<div class="cmt">
+        <div class="cmt-hd">
+          <span><span class="cmt-handle">@${esc(c.handle)}</span> · <span class="cmt-time">${timeAgo(c.t)}</span>${tag}</span>
+          ${own ? '<span class="cmt-del" data-id="' + esc(c.id) + '" data-cloud="' + (c.cloud ? '1':'') + '">✕</span>' : ''}
+        </div>
+        <div class="cmt-body">${esc(c.body)}</div>
+      </div>`;
+    }).join('');
+  }
+  CortexCloud.on('auth', () => cloudRender());
+  CortexCloud.on('comments', (sym) => { if (!sym || sym === activeSym) cloudRender(); });
+  // Hook the drawer open + symbol change: rerender on each
+  const toggleOrig = window._toggleComments;
+  if (typeof toggleOrig === 'function') {
+    window._toggleComments = function() {
+      toggleOrig.apply(this, arguments);
+      setTimeout(() => { if (CortexCloud.isConfigured()) cloudRender(); }, 280);
+    };
+  }
+  const origSwitchSym = window.switchSymbol;
+  if (typeof origSwitchSym === 'function') {
+    window.switchSymbol = function(s) {
+      origSwitchSym.apply(this, arguments);
+      const d = document.getElementById('cmts-drawer');
+      if (d && d.style.display !== 'none' && CortexCloud.isConfigured()) setTimeout(cloudRender, 80);
+    };
+  }
+  // Cloud-post when signed in
+  document.addEventListener('click', async (e) => {
+    const t = e.target;
+    if (t && t.id === 'cmts-send' && CortexCloud.isActive()) {
+      e.stopImmediatePropagation();
+      const input = document.getElementById('cmts-input');
+      const body = (input?.value || '').trim();
+      if (!body) return;
+      try {
+        await CortexCloud.comments.add(STATE.symbol || 'BTCUSDT', body);
+        if (input) input.value = '';
+        // realtime will re-render
+      } catch (err) {
+        try { flashAlert && flashAlert('post failed: ' + (err.message || err)); } catch {}
+      }
+    }
+    if (t && t.classList && t.classList.contains('cmt-del') && t.dataset.cloud === '1' && CortexCloud.isActive()) {
+      e.stopImmediatePropagation();
+      try { await CortexCloud.comments.delete(t.dataset.id); } catch {}
+    }
+  }, true);
+  // Override Enter key in input to hit cloud when active
+  document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'cmts-input' && e.key === 'Enter' && CortexCloud.isActive()) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      document.getElementById('cmts-send')?.click();
+    }
+  }, true);
+})();
+
+/* Profile editor — modal replaces the browser prompt when cloud active */
+(function migrateProfile(){
+  function ensureModal() {
+    if (document.getElementById('prof-overlay')) return;
+    const m = document.createElement('div');
+    m.id = 'prof-overlay';
+    m.className = 'welcome-overlay';
+    m.style.display = 'none';
+    m.innerHTML = `
+      <div class="welcome-card" style="width:min(440px, 96vw);">
+        <div class="wc-hero">
+          <h1><span class="dot">▸</span> PROFILE</h1>
+          <div class="wc-sub" id="prof-sub">Edit your handle, bio, and avatar URL.</div>
+        </div>
+        <div class="wc-row">
+          <div style="display:grid; gap:8px;">
+            <div>
+              <div class="wc-label">HANDLE</div>
+              <input id="prof-handle" maxlength="20" placeholder="handle"
+                     style="width:100%; background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none;" />
+            </div>
+            <div>
+              <div class="wc-label">BIO</div>
+              <textarea id="prof-bio" maxlength="280" rows="3" placeholder="optional bio"
+                        style="width:100%; background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none; resize:vertical;"></textarea>
+            </div>
+            <div>
+              <div class="wc-label">AVATAR URL (optional)</div>
+              <input id="prof-avatar" maxlength="500" placeholder="https://…"
+                     style="width:100%; background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:9px 10px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:12px; outline:none;" />
+            </div>
+          </div>
+          <div id="prof-err" style="color:#ff5c7a; font-size:11px; margin-top:8px; min-height:14px;"></div>
+        </div>
+        <div class="wc-actions">
+          <span class="wc-dismiss" id="prof-close">CLOSE</span>
+          <button class="wc-start" id="prof-save">SAVE →</button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+    const close = () => m.style.display = 'none';
+    m.querySelector('#prof-close').addEventListener('click', close);
+    m.addEventListener('click', e => { if (e.target === m) close(); });
+    m.querySelector('#prof-save').addEventListener('click', async () => {
+      const err = m.querySelector('#prof-err');
+      err.textContent = '';
+      try {
+        if (CortexCloud.isActive()) {
+          await CortexCloud.auth.updateProfile({
+            handle: m.querySelector('#prof-handle').value,
+            bio: m.querySelector('#prof-bio').value,
+            avatar_url: m.querySelector('#prof-avatar').value
+          });
+        } else {
+          const cur = (function(){ try { return JSON.parse(localStorage.getItem('cortex.profile.v1')); } catch { return null; } })() || {};
+          const clean = m.querySelector('#prof-handle').value.replace(/[^A-Za-z0-9_]/g,'').slice(0,20);
+          localStorage.setItem('cortex.profile.v1', JSON.stringify({ ...cur, handle: clean, bio: m.querySelector('#prof-bio').value }));
+          if (typeof _applyProfile === 'function') _applyProfile();
+        }
+        close();
+        try { flashAlert && flashAlert('profile saved'); } catch {}
+      } catch (e) {
+        err.textContent = e.message || String(e);
+      }
+    });
+  }
+  function openProfile() {
+    ensureModal();
+    const m = document.getElementById('prof-overlay');
+    const p = CortexCloud.getProfile();
+    const local = (function(){ try { return JSON.parse(localStorage.getItem('cortex.profile.v1')); } catch { return null; } })() || {};
+    m.querySelector('#prof-handle').value = (p && p.handle) || local.handle || '';
+    m.querySelector('#prof-bio').value    = (p && p.bio) || local.bio || '';
+    m.querySelector('#prof-avatar').value = (p && p.avatar_url) || '';
+    const sub = m.querySelector('#prof-sub');
+    if (sub) sub.textContent = CortexCloud.isActive() ? 'Synced to your account across devices.' : 'Local profile — sign in to sync across devices.';
+    m.style.display = 'flex';
+    setTimeout(() => m.querySelector('#prof-handle')?.focus(), 100);
+  }
+  // Replace the existing brand click handler (which calls prompt())
+  setTimeout(() => {
+    const brand = document.getElementById('side-profile-brand');
+    if (!brand) return;
+    // Clone to strip old listeners
+    const clone = brand.cloneNode(true);
+    brand.parentNode.replaceChild(clone, brand);
+    clone.style.cursor = 'pointer';
+    clone.title = 'Edit profile';
+    clone.addEventListener('click', openProfile);
+  }, 2500);
+  window._openProfile = openProfile;
+})();
+
+/* Sign-in CMDK action */
+setTimeout(() => {
+  try {
+    if (Array.isArray(CMDK_ACTIONS)) {
+      CMDK_ACTIONS.push({ id: 'a:signIn',  label: 'Action · Sign in / sign up' });
+      CMDK_ACTIONS.push({ id: 'a:signOut', label: 'Action · Sign out' });
+      CMDK_ACTIONS.push({ id: 'a:profile', label: 'Action · Edit profile' });
+    }
+  } catch {}
+}, 0);
+setTimeout(() => {
+  const origRun = window._cmdkRun;
+  if (typeof origRun !== 'function') return;
+  window._cmdkRun = function() {
+    const it = _cmdkItems[_cmdkActiveIdx];
+    if (it && it.id === 'a:signIn') { _cmdkClose(); window._openAuth && window._openAuth(); return; }
+    if (it && it.id === 'a:signOut') { _cmdkClose(); CortexCloud.auth.signOut(); return; }
+    if (it && it.id === 'a:profile') { _cmdkClose(); window._openProfile && window._openProfile(); return; }
+    origRun();
+  };
+}, 4000);
 
 /* ====================================================================
    EMPTY-STATE POLISH — wire empty messages into known-empty panels
