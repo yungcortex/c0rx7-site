@@ -1465,9 +1465,12 @@
         <span><span class="dot" style="background:#f0b90b;"></span>MY DASHBOARD · STARRED PANELS</span>
         <span class="text-[var(--text-2)] tabular"><span id="dash-count">0</span> pinned · drag to reorder</span>
       </div>
-      <div id="dashboard-body" class="p-4 text-[11px] text-[var(--text-2)]">
-        Tap the ★ on any panel header across the site to pin it here.<br/>
-        Your dashboard saves automatically to this browser.
+      <div id="dashboard-body" class="p-4">
+        <div class="empty-state">
+          <div class="es-icon" style="color:#ffcb6b;">★</div>
+          <div class="es-title">NO PINS YET</div>
+          <div class="es-sub">Tap the <b style="color:#ffcb6b;">★</b> on any panel header to pin it here. Drag to reorder. Your dashboard saves to this browser.</div>
+        </div>
       </div>
     </div>
     <div id="dashboard-panels" class="grid grid-cols-12 gap-3"></div>
