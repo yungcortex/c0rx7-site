@@ -1047,6 +1047,193 @@
   body.embed-mode #mega-strip { display: none !important; }
   body.embed-mode main { padding: 0 !important; }
   body.embed-mode .panel { border-radius: 0; }
+
+  /* ===== WELCOME MODAL ===== */
+  .welcome-overlay {
+    position: fixed; inset: 0; z-index: 120;
+    background: rgba(5,7,10,0.86); backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn 0.25s ease-out;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .welcome-card {
+    width: min(640px, 96vw); max-height: 92vh; overflow: auto;
+    background: linear-gradient(180deg, #0c1422, #07101c 68%, #050a15);
+    border: 1px solid #1c2430; border-radius: 10px;
+    box-shadow: 0 40px 120px rgba(0,0,0,0.7), 0 0 80px rgba(0,255,163,0.08);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .welcome-card .wc-hero {
+    padding: 28px 28px 20px; border-bottom: 1px solid #1c2430;
+    background: radial-gradient(90% 120% at 20% 0%, rgba(0,255,163,0.08), transparent 55%);
+  }
+  .welcome-card h1 {
+    font-size: 20px; font-weight: 700; letter-spacing: 0.1em;
+    color: #e6edf3; margin: 0 0 6px;
+  }
+  .welcome-card h1 .dot { color: #00ffa3; }
+  .welcome-card .wc-sub {
+    color: #9aa4b2; font-size: 12px; line-height: 1.6; margin-bottom: 14px;
+  }
+  .welcome-card .wc-row {
+    padding: 14px 28px; border-bottom: 1px solid #1c2430;
+  }
+  .welcome-card .wc-row:last-child { border-bottom: 0; }
+  .welcome-card .wc-label {
+    font-size: 10px; letter-spacing: 0.24em; color: #5b6472; margin-bottom: 8px;
+  }
+  .welcome-card .wc-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+  .welcome-card .wc-chip {
+    padding: 10px 12px; border: 1px solid #1c2430; border-radius: 6px;
+    background: rgba(255,255,255,0.02); cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.1s;
+    font-size: 11px; color: #c2cbd6;
+  }
+  .welcome-card .wc-chip:hover { border-color: #00ffa3; background: rgba(0,255,163,0.05); }
+  .welcome-card .wc-chip .t { font-weight: 700; color: #00ffa3; letter-spacing: 0.1em; font-size: 11px; display:block; margin-bottom: 3px; }
+  .welcome-card .wc-chip .d { color: #9aa4b2; font-size: 10px; line-height:1.5; }
+  .welcome-card .wc-handle-row { display:flex; gap:8px; align-items:center; }
+  .welcome-card .wc-handle-row input {
+    flex: 1; background: #05070a; border: 1px solid #1c2430; border-radius: 4px;
+    padding: 9px 10px; color: #e6edf3; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; outline: none;
+  }
+  .welcome-card .wc-handle-row input:focus { border-color: #00ffa3; }
+  .welcome-card .wc-actions {
+    padding: 16px 28px; display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; background: rgba(0,0,0,0.25);
+  }
+  .welcome-card .wc-actions .wc-dismiss {
+    color: #5b6472; font-size: 10px; letter-spacing: 0.2em; cursor: pointer;
+  }
+  .welcome-card .wc-actions .wc-dismiss:hover { color: #c2cbd6; }
+  .welcome-card .wc-start {
+    padding: 9px 18px; background: linear-gradient(135deg, #00ffa3, #39e0ff);
+    color: #05070a; border: 0; border-radius: 4px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.2em; transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .welcome-card .wc-start:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,255,163,0.3); }
+  .welcome-card .wc-steps {
+    display: flex; gap: 4px; padding: 6px 28px 0;
+  }
+  .welcome-card .wc-step { height: 3px; flex: 1; background: #1c2430; border-radius: 2px; }
+  .welcome-card .wc-step.active { background: linear-gradient(90deg, #00ffa3, #39e0ff); }
+
+  /* ===== IDEAS FEED ===== */
+  .ideas-wrap { display: grid; grid-template-columns: 1fr; gap: 12px; max-width: 920px; margin: 0 auto; }
+  @media (min-width: 1024px) { .ideas-wrap { grid-template-columns: 1fr 300px; } }
+  .ideas-composer {
+    background: linear-gradient(180deg, rgba(0,255,163,0.04), transparent);
+    border: 1px solid #1c2430; border-radius: 6px; padding: 12px; margin-bottom: 10px;
+  }
+  .ideas-composer .ic-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap:wrap; }
+  .ideas-composer select, .ideas-composer input[type="text"] {
+    background: #05070a; border: 1px solid #1c2430; border-radius: 4px;
+    padding: 6px 9px; color: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 11px; outline: none;
+  }
+  .ideas-composer textarea {
+    width: 100%; min-height: 78px; resize: vertical;
+    background: #05070a; border: 1px solid #1c2430; border-radius: 4px;
+    padding: 9px 10px; color: #e6edf3; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; outline: none;
+  }
+  .ideas-composer textarea:focus, .ideas-composer input:focus, .ideas-composer select:focus { border-color: #00ffa3; }
+  .ideas-composer .ic-act {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap:wrap; gap:8px;
+  }
+  .ideas-composer .ic-count { font-size: 10px; color: #5b6472; letter-spacing: 0.12em; }
+  .ideas-composer .ic-post {
+    padding: 6px 16px; background: linear-gradient(135deg, #00ffa3, #39e0ff);
+    color: #05070a; border: 0; border-radius: 4px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.16em;
+  }
+  .ideas-composer .ic-post:hover { filter: brightness(1.1); }
+  .ideas-composer .ic-post:disabled { filter: grayscale(0.8); cursor: not-allowed; opacity: 0.5; }
+  .idea-card {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; transition: border-color 0.15s;
+  }
+  .idea-card + .idea-card { margin-top: 8px; }
+  .idea-card:hover { border-color: #2a3440; }
+  .idea-card .ic-head {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 6px;
+    flex-wrap: wrap; font-size: 11px;
+  }
+  .idea-card .ic-handle { color: #00ffa3; font-weight: 700; letter-spacing: 0.08em; }
+  .idea-card .ic-sym {
+    padding: 1px 7px; border: 1px solid #2a3440; border-radius: 3px;
+    background: rgba(255,203,107,0.08); color: #ffcb6b; font-size: 10px;
+    letter-spacing: 0.1em; font-weight: 700;
+  }
+  .idea-card .ic-bias-long  { color: #00ffa3; }
+  .idea-card .ic-bias-short { color: #ff5c7a; }
+  .idea-card .ic-bias-note  { color: #9aa4b2; }
+  .idea-card .ic-time  { color: #5b6472; font-size: 10px; letter-spacing: 0.08em; margin-left: auto; }
+  .idea-card .ic-body {
+    color: #c2cbd6; font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; word-wrap: break-word;
+    padding: 4px 0 8px;
+  }
+  .idea-card .ic-foot {
+    display: flex; gap: 14px; font-size: 10px; color: #5b6472;
+    letter-spacing: 0.08em; padding-top: 6px; border-top: 1px dashed #1c2430;
+  }
+  .idea-card .ic-foot a { color: #5b6472; cursor: pointer; user-select: none; }
+  .idea-card .ic-foot a:hover { color: #00ffa3; }
+  .idea-card .ic-foot a.liked { color: #ffcb6b; }
+  .idea-card .ic-foot .sp { margin-left: auto; }
+
+  /* ===== COMMENTS (per-symbol thread) ===== */
+  .cmts-list { margin-top: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+  .cmt {
+    padding: 8px 10px; background: rgba(255,255,255,0.02);
+    border: 1px solid #1c2430; border-radius: 4px; margin-bottom: 6px;
+  }
+  .cmt .cmt-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px; font-size: 10px; letter-spacing: 0.08em;
+  }
+  .cmt .cmt-handle { color: #00ffa3; font-weight: 700; }
+  .cmt .cmt-time { color: #5b6472; }
+  .cmt .cmt-body { color: #c2cbd6; font-size: 11px; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; }
+  .cmt .cmt-del {
+    color: #5b6472; cursor: pointer; font-size: 10px; margin-left: 6px;
+  }
+  .cmt .cmt-del:hover { color: #ff5c7a; }
+  .cmt-composer { display: flex; gap: 6px; margin-top: 6px; }
+  .cmt-composer input {
+    flex: 1; background: #05070a; border: 1px solid #1c2430; border-radius: 4px;
+    padding: 6px 10px; color: #e6edf3; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; outline: none;
+  }
+  .cmt-composer input:focus { border-color: #00ffa3; }
+  .cmt-composer button {
+    padding: 6px 14px; background: #1c2430; border: 1px solid #2a3440;
+    border-radius: 4px; color: #c2cbd6; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em;
+  }
+  .cmt-composer button:hover { background: #2a3440; color: #00ffa3; }
+
+  /* ===== EMPTY STATES ===== */
+  .empty-state {
+    padding: 24px 16px; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .empty-state .es-icon {
+    font-size: 22px; color: #2a3440; margin-bottom: 8px; line-height: 1;
+  }
+  .empty-state .es-title {
+    color: #9aa4b2; font-size: 12px; letter-spacing: 0.16em; margin-bottom: 4px;
+  }
+  .empty-state .es-sub {
+    color: #5b6472; font-size: 10px; letter-spacing: 0.1em;
+    line-height: 1.5; max-width: 340px; margin: 0 auto;
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -1068,6 +1255,7 @@
   <div class="side-group">
     <div class="side-section">Workspace</div>
     <div class="side-item side-view-item" data-view="dashboard"><span>★ My Dashboard</span><span class="k-hint">D</span></div>
+    <div class="side-item side-view-item" data-view="ideas"><span>◆ Ideas Feed</span><span class="k-hint">I</span></div>
   </div>
   <div class="side-group">
     <div class="side-section">Views</div>
@@ -1273,6 +1461,149 @@
       </div>
     </div>
     <div id="dashboard-panels" class="grid grid-cols-12 gap-3"></div>
+  </div>
+</div>
+<!-- ============ IDEAS FEED ============ -->
+<div id="view-ideas" class="view hidden">
+  <div class="px-3 md:px-4 py-3">
+    <div class="ideas-wrap">
+      <div>
+        <div class="panel" style="margin-bottom:10px;">
+          <div class="panel-hd">
+            <span><span class="dot" style="background:#00ffa3;"></span>IDEAS · PUBLISH A TRADE THESIS</span>
+            <span class="text-[var(--text-2)] tabular"><span id="ideas-count">0</span> total</span>
+          </div>
+          <div class="ideas-composer">
+            <div class="ic-row">
+              <select id="idea-sym">
+                <option value="BTCUSDT">BTC</option>
+                <option value="ETHUSDT">ETH</option>
+                <option value="SOLUSDT">SOL</option>
+                <option value="XRPUSDT">XRP</option>
+                <option value="DOGEUSDT">DOGE</option>
+                <option value="BNBUSDT">BNB</option>
+                <option value="AVAXUSDT">AVAX</option>
+                <option value="ASTERUSDT">ASTER</option>
+                <option value="LINKUSDT">LINK</option>
+                <option value="SUIUSDT">SUI</option>
+                <option value="PEPEUSDT">PEPE</option>
+                <option value="WIFUSDT">WIF</option>
+                <option value="OTHER">OTHER…</option>
+              </select>
+              <input type="text" id="idea-sym-custom" placeholder="CUSTOMUSDT" style="display:none; width:130px;" maxlength="16" />
+              <select id="idea-bias">
+                <option value="long">LONG</option>
+                <option value="short">SHORT</option>
+                <option value="note">NOTE</option>
+              </select>
+              <input type="text" id="idea-tgt" placeholder="Target (optional)" style="width:130px;" maxlength="16" />
+              <input type="text" id="idea-inv" placeholder="Invalidation" style="width:130px;" maxlength="16" />
+            </div>
+            <textarea id="idea-body" maxlength="600" placeholder="Thesis, setup, timing… (Shift+Enter for newline)"></textarea>
+            <div class="ic-act">
+              <span class="ic-count"><span id="idea-body-count">0</span>/600 · posts as <span id="idea-handle-preview" style="color:#00ffa3;">—</span></span>
+              <div style="display:flex; gap:8px;">
+                <button class="btn" id="idea-share-link">COPY URL</button>
+                <button class="ic-post" id="idea-post">POST ◆</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="ideas-feed"></div>
+      </div>
+      <aside class="panel" style="height:fit-content;">
+        <div class="panel-hd">
+          <span><span class="dot" style="background:#39e0ff;"></span>FILTER</span>
+        </div>
+        <div class="panel-body" style="padding:10px 12px;">
+          <div class="small-caps" style="color:#5b6472; margin-bottom:6px;">Symbol</div>
+          <select id="ideas-filter-sym" style="width:100%; background:#05070a; border:1px solid #1c2430; border-radius:4px; padding:6px 9px; color:#e6edf3; font-family:'JetBrains Mono',monospace; font-size:11px;">
+            <option value="">All symbols</option>
+          </select>
+          <div class="small-caps" style="color:#5b6472; margin:10px 0 6px;">Bias</div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn flex-1 active" data-bias-filter="">ALL</button>
+            <button class="btn flex-1" data-bias-filter="long">LONG</button>
+            <button class="btn flex-1" data-bias-filter="short">SHORT</button>
+            <button class="btn flex-1" data-bias-filter="note">NOTES</button>
+          </div>
+          <div class="small-caps" style="color:#5b6472; margin:10px 0 6px;">Stats</div>
+          <div style="color:#c2cbd6; font-size:11px; line-height:1.8;">
+            <div>Total ideas: <span id="ideas-stat-total" class="tabular" style="color:#00ffa3;">0</span></div>
+            <div>Longs: <span id="ideas-stat-long" class="tabular" style="color:#00ffa3;">0</span></div>
+            <div>Shorts: <span id="ideas-stat-short" class="tabular" style="color:#ff5c7a;">0</span></div>
+            <div>Most liked: <span id="ideas-stat-top" class="tabular" style="color:#ffcb6b;">—</span></div>
+          </div>
+          <div style="margin-top:14px; padding-top:10px; border-top:1px dashed #1c2430; font-size:10px; color:#5b6472; line-height:1.5;">
+            Ideas are stored in your browser. Share URLs let others view a specific idea — the content is packed into the link itself so they don't need to sign up.
+          </div>
+          <button class="btn" id="ideas-export" style="width:100%; margin-top:10px;">EXPORT ALL</button>
+          <button class="btn" id="ideas-clear"  style="width:100%; margin-top:6px; color:#ff5c7a; border-color:rgba(255,92,122,0.3);">CLEAR MY IDEAS</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WELCOME / ONBOARDING MODAL ============ -->
+<div id="welcome-overlay" class="welcome-overlay" style="display:none;">
+  <div class="welcome-card">
+    <div class="wc-steps">
+      <div class="wc-step active" data-step="1"></div>
+      <div class="wc-step" data-step="2"></div>
+      <div class="wc-step" data-step="3"></div>
+    </div>
+    <div class="wc-hero">
+      <h1><span class="dot">▸</span> CORTEX · TERMINAL</h1>
+      <div class="wc-sub" id="wc-sub">
+        Real-time perps data across 10 exchanges. Funding, OI, liquidations, CVD divergence, Deribit options, macro — live in one dashboard. Free, no signup.
+      </div>
+    </div>
+    <div id="wc-body-1" class="wc-body-step">
+      <div class="wc-row">
+        <div class="wc-label">5 VIEWS · EACH ONE JOB</div>
+        <div class="wc-grid">
+          <div class="wc-chip" data-go="overview"><span class="t">1 · PULSE</span><span class="d">Market regime, funding clock, leaders/laggards</span></div>
+          <div class="wc-chip" data-go="screener"><span class="t">2 · SCREENER</span><span class="d">Every pair ranked by funding, OI, vol, squeeze</span></div>
+          <div class="wc-chip" data-go="edge"><span class="t">3 · FLOW</span><span class="d">Cross-venue spreads · CVD divergence · leadership</span></div>
+          <div class="wc-chip" data-go="whales"><span class="t">4 · LIQUIDATIONS</span><span class="d">Every liq real-time · heatmap · HOF</span></div>
+          <div class="wc-chip" data-go="analytics"><span class="t">5 · ANALYTICS</span><span class="d">Options, macro, regime, correlation, basis</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="wc-body-2" class="wc-body-step" style="display:none;">
+      <div class="wc-row">
+        <div class="wc-label">CUSTOMIZE</div>
+        <div class="wc-grid">
+          <div class="wc-chip"><span class="t">★ STAR PANELS</span><span class="d">Click the ★ on any panel header to pin it to <b>My Dashboard</b>. Build your perfect layout.</span></div>
+          <div class="wc-chip"><span class="t">⌘K COMMAND</span><span class="d">Hit ⌘K (Ctrl+K) to jump to any view, panel, or symbol instantly.</span></div>
+          <div class="wc-chip"><span class="t">? SHORTCUTS</span><span class="d">Press <kbd style="color:#00ffa3;">?</kbd> for every hotkey. Numbers 1-5 switch views.</span></div>
+          <div class="wc-chip" data-go="ideas"><span class="t">◆ IDEAS FEED</span><span class="d">Publish trade theses, share them via URL, build a track record.</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="wc-body-3" class="wc-body-step" style="display:none;">
+      <div class="wc-row">
+        <div class="wc-label">SET YOUR HANDLE</div>
+        <div style="font-size:11px; color:#9aa4b2; margin-bottom:8px; line-height:1.55;">
+          Your handle shows up on ideas, comments, and published setups. Anything works — no email, no password. Stored in your browser only.
+        </div>
+        <div class="wc-handle-row">
+          <input id="wc-handle-input" placeholder="pick a handle…" maxlength="24" />
+          <button class="btn" id="wc-handle-random" title="Random handle">🎲</button>
+        </div>
+        <div style="font-size:10px; color:#5b6472; margin-top:8px; letter-spacing:0.1em;">
+          Change anytime by clicking the profile card in the sidebar.
+        </div>
+      </div>
+    </div>
+    <div class="wc-actions">
+      <span class="wc-dismiss" id="wc-skip">SKIP · DON'T SHOW AGAIN</span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="wc-back" style="display:none;">← BACK</button>
+        <button class="wc-start" id="wc-next">NEXT →</button>
+      </div>
+    </div>
   </div>
 </div>
 <div id="view-overview" class="view">
@@ -2676,6 +3007,9 @@
           <kbd class="kbd">4</kbd><span>Liquidations</span>
           <kbd class="kbd">5</kbd><span>Analytics</span>
           <kbd class="kbd">D</kbd><span>My Dashboard</span>
+          <kbd class="kbd">I</kbd><span>Ideas feed</span>
+          <kbd class="kbd">N</kbd><span>New idea (in Ideas view)</span>
+          <kbd class="kbd">C</kbd><span>Comments (active symbol)</span>
           <kbd class="kbd">R</kbd><span>Refresh all data</span>
           <kbd class="kbd">S</kbd><span>Focus symbol search</span>
         </div>
@@ -7405,7 +7739,7 @@ function applyUrlToState() {
       if (btn) btn.click();
     }, 600);
   }
-  if (v && ['overview','screener','edge','whales','analytics','dashboard'].includes(v)) {
+  if (v && ['overview','screener','edge','whales','analytics','dashboard','ideas'].includes(v)) {
     setTimeout(() => { try { switchView(v); } catch {} }, 800);
   }
 }
@@ -7457,6 +7791,8 @@ const CMDK_VIEWS = [
   { id: 'v:edge',      label: 'View · Edge' },
   { id: 'v:whales',    label: 'View · Whales' },
   { id: 'v:analytics', label: 'View · Analytics' },
+  { id: 'v:dashboard', label: 'View · My Dashboard' },
+  { id: 'v:ideas',     label: 'View · Ideas Feed' },
 ];
 const CMDK_ACTIONS = [
   { id: 'a:alerts',       label: 'Action · Focus alerts panel' },
@@ -12367,6 +12703,533 @@ function _cmdkPanelEntries() {
     }
     orig();
   };
+})();
+
+/* ====================================================================
+   WELCOME / ONBOARDING MODAL
+   Shows once per browser on first visit (localStorage gate).
+   Three steps: views overview → customize intro → set handle.
+   ==================================================================== */
+(function(){
+  const WELCOME_KEY = 'cortex.welcomeDone.v1';
+  const el = document.getElementById('welcome-overlay');
+  if (!el) return;
+  let step = 1;
+  const steps = 3;
+  const bodyOf = n => document.getElementById('wc-body-' + n);
+  const setStep = n => {
+    step = Math.max(1, Math.min(steps, n));
+    for (let i = 1; i <= steps; i++) {
+      const b = bodyOf(i); if (b) b.style.display = i === step ? 'block' : 'none';
+    }
+    document.querySelectorAll('#welcome-overlay .wc-step').forEach(s => {
+      s.classList.toggle('active', +s.dataset.step <= step);
+    });
+    const back = document.getElementById('wc-back');
+    const next = document.getElementById('wc-next');
+    if (back) back.style.display = step === 1 ? 'none' : 'inline-block';
+    if (next) next.textContent = step === steps ? 'START →' : 'NEXT →';
+    if (step === 3) {
+      const input = document.getElementById('wc-handle-input');
+      const cur = (function(){ try { return JSON.parse(localStorage.getItem('cortex.profile.v1'))?.handle; } catch { return null; } })();
+      if (input && !input.value) input.value = cur || '';
+      setTimeout(() => input && input.focus(), 150);
+    }
+  };
+  const open = () => { el.style.display = 'flex'; setStep(1); };
+  const close = () => { el.style.display = 'none'; try { localStorage.setItem(WELCOME_KEY, '1'); } catch {} };
+  const randomHandle = () => {
+    const adj = ['alpha','gamma','delta','theta','vega','prime','neon','flux','rho','sigma','cipher','zen','void','quanta'];
+    const noun = ['trader','scout','wolf','wave','cell','grid','node','edge','pulse','wire','drift'];
+    const n = Math.floor(Math.random() * 9000) + 100;
+    return adj[Math.floor(Math.random()*adj.length)] + '_' + noun[Math.floor(Math.random()*noun.length)] + n;
+  };
+  // Wire chips as shortcuts: go to view
+  el.querySelectorAll('.wc-chip[data-go]').forEach(c => {
+    c.addEventListener('click', () => {
+      const v = c.dataset.go; close();
+      try { switchView(v); } catch {}
+    });
+  });
+  const next = document.getElementById('wc-next');
+  const back = document.getElementById('wc-back');
+  const skip = document.getElementById('wc-skip');
+  const rand = document.getElementById('wc-handle-random');
+  next?.addEventListener('click', () => {
+    if (step === steps) {
+      // commit handle
+      const input = document.getElementById('wc-handle-input');
+      const h = (input?.value || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 20);
+      if (h) {
+        try {
+          const cur = (function(){ try { return JSON.parse(localStorage.getItem('cortex.profile.v1')); } catch { return null; } })() || {};
+          localStorage.setItem('cortex.profile.v1', JSON.stringify({ handle: h, createdAt: cur.createdAt || Date.now() }));
+          if (typeof _applyProfile === 'function') _applyProfile();
+        } catch {}
+      }
+      close();
+      try { flashAlert && flashAlert('Welcome · you\'re in ◆'); } catch {}
+      return;
+    }
+    setStep(step + 1);
+  });
+  back?.addEventListener('click', () => setStep(step - 1));
+  skip?.addEventListener('click', close);
+  rand?.addEventListener('click', () => {
+    const input = document.getElementById('wc-handle-input');
+    if (input) { input.value = randomHandle(); input.focus(); input.select(); }
+  });
+  // Click outside to close (only after first step)
+  el.addEventListener('click', (e) => { if (e.target === el && step > 1) close(); });
+  // Keyboard: Enter = next, Esc = close
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); next?.click(); }
+  });
+  // Show on first visit (after 1.5s to let main UI settle)
+  setTimeout(() => {
+    try {
+      if (!localStorage.getItem(WELCOME_KEY) && !location.search.includes('s=') && !location.search.includes('idea=')) {
+        open();
+      }
+    } catch { open(); }
+  }, 1600);
+  // Expose for manual re-trigger (command palette entry / ?welcome=1)
+  window._openWelcome = open;
+  if (new URLSearchParams(location.search).get('welcome') === '1') setTimeout(open, 1000);
+})();
+
+/* ====================================================================
+   IDEAS FEED — publish trade thesis, share via URL
+   Storage: cortex.ideas.v1 = [{ id, t, handle, sym, bias, body, tgt, inv, likes }]
+   URL-share: ?idea=<base64json> packs a single idea into the link.
+   ==================================================================== */
+(function(){
+  const IDEAS_KEY = 'cortex.ideas.v1';
+  const LIKES_KEY = 'cortex.ideasLiked.v1';
+  const biasFilter = { v: '' };
+  const symFilter  = { v: '' };
+  function loadIdeas() {
+    try { return JSON.parse(localStorage.getItem(IDEAS_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function saveIdeas(arr) {
+    try { localStorage.setItem(IDEAS_KEY, JSON.stringify(arr.slice(0, 500))); } catch {}
+  }
+  function loadLikes() {
+    try { return new Set(JSON.parse(localStorage.getItem(LIKES_KEY) || '[]')); }
+    catch { return new Set(); }
+  }
+  function saveLikes(set) {
+    try { localStorage.setItem(LIKES_KEY, JSON.stringify([...set])); } catch {}
+  }
+  function getHandle() {
+    try {
+      const p = JSON.parse(localStorage.getItem('cortex.profile.v1') || 'null');
+      if (p?.handle) return p.handle;
+    } catch {}
+    return 'anon';
+  }
+  function timeAgo(t) {
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60)    return Math.floor(s) + 's';
+    if (s < 3600)  return Math.floor(s/60) + 'm';
+    if (s < 86400) return Math.floor(s/3600) + 'h';
+    if (s < 604800) return Math.floor(s/86400) + 'd';
+    return new Date(t).toLocaleDateString();
+  }
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c]); }
+  function b64encode(s) {
+    try { return btoa(unescape(encodeURIComponent(s))); } catch { return ''; }
+  }
+  function b64decode(s) {
+    try { return decodeURIComponent(escape(atob(s))); } catch { return ''; }
+  }
+  function buildShareUrl(idea) {
+    const mini = { t: idea.t, h: idea.handle, s: idea.sym, b: idea.bias, body: idea.body, tgt: idea.tgt, inv: idea.inv };
+    const packed = b64encode(JSON.stringify(mini));
+    return location.origin + location.pathname + '?v=ideas&idea=' + encodeURIComponent(packed);
+  }
+  function decodeSharedIdea() {
+    const p = new URLSearchParams(location.search).get('idea');
+    if (!p) return null;
+    try {
+      const j = JSON.parse(b64decode(decodeURIComponent(p)));
+      return { id: 'shared_' + j.t, t: j.t, handle: j.h || 'anon', sym: j.s || 'BTCUSDT', bias: j.b || 'note', body: j.body || '', tgt: j.tgt || '', inv: j.inv || '', likes: 0, shared: true };
+    } catch { return null; }
+  }
+  function renderIdea(it, likes) {
+    const cls = it.bias === 'long' ? 'ic-bias-long' : it.bias === 'short' ? 'ic-bias-short' : 'ic-bias-note';
+    const label = it.bias === 'long' ? 'LONG' : it.bias === 'short' ? 'SHORT' : 'NOTE';
+    const liked = likes.has(it.id);
+    const sharedTag = it.shared ? '<span style="color:#39e0ff; font-size:10px; letter-spacing:0.12em;">· FROM LINK</span>' : '';
+    const tgtInv = [];
+    if (it.tgt) tgtInv.push('<span style="color:#00ffa3;">tgt ' + esc(it.tgt) + '</span>');
+    if (it.inv) tgtInv.push('<span style="color:#ff5c7a;">inv ' + esc(it.inv) + '</span>');
+    return `<div class="idea-card" data-id="${esc(it.id)}">
+      <div class="ic-head">
+        <span class="ic-handle">@${esc(it.handle)}</span>
+        <span class="ic-sym">${esc(it.sym.replace('USDT',''))}</span>
+        <span class="${cls}" style="font-size:10px; letter-spacing:0.14em; font-weight:700;">${label}</span>
+        ${tgtInv.length ? '<span style="font-size:10px; letter-spacing:0.08em;">' + tgtInv.join(' · ') + '</span>' : ''}
+        ${sharedTag}
+        <span class="ic-time">${timeAgo(it.t)}</span>
+      </div>
+      <div class="ic-body">${esc(it.body)}</div>
+      <div class="ic-foot">
+        <a class="idea-like ${liked ? 'liked' : ''}" data-id="${esc(it.id)}">★ ${it.likes || 0}</a>
+        <a class="idea-view" data-sym="${esc(it.sym)}" title="Switch to this symbol">↻ view pair</a>
+        <a class="idea-share" data-id="${esc(it.id)}">⎘ copy link</a>
+        <span class="sp"></span>
+        ${it.shared ? '<a class="idea-save" data-id="' + esc(it.id) + '">💾 save</a>' : '<a class="idea-del" data-id="' + esc(it.id) + '">✕ delete</a>'}
+      </div>
+    </div>`;
+  }
+  function updateSidebar(arr) {
+    const total = arr.length;
+    const longs = arr.filter(i => i.bias === 'long').length;
+    const shorts = arr.filter(i => i.bias === 'short').length;
+    const top = arr.slice().sort((a,b) => (b.likes||0)-(a.likes||0))[0];
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('ideas-stat-total', total);
+    setText('ideas-stat-long',  longs);
+    setText('ideas-stat-short', shorts);
+    setText('ideas-stat-top',   top && top.likes ? '@' + top.handle + ' · ' + top.likes + '★' : '—');
+    setText('ideas-count', total);
+    // Populate symbol filter
+    const sel = document.getElementById('ideas-filter-sym');
+    if (sel) {
+      const cur = sel.value;
+      const syms = [...new Set(arr.map(i => i.sym))].sort();
+      sel.innerHTML = '<option value="">All symbols</option>' + syms.map(s => `<option value="${esc(s)}">${esc(s.replace('USDT',''))}</option>`).join('');
+      sel.value = cur;
+    }
+  }
+  function render() {
+    const feed = document.getElementById('ideas-feed');
+    if (!feed) return;
+    let arr = loadIdeas();
+    // Prepend shared idea if present and not already saved
+    const shared = decodeSharedIdea();
+    if (shared && !arr.find(a => a.t === shared.t && a.handle === shared.handle)) {
+      arr = [shared, ...arr];
+    }
+    updateSidebar(arr.filter(i => !i.shared));
+    // Apply filters
+    let view = arr;
+    if (biasFilter.v) view = view.filter(i => i.bias === biasFilter.v);
+    if (symFilter.v)  view = view.filter(i => i.sym === symFilter.v);
+    if (!view.length) {
+      feed.innerHTML = `<div class="panel"><div class="panel-body"><div class="empty-state">
+        <div class="es-icon">◆</div>
+        <div class="es-title">NO IDEAS YET</div>
+        <div class="es-sub">Publish your first thesis above. It saves to your browser and shares via URL — no account needed.</div>
+      </div></div></div>`;
+      return;
+    }
+    const likes = loadLikes();
+    feed.innerHTML = view.map(it => renderIdea(it, likes)).join('');
+  }
+  // Wire composer controls
+  function wireComposer() {
+    const sym = document.getElementById('idea-sym');
+    const cus = document.getElementById('idea-sym-custom');
+    sym?.addEventListener('change', () => {
+      if (cus) cus.style.display = sym.value === 'OTHER' ? 'inline-block' : 'none';
+    });
+    const body = document.getElementById('idea-body');
+    const count = document.getElementById('idea-body-count');
+    body?.addEventListener('input', () => { if (count) count.textContent = body.value.length; });
+    const preview = document.getElementById('idea-handle-preview');
+    if (preview) preview.textContent = '@' + getHandle();
+    document.getElementById('idea-post')?.addEventListener('click', () => {
+      const b = (body?.value || '').trim();
+      if (!b) { try { flashAlert && flashAlert('write something first'); } catch {} return; }
+      const rawSym = sym?.value === 'OTHER' ? (cus?.value || '').toUpperCase().trim() : sym?.value;
+      const cleanSym = (rawSym || 'BTCUSDT').replace(/[^A-Z0-9]/g, '').slice(0, 16) || 'BTCUSDT';
+      const idea = {
+        id: 'i_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+        t: Date.now(),
+        handle: getHandle(),
+        sym: cleanSym.endsWith('USDT') ? cleanSym : cleanSym + 'USDT',
+        bias: document.getElementById('idea-bias')?.value || 'note',
+        body: b.slice(0, 600),
+        tgt: (document.getElementById('idea-tgt')?.value || '').slice(0, 16),
+        inv: (document.getElementById('idea-inv')?.value || '').slice(0, 16),
+        likes: 0
+      };
+      const arr = loadIdeas();
+      arr.unshift(idea); saveIdeas(arr);
+      // Clear composer
+      if (body) body.value = '';
+      if (count) count.textContent = '0';
+      ['idea-tgt','idea-inv'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      render();
+      try { flashAlert && flashAlert('posted ◆ ' + idea.sym.replace('USDT','')); } catch {}
+    });
+    document.getElementById('idea-share-link')?.addEventListener('click', () => {
+      const b = (body?.value || '').trim();
+      if (!b) { try { flashAlert && flashAlert('nothing to share yet'); } catch {} return; }
+      const rawSym = sym?.value === 'OTHER' ? (cus?.value || '').toUpperCase().trim() : sym?.value;
+      const cleanSym = (rawSym || 'BTCUSDT').replace(/[^A-Z0-9]/g, '').slice(0, 16);
+      const temp = {
+        t: Date.now(), handle: getHandle(),
+        sym: cleanSym.endsWith('USDT') ? cleanSym : cleanSym + 'USDT',
+        bias: document.getElementById('idea-bias')?.value || 'note',
+        body: b.slice(0, 600),
+        tgt: (document.getElementById('idea-tgt')?.value || '').slice(0, 16),
+        inv: (document.getElementById('idea-inv')?.value || '').slice(0, 16)
+      };
+      const url = buildShareUrl(temp);
+      try { navigator.clipboard.writeText(url); flashAlert && flashAlert('share URL copied'); }
+      catch { prompt('Copy URL:', url); }
+    });
+  }
+  // Wire filter buttons
+  function wireFilters() {
+    document.querySelectorAll('[data-bias-filter]').forEach(b => {
+      b.addEventListener('click', () => {
+        biasFilter.v = b.dataset.biasFilter;
+        document.querySelectorAll('[data-bias-filter]').forEach(x => x.classList.toggle('active', x === b));
+        render();
+      });
+    });
+    const sym = document.getElementById('ideas-filter-sym');
+    sym?.addEventListener('change', () => { symFilter.v = sym.value; render(); });
+    document.getElementById('ideas-export')?.addEventListener('click', () => {
+      const arr = loadIdeas();
+      const blob = new Blob([JSON.stringify(arr, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'cortex-ideas-' + new Date().toISOString().slice(0,10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+    document.getElementById('ideas-clear')?.addEventListener('click', () => {
+      if (!confirm('Clear ALL ideas? This cannot be undone.')) return;
+      saveIdeas([]); render();
+    });
+  }
+  // Feed click delegation (like / delete / share / view / save)
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !(t instanceof Element)) return;
+    if (t.classList.contains('idea-like')) {
+      const id = t.dataset.id; const likes = loadLikes();
+      const arr = loadIdeas();
+      const it = arr.find(i => i.id === id);
+      if (!it) return;
+      if (likes.has(id)) { likes.delete(id); it.likes = Math.max(0, (it.likes || 0) - 1); }
+      else               { likes.add(id);    it.likes = (it.likes || 0) + 1; }
+      saveLikes(likes); saveIdeas(arr); render();
+    }
+    if (t.classList.contains('idea-del')) {
+      const id = t.dataset.id;
+      if (!confirm('Delete this idea?')) return;
+      saveIdeas(loadIdeas().filter(i => i.id !== id)); render();
+    }
+    if (t.classList.contains('idea-share')) {
+      const id = t.dataset.id;
+      const it = loadIdeas().find(i => i.id === id) || decodeSharedIdea();
+      if (!it) return;
+      const url = buildShareUrl(it);
+      try { navigator.clipboard.writeText(url); flashAlert && flashAlert('link copied'); }
+      catch { prompt('Copy:', url); }
+    }
+    if (t.classList.contains('idea-view')) {
+      const s = t.dataset.sym;
+      if (s) { try { switchSymbol(s); switchView('overview'); } catch {} }
+    }
+    if (t.classList.contains('idea-save')) {
+      const shared = decodeSharedIdea();
+      if (!shared) return;
+      const arr = loadIdeas();
+      if (arr.find(i => i.t === shared.t && i.handle === shared.handle)) {
+        try { flashAlert && flashAlert('already saved'); } catch {}
+        return;
+      }
+      arr.unshift({ ...shared, shared: false, id: 'i_' + Date.now().toString(36) });
+      saveIdeas(arr);
+      try {
+        const u = new URL(location.href); u.searchParams.delete('idea');
+        history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : ''));
+      } catch {}
+      render();
+      try { flashAlert && flashAlert('saved'); } catch {}
+    }
+  });
+  setTimeout(() => { wireComposer(); wireFilters(); render(); }, 800);
+  // Re-render when view opens
+  const origSwitchView = window.switchView;
+  if (typeof origSwitchView === 'function') {
+    window.switchView = function(v) {
+      origSwitchView(v);
+      if (v === 'ideas') setTimeout(render, 50);
+    };
+  }
+  window._ideasRender = render;
+})();
+
+/* ====================================================================
+   PER-SYMBOL COMMENTS — floating drawer, keyboard-shortcut `C`
+   Storage: cortex.comments.v1 = { "BTCUSDT": [{ id, t, handle, body }] }
+   ==================================================================== */
+(function(){
+  const CMTS_KEY = 'cortex.comments.v1';
+  function load() { try { return JSON.parse(localStorage.getItem(CMTS_KEY) || '{}'); } catch { return {}; } }
+  function save(d) { try { localStorage.setItem(CMTS_KEY, JSON.stringify(d)); } catch {} }
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c]); }
+  function getHandle() {
+    try { const p = JSON.parse(localStorage.getItem('cortex.profile.v1')); if (p?.handle) return p.handle; } catch {}
+    return 'anon';
+  }
+  function timeAgo(t) {
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60) return Math.floor(s) + 's';
+    if (s < 3600) return Math.floor(s/60) + 'm';
+    if (s < 86400) return Math.floor(s/3600) + 'h';
+    return Math.floor(s/86400) + 'd';
+  }
+  function ensureDrawer() {
+    if (document.getElementById('cmts-drawer')) return;
+    const d = document.createElement('div');
+    d.id = 'cmts-drawer';
+    d.style.cssText = 'display:none; position:fixed; right:0; top:0; bottom:28px; width:min(380px, 92vw); z-index:90; background:#07101c; border-left:1px solid #1c2430; box-shadow:-12px 0 40px rgba(0,0,0,0.5); font-family:"JetBrains Mono",monospace; transform:translateX(100%); transition:transform 0.2s ease-out;';
+    d.innerHTML = `
+      <div style="padding:12px 14px; border-bottom:1px solid #1c2430; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:10px; color:#5b6472; letter-spacing:0.24em;">COMMENTS</div>
+          <div style="font-size:14px; color:#00ffa3; font-weight:700; letter-spacing:0.1em;" id="cmts-sym">BTC</div>
+        </div>
+        <span id="cmts-close" style="cursor:pointer; color:#5b6472; font-size:11px; letter-spacing:0.18em;">✕</span>
+      </div>
+      <div id="cmts-list" class="cmts-list" style="padding:10px 12px; overflow-y:auto; height:calc(100% - 140px);"></div>
+      <div class="cmt-composer" style="padding:10px 12px; border-top:1px solid #1c2430; background:#05070a;">
+        <input id="cmts-input" placeholder="add a comment…" maxlength="240" />
+        <button id="cmts-send">POST</button>
+      </div>`;
+    document.body.appendChild(d);
+    document.getElementById('cmts-close')?.addEventListener('click', () => close());
+    document.getElementById('cmts-send')?.addEventListener('click', () => post());
+    document.getElementById('cmts-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); post(); }
+    });
+    document.getElementById('cmts-list')?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.classList && t.classList.contains('cmt-del')) {
+        const id = t.dataset.id;
+        const sym = (STATE.symbol || 'BTCUSDT');
+        const all = load();
+        all[sym] = (all[sym] || []).filter(c => c.id !== id);
+        save(all);
+        render();
+      }
+    });
+  }
+  function render() {
+    const sym = (STATE.symbol || 'BTCUSDT');
+    const symLabel = document.getElementById('cmts-sym'); if (symLabel) symLabel.textContent = sym.replace('USDT','');
+    const list = document.getElementById('cmts-list'); if (!list) return;
+    const all = load();
+    const arr = (all[sym] || []).slice().sort((a,b) => b.t - a.t);
+    if (!arr.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="es-icon">◎</div>
+        <div class="es-title">NO COMMENTS YET</div>
+        <div class="es-sub">Be the first to post on ${esc(sym.replace('USDT',''))}. Comments are public — stored in your browser, tied to symbol.</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = arr.map(c => `<div class="cmt">
+      <div class="cmt-hd">
+        <span><span class="cmt-handle">@${esc(c.handle)}</span> · <span class="cmt-time">${timeAgo(c.t)}</span></span>
+        ${c.handle === getHandle() ? '<span class="cmt-del" data-id="' + esc(c.id) + '">✕</span>' : ''}
+      </div>
+      <div class="cmt-body">${esc(c.body)}</div>
+    </div>`).join('');
+  }
+  function post() {
+    const input = document.getElementById('cmts-input'); if (!input) return;
+    const body = input.value.trim(); if (!body) return;
+    const sym = (STATE.symbol || 'BTCUSDT');
+    const all = load();
+    all[sym] = all[sym] || [];
+    all[sym].unshift({ id: 'c_' + Date.now().toString(36), t: Date.now(), handle: getHandle(), body: body.slice(0, 240) });
+    all[sym] = all[sym].slice(0, 100);
+    save(all);
+    input.value = '';
+    render();
+  }
+  function open() {
+    ensureDrawer();
+    const d = document.getElementById('cmts-drawer'); if (!d) return;
+    d.style.display = 'block';
+    requestAnimationFrame(() => { d.style.transform = 'translateX(0)'; });
+    render();
+    setTimeout(() => document.getElementById('cmts-input')?.focus(), 220);
+  }
+  function close() {
+    const d = document.getElementById('cmts-drawer'); if (!d) return;
+    d.style.transform = 'translateX(100%)';
+    setTimeout(() => { d.style.display = 'none'; }, 220);
+  }
+  function toggle() {
+    const d = document.getElementById('cmts-drawer');
+    if (!d || d.style.display === 'none') open(); else close();
+  }
+  // Expose + global hotkey
+  window._toggleComments = toggle;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+    if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+      e.preventDefault(); toggle();
+    }
+  });
+})();
+
+/* ====================================================================
+   EXTRA HOTKEYS — `I` = Ideas, `N` = new idea (focus body)
+   ==================================================================== */
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+  if (e.key === 'i' || e.key === 'I') {
+    e.preventDefault();
+    try { switchView('ideas'); } catch {}
+  }
+  if (e.key === 'n' || e.key === 'N') {
+    if (STATE.view !== 'ideas') { try { switchView('ideas'); } catch {} }
+    setTimeout(() => document.getElementById('idea-body')?.focus(), 250);
+  }
+});
+
+/* ====================================================================
+   EMPTY-STATE POLISH — wire empty messages into known-empty panels
+   Runs periodically; adds .empty-state block into any non-error panel
+   whose body ends up completely empty (first 5s after load).
+   ==================================================================== */
+(function(){
+  const LABELS = {
+    'whale-feed':       ['◎','NO WHALE LIQS YET','Liquidations stream live. Sit back — they\'ll pop in as they happen.'],
+    'mega-liqs':        ['◎','NO MEGA LIQS','Showing liquidations ≥ $100K. Refreshed every tick.'],
+    'cvd-divergences':  ['~','NO DIVERGENCES','Price-CVD divergences surface here when order flow breaks from price.'],
+    'liq-hof':          ['⧉','HALL OF FAME · WARMING UP','Top liquidation events across all symbols. Populates over time.'],
+    'funding-arb':      ['⇄','NO ARB > 2 BP','Funding basis < threshold across your tracked pairs right now.'],
+  };
+  function poll() {
+    Object.entries(LABELS).forEach(([id, [icn, t, s]]) => {
+      const el = document.getElementById(id); if (!el) return;
+      if (el.querySelector('.empty-state')) return;
+      const txt = (el.textContent || '').trim();
+      if (!txt || txt.length < 4) {
+        el.innerHTML = `<div class="empty-state"><div class="es-icon">${icn}</div><div class="es-title">${t}</div><div class="es-sub">${s}</div></div>`;
+      }
+    });
+  }
+  setTimeout(poll, 4000);
+  setTimeout(poll, 10000);
 })();
 </script>
 </body>
