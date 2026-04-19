@@ -660,6 +660,80 @@
   .panel.collapsed > *:not(.panel-hd) { display: none !important; }
   .panel.collapsed .panel-hd { border-bottom: none; }
 
+  /* Section headers (grouping within tabs) */
+  .section-hd {
+    display: flex; align-items: center; gap: 12px;
+    margin: 12px 0 4px 0; padding: 10px 4px 6px 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em;
+    text-transform: uppercase; color: #9aa4b2;
+  }
+  .section-hd::before, .section-hd::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(to right, rgba(154,164,178,0.28), transparent);
+  }
+  .section-hd::after {
+    background: linear-gradient(to left, rgba(154,164,178,0.28), transparent);
+  }
+  .section-hd .label { padding: 0 12px; color: #c2cbd6; }
+  .section-hd .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* Smart category filter row */
+  .smart-tabs {
+    display: flex; gap: 2px; overflow-x: auto; padding: 4px 10px;
+    background: rgba(8,11,16,0.7); border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  .smart-tabs::-webkit-scrollbar { display: none; }
+  .smart-tabs .label {
+    color: #5b6472; font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 5px 10px 5px 4px; flex: 0 0 auto;
+  }
+  .smart-tab {
+    padding: 4px 11px; font-size: 10.5px; letter-spacing: 0.14em;
+    color: #9aa4b2; cursor: pointer; border-radius: 3px; text-transform: uppercase;
+    font-weight: 600; border: 1px solid transparent; flex: 0 0 auto;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .smart-tab:hover { color: var(--text-0); background: rgba(255,255,255,0.03); }
+  .smart-tab.active {
+    color: #00ffa3; border-color: rgba(0,255,163,0.4);
+    background: rgba(0,255,163,0.08); text-shadow: 0 0 6px rgba(0,255,163,0.35);
+  }
+
+  /* Category-filter: hide non-matching panels / sections */
+  body.filter-liquidations .panel:not([data-cats*="liquidations"]),
+  body.filter-liquidations .section-hd:not([data-cats*="liquidations"]),
+  body.filter-funding-oi .panel:not([data-cats*="funding-oi"]),
+  body.filter-funding-oi .section-hd:not([data-cats*="funding-oi"]),
+  body.filter-flow .panel:not([data-cats*="flow"]),
+  body.filter-flow .section-hd:not([data-cats*="flow"]),
+  body.filter-signals .panel:not([data-cats*="signals"]),
+  body.filter-signals .section-hd:not([data-cats*="signals"]),
+  body.filter-options .panel:not([data-cats*="options"]),
+  body.filter-options .section-hd:not([data-cats*="options"]),
+  body.filter-macro .panel:not([data-cats*="macro"]),
+  body.filter-macro .section-hd:not([data-cats*="macro"]) {
+    display: none !important;
+  }
+  /* Workspace: hide panels not in active workspace */
+  body.workspace-minimal .panel:not([data-ws*="minimal"]):not([data-ws*="all"]),
+  body.workspace-pro     .panel:not([data-ws*="pro"]):not([data-ws*="all"]),
+  body.workspace-macro   .panel:not([data-ws*="macro"]):not([data-ws*="all"]),
+  body.workspace-degen   .panel:not([data-ws*="degen"]):not([data-ws*="all"]) {
+    display: none !important;
+  }
+  /* Workspace select */
+  .ws-select {
+    background: #0b1220; border: 1px solid #1c2430; color: #c2cbd6;
+    padding: 3px 8px; border-radius: 3px; font-size: 10.5px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+  .ws-select:hover { border-color: rgba(0,255,163,0.4); color: var(--text-0); }
+
   /* Per-panel deep-link icon in panel headers */
   .panel-link {
     display: inline-block; margin-left: 8px; padding: 1px 6px;
@@ -784,9 +858,28 @@
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
     <span>SEARCH</span>
     <input type="search" id="global-search" placeholder="Filter · sym…" style="width:180px;" />
+    <span class="small-caps text-[var(--text-2)]" style="letter-spacing:0.16em;">Layout</span>
+    <select id="workspace-select" class="ws-select" title="Saved layout presets — hide/show panel groups">
+      <option value="full">Full</option>
+      <option value="pro">Pro</option>
+      <option value="minimal">Minimal</option>
+      <option value="macro">Macro</option>
+      <option value="degen">Degen</option>
+    </select>
     <button id="share-view" class="btn" title="Copy shareable URL for current view/symbol/tf">SHARE</button>
   </div>
 </nav>
+<!-- Smart category focus filter (applies across every tab) -->
+<div id="smart-tabs" class="smart-tabs">
+  <span class="label">Focus</span>
+  <span class="smart-tab active" data-filter="all">All</span>
+  <span class="smart-tab" data-filter="liquidations">Liquidations</span>
+  <span class="smart-tab" data-filter="funding-oi">Funding & OI</span>
+  <span class="smart-tab" data-filter="flow">Flow</span>
+  <span class="smart-tab" data-filter="signals">Signals</span>
+  <span class="smart-tab" data-filter="options">Options</span>
+  <span class="smart-tab" data-filter="macro">Macro</span>
+</div>
 
 <div id="views">
 <div id="view-overview" class="view">
@@ -10950,6 +11043,224 @@ setInterval(refreshEtfFlows, 15 * 60 * 1000);
     }
   };
 })();
+
+/* ====================================================================
+   PANEL CATEGORIZATION · WORKSPACES · SECTION HEADERS
+   --------------------------------------------------------------------
+   Tags every panel with:
+     - data-cats  (smart-filter categories: liquidations / funding-oi / flow
+                    / signals / options / macro / price)
+     - data-ws    (workspaces it belongs to: minimal / pro / macro / degen)
+   Then injects section-header dividers into each view. Finally wires up
+   the smart-filter row + workspace dropdown to toggle classes on <body>.
+   ==================================================================== */
+
+// Panel identity key → categories, workspaces. Keyed by the FIRST IDed
+// descendant inside the panel (which is how _panelKey() also derives keys).
+// Default: panel is visible in "pro" and "full". Anything in "minimal" is
+// a must-have tactical view. "Macro" excludes short-term tactical panels.
+const PANEL_META = {
+  // === PRICE / ACTIVE SYMBOL ===
+  'price-chart':         { cats: ['price','flow'],       ws: ['minimal','pro','degen'] },
+  'vprof-chart':         { cats: ['price','flow'],       ws: ['minimal','pro','degen'] },
+  'fund-hist-chart':     { cats: ['funding-oi'],         ws: ['pro','degen'] },
+  'ps-chart':            { cats: ['flow','price'],       ws: ['pro','degen'] },
+  'tape-box':            { cats: ['flow'],               ws: ['minimal','pro','degen'] },
+  // === FUNDING / OI ===
+  'funding-heatmap':     { cats: ['funding-oi'],         ws: ['pro','minimal'] },
+  'funding-table':       { cats: ['funding-oi'],         ws: ['pro'] },
+  'oi-chart':            { cats: ['funding-oi'],         ws: ['pro','degen'] },
+  'oi-xex-rows':         { cats: ['funding-oi','flow'],  ws: ['pro'] },
+  'oi-regime':           { cats: ['funding-oi','signals'],ws: ['pro'] },
+  'oi-change':           { cats: ['funding-oi'],         ws: ['pro'] },
+  'vol-leaders':         { cats: ['funding-oi'],         ws: ['pro'] },
+  // === LIQUIDATIONS ===
+  'liq-map':             { cats: ['liquidations'],       ws: ['minimal','pro','degen'] },
+  'liq-heatmap':         { cats: ['liquidations'],       ws: ['pro','degen'] },
+  'liq-feed':            { cats: ['liquidations'],       ws: ['minimal','pro','degen'] },
+  'liq-multiheat':       { cats: ['liquidations'],       ws: ['pro','degen'] },
+  'liq-hof':             { cats: ['liquidations'],       ws: ['pro'] },
+  'mega-liqs':           { cats: ['liquidations'],       ws: ['pro','degen'] },
+  'whale-bysymbol':      { cats: ['liquidations','flow'],ws: ['pro'] },
+  // === DEPTH / WALLS ===
+  'depth-heatmap':       { cats: ['flow'],               ws: ['pro','degen'] },
+  'ob-walls':            { cats: ['flow'],               ws: ['pro','degen'] },
+  // === WHALE TAPE ===
+  'whale-feed':          { cats: ['flow'],               ws: ['pro','degen'] },
+  'agg-whale-body':      { cats: ['flow'],               ws: ['pro','degen'] },
+  // === BASIS ===
+  'cex-basis-chart':     { cats: ['funding-oi','macro'], ws: ['pro'] },
+  'basis-chart':         { cats: ['funding-oi','macro'], ws: ['pro','macro'] },
+  'basis-dash-body':     { cats: ['funding-oi'],         ws: ['pro'] },
+  // === EDGE TAB · SPREAD / ARB ===
+  'xvs-table':           { cats: ['flow','signals'],     ws: ['pro','degen'] },
+  'fa-table':            { cats: ['funding-oi','signals'],ws: ['pro'] },
+  'pld-body':            { cats: ['flow'],               ws: ['pro','degen'] },
+  'cvd-div-table':       { cats: ['flow','signals'],     ws: ['pro','degen'] },
+  'taker-aggr':          { cats: ['flow','signals'],     ws: ['pro','degen'] },
+  // === SIGNALS ===
+  'hot-zones-body':      { cats: ['signals'],            ws: ['minimal','pro','degen'] },
+  'vsurge-body':         { cats: ['signals','flow'],     ws: ['pro','degen'] },
+  'squeeze-body':        { cats: ['signals'],            ws: ['pro','degen'] },
+  'ffp-body':            { cats: ['signals','funding-oi'],ws: ['pro','degen'] },
+  // === RS / MOMENTUM / VOLATILITY ===
+  'rs-body':             { cats: ['signals'],            ws: ['pro'] },
+  'vol-regime-body':     { cats: ['signals'],            ws: ['pro','degen'] },
+  'atr-body':            { cats: ['signals'],            ws: ['pro'] },
+  'momentum-heatmap':    { cats: ['signals'],            ws: ['pro'] },
+  // === CORRELATION ===
+  'correlation-matrix':  { cats: ['signals','macro'],    ws: ['pro','macro'] },
+  'corrbrk-body':        { cats: ['signals'],            ws: ['pro'] },
+  // === NARRATIVE ===
+  'narrative-treemap':   { cats: ['signals','macro'],    ws: ['pro','macro','degen'] },
+  'treemap':             { cats: ['signals'],            ws: ['minimal','pro','degen'] },
+  // === OPTIONS ===
+  'derib-btc-chart':     { cats: ['options','macro'],    ws: ['pro','macro'] },
+  'derib-eth-chart':     { cats: ['options','macro'],    ws: ['pro','macro'] },
+  'derib-btc-expiries':  { cats: ['options'],            ws: ['pro'] },
+  'derib-eth-expiries':  { cats: ['options'],            ws: ['pro'] },
+  'derib-btc-gex':       { cats: ['options'],            ws: ['pro'] },
+  'derib-eth-gex':       { cats: ['options'],            ws: ['pro'] },
+  'opt-tape-body':       { cats: ['options','flow'],     ws: ['pro','degen'] },
+  // === MACRO ===
+  'llama-chart':         { cats: ['macro'],              ws: ['pro','macro'] },
+  'btcnet-hashrate':     { cats: ['macro'],              ws: ['macro'] },
+  'econ-body':           { cats: ['macro'],              ws: ['pro','macro'] },
+  'unl-body':            { cats: ['macro'],              ws: ['pro','macro'] },
+  'etf-body':            { cats: ['macro'],              ws: ['pro','macro'] },
+  'fg-gauge':            { cats: ['macro','signals'],    ws: ['macro'] },
+  'tt-chart':            { cats: ['macro'],              ws: ['macro'] },
+  // === ALERTS / TAPE / CVD ===
+  'alerts-list':         { cats: ['signals'],            ws: ['minimal','pro','degen'] },
+  'cvd-chart':           { cats: ['flow'],               ws: ['pro','degen'] },
+  // === ASTER DRILL-DOWN ===
+  'ast-markets-body':    { cats: ['flow'],               ws: ['pro'] },
+  'ast-premium-body':    { cats: ['flow'],               ws: ['pro'] },
+  'ast-fund-grid':       { cats: ['funding-oi'],         ws: ['pro'] },
+  // === WHALES KPIs + ROW 1 === (generic whales)
+  'whales-kpi':          { cats: ['flow','liquidations'],ws: ['pro','degen'] },
+};
+// Everything not listed: default to all workspaces + category 'flow'
+const DEFAULT_META = { cats: ['flow'], ws: ['pro'] };
+
+function _resolvePanelMeta(panel) {
+  // Walk descendants looking for a meta-matched id
+  const known = Object.keys(PANEL_META);
+  for (const id of known) {
+    if (panel.querySelector('#' + CSS.escape(id))) return PANEL_META[id];
+  }
+  return DEFAULT_META;
+}
+function _tagPanels() {
+  document.querySelectorAll('.panel').forEach(panel => {
+    if (panel.dataset.cats) return;  // already tagged
+    const meta = _resolvePanelMeta(panel);
+    panel.dataset.cats = (meta.cats || []).join(' ');
+    panel.dataset.ws   = ['all', ...(meta.ws || [])].join(' ');
+  });
+}
+
+// Section headers — per-view label mapping. Injected BEFORE first panel
+// inside each view that matches the anchor id.
+const SECTION_ANCHORS = [
+  // === Overview sections ===
+  { view: 'view-overview', anchor: 'price-chart',     label: 'LIVE PRICE · ACTIVE SYMBOL',        cats: 'price flow' },
+  { view: 'view-overview', anchor: 'funding-heatmap', label: 'FUNDING · OPEN INTEREST · BASIS',    cats: 'funding-oi' },
+  { view: 'view-overview', anchor: 'liq-map',         label: 'LIQUIDATIONS · CASCADE · FEED',     cats: 'liquidations' },
+  { view: 'view-overview', anchor: 'depth-heatmap',   label: 'ORDERBOOK · WALLS · VOLUME PROFILE',cats: 'flow' },
+  { view: 'view-overview', anchor: 'vprof-chart',     label: 'VOLUME PROFILE · FUNDING HISTORY',  cats: 'price funding-oi' },
+  { view: 'view-overview', anchor: 'tape-box',        label: 'LIVE TAPE · CVD · ALERTS',           cats: 'flow signals' },
+  // === Edge sections ===
+  { view: 'view-edge',     anchor: 'xvs-table',       label: 'CROSS-VENUE SPREAD · FUNDING ARB',  cats: 'flow funding-oi signals' },
+  { view: 'view-edge',     anchor: 'cvd-div-table',   label: 'FLOW · CVD DIVERGENCE',              cats: 'flow signals' },
+  { view: 'view-edge',     anchor: 'taker-aggr',      label: 'TAKER AGGRESSION · PRICE LEADERSHIP',cats: 'flow' },
+  { view: 'view-edge',     anchor: 'hot-zones-body',  label: 'SIGNALS · UNUSUAL ACTIVITY',        cats: 'signals' },
+  { view: 'view-edge',     anchor: 'squeeze-body',    label: 'SQUEEZE SETUPS · FUNDING FLIPS',    cats: 'signals funding-oi' },
+  // === Whales sections ===
+  { view: 'view-whales',   anchor: 'whale-feed',      label: 'WHALE TAPE · LIVE PRINTS',           cats: 'flow' },
+  { view: 'view-whales',   anchor: 'agg-whale-body',  label: 'CROSS-VENUE WHALES',                 cats: 'flow' },
+  { view: 'view-whales',   anchor: 'liq-hof',         label: 'LIQUIDATION HALL OF FAME',          cats: 'liquidations' },
+  { view: 'view-whales',   anchor: 'liq-multiheat',   label: 'MULTI-SYMBOL LIQ HEATMAP',          cats: 'liquidations' },
+  // === Analytics sections ===
+  { view: 'view-analytics',anchor: 'momentum-heatmap',label: 'MOMENTUM · STRENGTH · ATR',         cats: 'signals' },
+  { view: 'view-analytics',anchor: 'oi-change',       label: 'OI CHANGE · VOLUME LEADERS',         cats: 'funding-oi' },
+  { view: 'view-analytics',anchor: 'rs-body',         label: 'RELATIVE STRENGTH · CALENDAR · UNLOCKS · ETF', cats: 'signals macro' },
+  { view: 'view-analytics',anchor: 'narrative-treemap',label:'NARRATIVE · VOL REGIME · SPOT-PERP BASIS', cats: 'signals macro funding-oi' },
+  { view: 'view-analytics',anchor: 'llama-stable-mc', label: 'MACRO LIQUIDITY · ETF · STABLECOINS',cats: 'macro' },
+  { view: 'view-analytics',anchor: 'derib-btc-chart', label: 'OPTIONS · DERIBIT IV · SKEW · GEX · MAX PAIN', cats: 'options' },
+  { view: 'view-analytics',anchor: 'opt-tape-body',   label: 'OPTIONS FLOW TAPE',                  cats: 'options flow' },
+  { view: 'view-analytics',anchor: 'oi-regime',       label: 'OI REGIME QUADRANT',                 cats: 'funding-oi signals' },
+  { view: 'view-analytics',anchor: 'corrbrk-body',    label: 'CORRELATION · BREAKDOWN · MATRIX',  cats: 'signals macro' },
+  { view: 'view-analytics',anchor: 'btcnet-hashrate', label: 'BTC NETWORK · HASHRATE · MEMPOOL',   cats: 'macro' },
+];
+
+function _injectSectionHeaders() {
+  SECTION_ANCHORS.forEach(s => {
+    const view = document.getElementById(s.view);
+    if (!view) return;
+    const anchor = view.querySelector('#' + CSS.escape(s.anchor));
+    if (!anchor) return;
+    const panel  = anchor.closest('.panel');
+    if (!panel) return;
+    // Skip if a section-hd already immediately precedes this panel
+    const prev = panel.previousElementSibling;
+    if (prev && prev.classList && prev.classList.contains('section-hd')) return;
+    const hd = document.createElement('div');
+    hd.className = 'section-hd col-span-12';
+    hd.dataset.cats = s.cats || '';
+    hd.innerHTML = `<span class="dot"></span><span class="label">${s.label}</span>`;
+    panel.parentNode.insertBefore(hd, panel);
+  });
+}
+
+// Smart-filter (category focus) interactions
+function _applySmartFilter(filter) {
+  const body = document.body;
+  ['liquidations','funding-oi','flow','signals','options','macro'].forEach(f =>
+    body.classList.remove('filter-' + f));
+  if (filter && filter !== 'all') body.classList.add('filter-' + filter);
+  document.querySelectorAll('.smart-tab').forEach(el =>
+    el.classList.toggle('active', el.dataset.filter === filter));
+  try { localStorage.setItem('cortex.smartFilter.v1', filter); } catch {}
+  setTimeout(() => { Object.values(STATE.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} }); }, 150);
+}
+function _wireSmartTabs() {
+  document.querySelectorAll('.smart-tab').forEach(el => {
+    el.addEventListener('click', () => _applySmartFilter(el.dataset.filter));
+  });
+  // Restore from localStorage
+  try {
+    const saved = localStorage.getItem('cortex.smartFilter.v1') || 'all';
+    _applySmartFilter(saved);
+  } catch {}
+}
+
+// Workspace presets
+function _applyWorkspace(ws) {
+  const body = document.body;
+  ['minimal','pro','macro','degen','full'].forEach(w => body.classList.remove('workspace-' + w));
+  if (ws && ws !== 'full') body.classList.add('workspace-' + ws);
+  const sel = $('workspace-select'); if (sel) sel.value = ws || 'full';
+  try { localStorage.setItem('cortex.workspace.v1', ws || 'full'); } catch {}
+  setTimeout(() => { Object.values(STATE.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} }); }, 200);
+}
+function _wireWorkspaceSelect() {
+  const sel = $('workspace-select'); if (!sel) return;
+  sel.addEventListener('change', () => _applyWorkspace(sel.value));
+  try {
+    const saved = localStorage.getItem('cortex.workspace.v1') || 'full';
+    _applyWorkspace(saved);
+  } catch {}
+}
+
+// Unified panel init — runs multiple times to catch lazy-rendered panels
+function _initPanelSystem() {
+  _tagPanels();
+  _injectSectionHeaders();
+}
+setTimeout(() => { _initPanelSystem(); _wireSmartTabs(); _wireWorkspaceSelect(); }, 2000);
+setTimeout(_initPanelSystem, 5000);
+setTimeout(_initPanelSystem, 10000);
 
 /* ---------- COLLAPSIBLE PANELS ----------
    Every panel gets a ▼ toggle in its header. Clicking collapses/expands
