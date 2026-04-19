@@ -783,6 +783,38 @@
       font-family: 'JetBrains Mono', monospace;
     }
   }
+  /* ============ MOBILE APP-SHELL BOTTOM NAV ============ */
+  @media (max-width: 1023px) {
+    body { padding-bottom: 56px; }   /* space for fixed bottom nav */
+  }
+  @media (min-width: 1024px) {
+    #mobile-bottom-nav { display: none !important; }
+  }
+  #mobile-bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: linear-gradient(180deg, rgba(5,7,10,0.8) 0%, rgba(5,7,10,0.98) 100%);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    height: 56px;
+  }
+  .mbn-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; font-size: 9px; letter-spacing: 0.12em;
+    color: var(--text-2); cursor: pointer; user-select: none;
+    transition: color 0.15s;
+    border-top: 2px solid transparent;
+    text-transform: uppercase; font-weight: 600;
+  }
+  .mbn-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .mbn-item.active {
+    color: #00ffa3;
+    border-top-color: #00ffa3;
+    text-shadow: 0 0 6px rgba(0,255,163,0.4);
+  }
+  .mbn-item:active { background: rgba(0,255,163,0.05); }
+
   /* Mobile / tablet keeps the existing top-nav layout */
   @media (max-width: 1023px) {
     #main-sidebar { display: none !important; }
@@ -1161,6 +1193,30 @@
   <span class="smart-tab" data-filter="options">Options</span>
   <span class="smart-tab" data-filter="macro">Macro</span>
 </div>
+
+<!-- ============ MOBILE BOTTOM APP NAV ============ -->
+<nav id="mobile-bottom-nav">
+  <div class="mbn-item active" data-view="overview">
+    <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+    <span>Pulse</span>
+  </div>
+  <div class="mbn-item" data-view="edge">
+    <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-9M21 7l-2-2-2 2M21 7v4"/></svg>
+    <span>Flow</span>
+  </div>
+  <div class="mbn-item" data-view="whales">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 4 4 6-7"/></svg>
+    <span>Liq</span>
+  </div>
+  <div class="mbn-item" data-view="analytics">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>Analytics</span>
+  </div>
+  <div class="mbn-item" data-view="screener">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+    <span>Screener</span>
+  </div>
+</nav>
 
 <div id="views" class="main-body">
 <div id="view-overview" class="view">
@@ -11572,46 +11628,28 @@ function _applyPersistedSectionState() {
    panel NOT tagged hero. Keeps the page calm out of the box; user can
    expand anything. Mobile: collapse EVERYTHING so page loads as a compact
    list of section/panel headers. */
-const HERO_PANELS = new Set([
-  // PULSE hero
-  'price-chart','treemap','alerts-list','liq-map','funding-heatmap','liq-feed',
-  // FLOW hero
-  'xvs-table','fa-table','hot-zones-body','squeeze-body','cvd-div-table',
-  // LIQUIDATIONS hero
-  'whale-feed','liq-multiheat','whale-bysymbol',
-  // ANALYTICS hero
-  'momentum-heatmap','oi-regime','narrative-treemap','llama-stable-mc','derib-btc-chart',
-]);
-const FIRSTVISIT_KEY = 'cortex.firstVisitDone.v1';
+/* Default: expand everything. User can collapse what they don't want.
+   Users asked for "everything open so I know what's what" — flipping the
+   policy. The collapse/expand toggle still works per-panel and per-section
+   and is persisted; this just sets the default state. */
 function _applyHeroDefault() {
-  const isMobile = (window.innerWidth || 1920) < 768;
-  // Only auto-apply on first visit (otherwise trust user's saved collapse choices)
-  const firstVisit = !localStorage.getItem(FIRSTVISIT_KEY);
-  if (!firstVisit && !isMobile) return;
+  // Clear any pre-existing stale collapse state only on first visit
+  const key = 'cortex.firstVisitDone.v2';
+  if (localStorage.getItem(key)) return;
+  // Expand every panel initially so everything's visible
   document.querySelectorAll('.panel').forEach(panel => {
-    const key = panel.dataset.panelKey || '';
-    // Find the first descendant ID, use it for HERO matching
-    const firstId = panel.querySelector('[id]')?.id || '';
-    const isHero  = HERO_PANELS.has(firstId);
-    if (isMobile) {
-      // Mobile: collapse EVERY panel (user expands what they want)
-      panel.classList.add('collapsed');
-      if (key) _collapseSet.add(key);
-      const btn = panel.querySelector('.panel-collapse');
-      if (btn) btn.textContent = '▶';
-    } else if (firstVisit && !isHero) {
-      panel.classList.add('collapsed');
-      if (key) _collapseSet.add(key);
-      const btn = panel.querySelector('.panel-collapse');
-      if (btn) btn.textContent = '▶';
-    }
+    panel.classList.remove('collapsed');
+    const btn = panel.querySelector('.panel-collapse');
+    if (btn) btn.textContent = '▼';
   });
-  if (firstVisit) {
-    try { localStorage.setItem(FIRSTVISIT_KEY, '1'); } catch {}
-  }
+  document.querySelectorAll('.section-hd').forEach(hd => hd.classList.remove('collapsed'));
+  _collapseSet.clear();
+  _sectionCollapseSet.clear();
   _saveCollapseState(_collapseSet);
+  _saveCollapsedSections(_sectionCollapseSet);
+  try { localStorage.setItem(key, '1'); } catch {}
 }
-setTimeout(_applyHeroDefault, 3500);  // after panel init + collapse btn injection
+setTimeout(_applyHeroDefault, 3500);
 
 /* "Reset layout" button in header — one click restores the first-visit
    default (hero panels expanded, rest collapsed). */
@@ -11818,6 +11856,23 @@ function _injectViewTitlebars() {
 }
 setTimeout(_injectViewTitlebars, 1200);
 setTimeout(_injectViewTitlebars, 5000);
+
+/* ---------- MOBILE BOTTOM-NAV SHELL ---------- */
+function _wireMobileBottomNav() {
+  document.querySelectorAll('#mobile-bottom-nav .mbn-item').forEach(item => {
+    item.addEventListener('click', () => {
+      try { switchView(item.dataset.view); } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+}
+function _syncMobileBottomNav() {
+  document.querySelectorAll('#mobile-bottom-nav .mbn-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === STATE.view);
+  });
+}
+setTimeout(_wireMobileBottomNav, 1000);
+setInterval(_syncMobileBottomNav, 800);
 
 // Smart-filter (category focus) interactions
 function _applySmartFilter(filter) {
