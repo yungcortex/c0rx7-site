@@ -667,7 +667,11 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em;
     text-transform: uppercase; color: #9aa4b2;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
   }
+  .section-hd:hover { background: rgba(0,255,163,0.03); }
   .section-hd::before, .section-hd::after {
     content: ''; flex: 1; height: 1px;
     background: linear-gradient(to right, rgba(154,164,178,0.28), transparent);
@@ -675,8 +679,11 @@
   .section-hd::after {
     background: linear-gradient(to left, rgba(154,164,178,0.28), transparent);
   }
-  .section-hd .label { padding: 0 12px; color: #c2cbd6; }
+  .section-hd .label { padding: 0 10px; color: #c2cbd6; }
   .section-hd .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .section-hd .chev { color: #5b6472; font-size: 11px; transition: transform 0.2s; }
+  .section-hd.collapsed .chev { transform: rotate(-90deg); color: var(--accent); }
+  .section-hd .count { color: #5b6472; font-size: 9px; }
 
   /* Smart category filter row */
   .smart-tabs {
@@ -850,11 +857,11 @@
 
 <!-- ============ TAB NAV ============ -->
 <nav class="nav-tabs">
-  <div class="nav-tab active" data-view="overview">OVERVIEW</div>
-  <div class="nav-tab" data-view="screener">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
-  <div class="nav-tab" data-view="edge">EDGE <span class="badge" id="tab-edge-count">0</span></div>
-  <div class="nav-tab" data-view="whales">WHALES <span class="badge" id="tab-whales-count">0</span></div>
-  <div class="nav-tab" data-view="analytics">ANALYTICS</div>
+  <div class="nav-tab active" data-view="overview" title="Price, depth, funding, liquidations — the terminal">PULSE</div>
+  <div class="nav-tab" data-view="screener" title="All symbols, ranked">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
+  <div class="nav-tab" data-view="edge" title="Cross-venue spread, CVD, hot zones, squeezes">FLOW <span class="badge" id="tab-edge-count">0</span></div>
+  <div class="nav-tab" data-view="whales" title="Whale trades + liquidation maps">LIQUIDATIONS <span class="badge" id="tab-whales-count">0</span></div>
+  <div class="nav-tab" data-view="analytics" title="Options, macro, momentum, correlation">ANALYTICS</div>
   <div class="ml-auto flex items-center gap-3 py-2 pr-2 text-[11px] text-[var(--text-2)]">
     <span>SEARCH</span>
     <input type="search" id="global-search" placeholder="Filter · sym…" style="width:180px;" />
@@ -11198,7 +11205,7 @@ const SECTION_ANCHORS = [
 ];
 
 function _injectSectionHeaders() {
-  SECTION_ANCHORS.forEach(s => {
+  SECTION_ANCHORS.forEach((s, idx) => {
     const view = document.getElementById(s.view);
     if (!view) return;
     const anchor = view.querySelector('#' + CSS.escape(s.anchor));
@@ -11211,10 +11218,148 @@ function _injectSectionHeaders() {
     const hd = document.createElement('div');
     hd.className = 'section-hd col-span-12';
     hd.dataset.cats = s.cats || '';
-    hd.innerHTML = `<span class="dot"></span><span class="label">${s.label}</span>`;
+    hd.dataset.sectionKey = `${s.view}:${s.anchor}`;
+    hd.innerHTML = `
+      <span class="chev">▼</span>
+      <span class="dot"></span>
+      <span class="label">${s.label}</span>
+      <span class="count" data-section-count></span>`;
     panel.parentNode.insertBefore(hd, panel);
+    // Wire section-level collapse — toggles all sibling panels until next section-hd
+    hd.addEventListener('click', () => _toggleSection(hd));
+  });
+  _updateSectionCounts();
+  _applyPersistedSectionState();
+}
+
+/* Toggle every panel between this section-hd and the next section-hd
+   (or end of the grid). State persisted per section key. */
+const SECTION_COLLAPSE_KEY = 'cortex.collapsedSections.v1';
+function _loadCollapsedSections() {
+  try { const raw = localStorage.getItem(SECTION_COLLAPSE_KEY); return raw ? new Set(JSON.parse(raw)) : new Set(); }
+  catch { return new Set(); }
+}
+function _saveCollapsedSections(s) {
+  try { localStorage.setItem(SECTION_COLLAPSE_KEY, JSON.stringify(Array.from(s))); } catch {}
+}
+const _sectionCollapseSet = _loadCollapsedSections();
+function _sectionPanels(hd) {
+  const panels = [];
+  let el = hd.nextElementSibling;
+  while (el && !el.classList.contains('section-hd')) {
+    if (el.classList.contains('panel')) panels.push(el);
+    el = el.nextElementSibling;
+  }
+  return panels;
+}
+function _toggleSection(hd) {
+  const key = hd.dataset.sectionKey;
+  const collapse = !hd.classList.contains('collapsed');
+  hd.classList.toggle('collapsed', collapse);
+  const panels = _sectionPanels(hd);
+  panels.forEach(p => {
+    const pk = p.dataset.panelKey;
+    if (collapse) {
+      p.classList.add('collapsed');
+      if (pk) _collapseSet.add(pk);
+    } else {
+      p.classList.remove('collapsed');
+      if (pk) _collapseSet.delete(pk);
+    }
+    const btn = p.querySelector('.panel-collapse');
+    if (btn) btn.textContent = collapse ? '▶' : '▼';
+  });
+  if (collapse) _sectionCollapseSet.add(key); else _sectionCollapseSet.delete(key);
+  _saveCollapsedSections(_sectionCollapseSet);
+  _saveCollapseState(_collapseSet);
+  setTimeout(() => { Object.values(STATE.charts || {}).forEach(c => { try { c.resize && c.resize(); } catch {} }); }, 150);
+}
+function _updateSectionCounts() {
+  document.querySelectorAll('.section-hd').forEach(hd => {
+    const cnt = hd.querySelector('[data-section-count]');
+    if (cnt) {
+      const panels = _sectionPanels(hd);
+      cnt.textContent = '· ' + panels.length + ' panel' + (panels.length === 1 ? '' : 's');
+    }
   });
 }
+function _applyPersistedSectionState() {
+  document.querySelectorAll('.section-hd').forEach(hd => {
+    const key = hd.dataset.sectionKey;
+    if (_sectionCollapseSet.has(key)) {
+      hd.classList.add('collapsed');
+      _sectionPanels(hd).forEach(p => p.classList.add('collapsed'));
+    }
+  });
+}
+
+/* ---------- HERO PANELS · FIRST-VISIT COLLAPSE / MOBILE DEFAULT ----------
+   On first visit (detected via localStorage key absence), collapse every
+   panel NOT tagged hero. Keeps the page calm out of the box; user can
+   expand anything. Mobile: collapse EVERYTHING so page loads as a compact
+   list of section/panel headers. */
+const HERO_PANELS = new Set([
+  // PULSE hero
+  'price-chart','treemap','alerts-list','liq-map','funding-heatmap','liq-feed',
+  // FLOW hero
+  'xvs-table','fa-table','hot-zones-body','squeeze-body','cvd-div-table',
+  // LIQUIDATIONS hero
+  'whale-feed','liq-multiheat','whale-bysymbol',
+  // ANALYTICS hero
+  'momentum-heatmap','oi-regime','narrative-treemap','llama-stable-mc','derib-btc-chart',
+]);
+const FIRSTVISIT_KEY = 'cortex.firstVisitDone.v1';
+function _applyHeroDefault() {
+  const isMobile = (window.innerWidth || 1920) < 768;
+  // Only auto-apply on first visit (otherwise trust user's saved collapse choices)
+  const firstVisit = !localStorage.getItem(FIRSTVISIT_KEY);
+  if (!firstVisit && !isMobile) return;
+  document.querySelectorAll('.panel').forEach(panel => {
+    const key = panel.dataset.panelKey || '';
+    // Find the first descendant ID, use it for HERO matching
+    const firstId = panel.querySelector('[id]')?.id || '';
+    const isHero  = HERO_PANELS.has(firstId);
+    if (isMobile) {
+      // Mobile: collapse EVERY panel (user expands what they want)
+      panel.classList.add('collapsed');
+      if (key) _collapseSet.add(key);
+      const btn = panel.querySelector('.panel-collapse');
+      if (btn) btn.textContent = '▶';
+    } else if (firstVisit && !isHero) {
+      panel.classList.add('collapsed');
+      if (key) _collapseSet.add(key);
+      const btn = panel.querySelector('.panel-collapse');
+      if (btn) btn.textContent = '▶';
+    }
+  });
+  if (firstVisit) {
+    try { localStorage.setItem(FIRSTVISIT_KEY, '1'); } catch {}
+  }
+  _saveCollapseState(_collapseSet);
+}
+setTimeout(_applyHeroDefault, 3500);  // after panel init + collapse btn injection
+
+/* "Reset layout" button in header — one click restores the first-visit
+   default (hero panels expanded, rest collapsed). */
+function _installResetLayoutBtn() {
+  const shareBtn = $('share-view');
+  if (!shareBtn || document.getElementById('reset-layout')) return;
+  const btn = document.createElement('button');
+  btn.id = 'reset-layout';
+  btn.className = 'btn';
+  btn.title = 'Reset layout to default (hero panels expanded, rest collapsed)';
+  btn.textContent = 'RESET';
+  btn.addEventListener('click', () => {
+    try {
+      localStorage.removeItem(COLLAPSE_KEY);
+      localStorage.removeItem(SECTION_COLLAPSE_KEY);
+      localStorage.removeItem(FIRSTVISIT_KEY);
+    } catch {}
+    location.reload();
+  });
+  shareBtn.parentNode.insertBefore(btn, shareBtn);
+}
+setTimeout(_installResetLayoutBtn, 3000);
 
 // Smart-filter (category focus) interactions
 function _applySmartFilter(filter) {
