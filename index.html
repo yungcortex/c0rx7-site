@@ -763,6 +763,7 @@
     nav.nav-tabs      { display: none !important; }
     #smart-tabs       { display: none !important; }
     #mega-strip       { display: none !important; }
+    #tickertape       { display: none !important; }
     /* Hide the old brand/chip row inside header — sidebar has brand, chips move to sidebar footer */
     header.border-b > div.flex.items-center.justify-between { display: none !important; }
     /* Hide the dense command bar row on desktop — market-bar covers the same */
@@ -785,19 +786,34 @@
   /* Mobile / tablet keeps the existing top-nav layout */
   @media (max-width: 1023px) {
     #main-sidebar { display: none !important; }
-    /* Tighten the header chrome on mobile */
-    header.border-b { padding: 0; }
-    header.border-b > div.flex.items-center.justify-between { padding: 6px 10px !important; }
-    .market-bar { padding: 6px 10px; gap: 10px; font-size: 10.5px; }
+    html, body { overflow-x: hidden; }
+    /* Aggressively consolidate top chrome on mobile */
+    header.border-b > div.flex.items-center.justify-between { display: none !important; }  /* hide CORTEX·TERMINAL + chips row */
+    #mega-strip      { display: none !important; }  /* redundant with market bar */
+    #tickertape      { display: none !important; }  /* redundant */
+    .cmd-bar         { display: none !important; }  /* redundant with market bar */
+    #watchlist-bar   { display: none !important; }  /* save space; accessible via panel */
+    /* Tighten market bar */
+    .market-bar { padding: 6px 10px; gap: 10px; font-size: 10.5px; flex-wrap: wrap; }
     .market-bar .m-chip { gap: 4px; }
     .market-bar .m-label { font-size: 8.5px; }
     .market-bar .m-divider { height: 12px; }
-    /* Hide chips row on mobile — reuses sidebar's place */
-    header.border-b .chip { display: none; }
-    /* Hide redundant funding strip on mobile */
-    #fund-countdown-strip { padding: 4px 10px; font-size: 10px; gap: 8px; }
-    /* Tickertape less noisy on mobile */
-    #mega-strip { border-top: 1px solid var(--line); }
+    /* Tighten nav tabs */
+    nav.nav-tabs { padding: 0 6px; }
+    .nav-tab { padding: 6px 8px !important; font-size: 10px !important; letter-spacing: 0.12em; }
+    /* Smart filter stays but compact */
+    .smart-tabs { padding: 2px 6px; }
+    .smart-tab { padding: 3px 8px; font-size: 10px; }
+    /* Tighten funding-countdown strip */
+    #fund-countdown-strip { padding: 4px 10px; font-size: 10px; gap: 8px; flex-wrap: wrap; }
+    /* View titlebar condensed */
+    .view-titlebar { padding: 8px 12px; }
+    .view-titlebar h1 { font-size: 12px; }
+    .view-titlebar h1 .vsub { display: none; }
+    .view-titlebar .vactions { font-size: 10px; }
+    /* Panels — tighter padding on mobile */
+    .panel { border-radius: 4px; }
+    main { padding: 6px 8px; }
   }
 
   /* Sidebar itself */
