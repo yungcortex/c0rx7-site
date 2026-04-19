@@ -11156,7 +11156,10 @@ function _tagPanels() {
     if (panel.dataset.cats) return;  // already tagged
     const meta = _resolvePanelMeta(panel);
     panel.dataset.cats = (meta.cats || []).join(' ');
-    panel.dataset.ws   = ['all', ...(meta.ws || [])].join(' ');
+    // Only panels with NO explicit workspace get the "always-visible" escape
+    // hatch. Most panels have meta.ws; those are filtered by workspace normally.
+    const ws = (meta.ws && meta.ws.length) ? meta.ws : ['all'];
+    panel.dataset.ws = ws.join(' ');
   });
 }
 
