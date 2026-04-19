@@ -1189,6 +1189,14 @@
   .idea-card .ic-foot .sp { margin-left: auto; }
 
   /* ===== COMMENTS (per-symbol thread) ===== */
+  #cmts-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 89;
+    background: rgba(5,7,10,0.55); backdrop-filter: blur(2px);
+    animation: fadeIn 0.15s ease-out;
+  }
+  @media (max-width: 767px) {
+    #cmts-drawer { bottom: 56px !important; }
+  }
   .cmts-list { margin-top: 8px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
   .cmt {
     padding: 8px 10px; background: rgba(255,255,255,0.02);
@@ -1407,6 +1415,8 @@
       <option value="macro">Macro</option>
       <option value="degen">Degen</option>
     </select>
+    <button id="chat-toggle" class="btn" title="Comments for the current symbol (C)">💬 CHAT</button>
+    <button id="ideas-nav"   class="btn" title="Ideas feed (I)">◆ IDEAS</button>
     <button id="share-view" class="btn" title="Copy shareable URL for current view/symbol/tf">SHARE</button>
   </div>
 </nav>
@@ -7798,6 +7808,11 @@ const CMDK_ACTIONS = [
   { id: 'a:alerts',       label: 'Action · Focus alerts panel' },
   { id: 'a:notifications',label: 'Action · Enable browser notifications' },
   { id: 'a:refreshAll',   label: 'Action · Refresh all data' },
+  { id: 'a:newIdea',      label: 'Action · Post a new idea' },
+  { id: 'a:toggleComments', label: 'Action · Toggle comments drawer' },
+  { id: 'a:showHelp',     label: 'Action · Show keyboard shortcuts' },
+  { id: 'a:showWelcome',  label: 'Action · Replay welcome tour' },
+  { id: 'a:resetLayout',  label: 'Action · Reset panel layout' },
 ];
 let _cmdkActiveIdx = 0;
 let _cmdkItems = [];
@@ -7862,6 +7877,23 @@ function _cmdkRun() {
     const btn = $('dh-refresh'); if (btn) btn.click();
   } else if (it.id === 'a:shareView') {
     try { _shareCopy(_buildShareUrl()); } catch {}
+  } else if (it.id === 'a:newIdea') {
+    try { switchView('ideas'); setTimeout(() => document.getElementById('idea-body')?.focus(), 250); } catch {}
+  } else if (it.id === 'a:toggleComments') {
+    try { window._toggleComments && window._toggleComments(); } catch {}
+  } else if (it.id === 'a:showHelp') {
+    try { if (typeof _showHelp === 'function') _showHelp(); } catch {}
+  } else if (it.id === 'a:showWelcome') {
+    try { window._openWelcome && window._openWelcome(); } catch {}
+  } else if (it.id === 'a:resetLayout') {
+    if (confirm('Reset layout to defaults?')) {
+      try {
+        localStorage.removeItem('cortex.collapse.v1');
+        localStorage.removeItem('cortex.sectionCollapse.v1');
+        localStorage.removeItem('cortex.firstVisitDone.v2');
+      } catch {}
+      location.reload();
+    }
   }
 }
 
@@ -13091,6 +13123,10 @@ function _cmdkPanelEntries() {
   }
   function ensureDrawer() {
     if (document.getElementById('cmts-drawer')) return;
+    const bd = document.createElement('div');
+    bd.id = 'cmts-backdrop';
+    bd.addEventListener('click', () => close());
+    document.body.appendChild(bd);
     const d = document.createElement('div');
     d.id = 'cmts-drawer';
     d.style.cssText = 'display:none; position:fixed; right:0; top:0; bottom:28px; width:min(380px, 92vw); z-index:90; background:#07101c; border-left:1px solid #1c2430; box-shadow:-12px 0 40px rgba(0,0,0,0.5); font-family:"JetBrains Mono",monospace; transform:translateX(100%); transition:transform 0.2s ease-out;';
@@ -13162,6 +13198,8 @@ function _cmdkPanelEntries() {
   function open() {
     ensureDrawer();
     const d = document.getElementById('cmts-drawer'); if (!d) return;
+    const bd = document.getElementById('cmts-backdrop');
+    if (bd) bd.style.display = 'block';
     d.style.display = 'block';
     requestAnimationFrame(() => { d.style.transform = 'translateX(0)'; });
     render();
@@ -13169,8 +13207,12 @@ function _cmdkPanelEntries() {
   }
   function close() {
     const d = document.getElementById('cmts-drawer'); if (!d) return;
+    const bd = document.getElementById('cmts-backdrop');
     d.style.transform = 'translateX(100%)';
-    setTimeout(() => { d.style.display = 'none'; }, 220);
+    setTimeout(() => {
+      d.style.display = 'none';
+      if (bd) bd.style.display = 'none';
+    }, 220);
   }
   function toggle() {
     const d = document.getElementById('cmts-drawer');
@@ -13187,6 +13229,18 @@ function _cmdkPanelEntries() {
     }
   });
 })();
+
+/* ====================================================================
+   DISCOVERABILITY — wire CHAT + IDEAS buttons in header nav
+   ==================================================================== */
+setTimeout(() => {
+  document.getElementById('chat-toggle')?.addEventListener('click', () => {
+    try { window._toggleComments && window._toggleComments(); } catch {}
+  });
+  document.getElementById('ideas-nav')?.addEventListener('click', () => {
+    try { switchView('ideas'); } catch {}
+  });
+}, 1000);
 
 /* ====================================================================
    EXTRA HOTKEYS — `I` = Ideas, `N` = new idea (focus body)
