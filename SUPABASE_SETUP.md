@@ -22,7 +22,9 @@ with row-level security + realtime publishing.
 ## 3. Paste your keys into the site
 
 1. In Supabase: **Settings → API**
-2. Copy **Project URL** and **anon / public key**
+2. Copy **Project URL** and your **publishable** key (`sb_publishable_…`).
+   If you still see the old **anon** key (long JWT starting with `eyJ…`),
+   that works too — both formats are supported by the SDK pinned here.
 3. Open `index.html` in this repo
 4. Find this block (near the top):
 
@@ -33,10 +35,10 @@ with row-level security + realtime publishing.
    };
    ```
 
-5. Paste your URL + anon key into the quotes.
+5. Paste your URL + publishable key into the quotes.
 6. Commit + push. Vercel auto-deploys.
 
-**Why the anon key is safe in client code:** it's rate-limited and
+**Why the publishable key is safe in client code:** it's rate-limited and
 RLS policies (in the schema) control what it can actually read/write.
 
 ## 4. Enable email confirm (optional, recommended)

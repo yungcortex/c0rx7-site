@@ -50,24 +50,20 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ============================================================================
      CLOUD SYNC · SUPABASE
      ============================================================================
-     To enable real accounts + cross-device sync, create a Supabase project
-     (free at supabase.com), run supabase-schema.sql in the SQL editor, then
-     paste your project URL + anon key below.
-
-     The site works 100% without this — if not configured, everything falls
-     back to localStorage (single-browser).
+     Enabled. Project URL + publishable (anon) key below. These are public
+     keys — row-level security policies (see supabase-schema.sql) enforce
+     actual access rules.
      ============================================================================ -->
 <script>
 window.CORTEX_CLOUD = {
-  url: "",     // e.g. "https://xxx.supabase.co"
-  anonKey: ""  // public anon key — safe to ship to browser (RLS enforces access)
+  url: "https://xzxxhsjwzkgxhdbvyaud.supabase.co",
+  anonKey: "sb_publishable_2qK2P5rTKLDb7LYdZteT6Q_hPXx_o8C"
 };
-// Dev/user override: paste keys via browser console once, persisted to localStorage.
-// localStorage.setItem('cortex.cloud.v1', JSON.stringify({url, anonKey}));
+// Override (for dev): localStorage.setItem('cortex.cloud.v1', JSON.stringify({url, anonKey}));
 try {
   const stored = JSON.parse(localStorage.getItem('cortex.cloud.v1') || 'null');
   if (stored && stored.url && stored.anonKey) window.CORTEX_CLOUD = stored;
