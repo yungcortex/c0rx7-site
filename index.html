@@ -10999,12 +10999,13 @@ setTimeout(_injectCollapseButtons, 8000);   // re-scan after lazy-rendered panel
 function _cmdkPanelEntries() {
   const out = [];
   document.querySelectorAll('.panel').forEach(panel => {
-    const hd = panel.querySelector('.panel-hd > span:first-child');
-    if (!hd) return;
     const key = panel.dataset.panelKey;
     if (!key) return;
-    // Clean the label (strip the colored dot span text + arrow chars)
-    const txt = (hd.textContent || '').replace(/[•▼▶#]/g, '').trim().slice(0, 60);
+    // Find the title span inside the header (skip the collapse / link toggle
+    // icons which are prepended/appended around the real title span).
+    const titleSpan = panel.querySelector('.panel-hd > span:not(.panel-collapse):not(.panel-link)');
+    if (!titleSpan) return;
+    const txt = (titleSpan.textContent || '').replace(/[•▼▶#]/g, '').trim().slice(0, 60);
     if (!txt) return;
     out.push({ id: 'p:' + key, label: 'Panel · ' + txt });
   });
