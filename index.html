@@ -8845,7 +8845,7 @@ function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, 
   STATE.diag.ws[name] = STATE.diag.ws[name] || { lastMsg:0, msgCount:0, reconnects:0, state:'idle' };
   const d = STATE.diag.ws[name];
   let ws = null, backoff = 2000, pingTimer = null, killed = false;
-  const staleMs = staleTimeoutMs || 75000; // force reconnect if no msg in 75s
+  const staleMs = staleTimeoutMs || 55000; // force reconnect if no msg in 55s
   function scheduleReconnect() {
     if (killed) return;
     d.reconnects = (d.reconnects || 0) + 1;
@@ -8921,7 +8921,7 @@ setInterval(() => {
 
 // Also force a full reconnect of every ws when the tab wakes up from being
 // backgrounded — browsers throttle timers on hidden tabs and sockets often
-// go stale during that period.
+// go stale during that period. Reconnect ALL (not just stale) on resume.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   setTimeout(() => {
@@ -8929,12 +8929,32 @@ document.addEventListener('visibilitychange', () => {
       const now = Date.now();
       WS_REGISTRY.forEach(h => {
         const d = STATE.diag.ws[h.name];
-        if (!d) return;
-        if (d.lastMsg && (now - d.lastMsg) > 20000) h.forceReconnect('tab resumed');
+        const sock = h.getSocket();
+        if (!d || !sock || sock.readyState !== 1) return;
+        if (!d.lastMsg || (now - d.lastMsg) > 10000) h.forceReconnect('tab resumed');
       });
     } catch {}
-  }, 1200);
+  }, 1000);
 });
+
+// Manual rescue: window._reconnectAll() force-cycles every socket. Also
+// exposed via a ⌘K action.
+window._reconnectAll = function() {
+  try { WS_REGISTRY.forEach(h => h.forceReconnect('manual')); } catch {}
+  try { flashAlert && flashAlert('reconnecting all streams…'); } catch {}
+};
+setTimeout(() => {
+  try { if (Array.isArray(CMDK_ACTIONS)) CMDK_ACTIONS.push({ id: 'a:reconnect', label: 'Action · Reconnect all WS streams' }); } catch {}
+}, 0);
+setTimeout(() => {
+  const o = window._cmdkRun;
+  if (typeof o !== 'function') return;
+  window._cmdkRun = function() {
+    const it = _cmdkItems[_cmdkActiveIdx];
+    if (it && it.id === 'a:reconnect') { _cmdkClose(); window._reconnectAll(); return; }
+    o();
+  };
+}, 5500);
 
 // ---------- BYBIT tickers (snapshot + delta on v5 linear) ----------
 const _bybitTickerCache = new Map();
