@@ -5963,10 +5963,17 @@ function handleKline(d) {
     time: Math.floor(k.t/1000),
     open: +k.o, high: +k.h, low: +k.l, close: +k.c,
   };
-  try { STATE.candleSeries.update(bar); } catch {}
-  try { STATE.volumeSeries.update({ time: bar.time, value: +k.v,
-    color: bar.close>=bar.open ? 'rgba(34,209,126,0.35)' : 'rgba(255,90,110,0.35)' }); } catch {}
-  $('chart-last').textContent = fmt(bar.close);
+  // Track health so the watchdog can rebuild the chart if these silently fail.
+  STATE._chartLastUpdate = Date.now();
+  let candleOk = false, volOk = false;
+  try { STATE.candleSeries && STATE.candleSeries.update(bar); candleOk = true; }
+  catch (e) { STATE._chartFailCount = (STATE._chartFailCount || 0) + 1;
+    if (STATE._chartFailCount < 5) console.warn('[chart] candle update fail', e.message); }
+  try { STATE.volumeSeries && STATE.volumeSeries.update({ time: bar.time, value: +k.v,
+    color: bar.close>=bar.open ? 'rgba(34,209,126,0.35)' : 'rgba(255,90,110,0.35)' }); volOk = true; }
+  catch (e) { if (STATE._chartFailCount < 5) console.warn('[chart] vol update fail', e.message); }
+  if (candleOk && volOk) STATE._chartFailCount = 0;
+  const last = $('chart-last'); if (last) last.textContent = fmt(bar.close);
   const t = STATE.ticker24h.get(STATE.symbol);
   if (t) {
     const chg = +t.priceChangePercent;
@@ -7797,20 +7804,60 @@ function computeSessionVwaps() {
     return out;
   }).catch(() => ({}));
 }
+// Cache per-session priceLine handles so we can UPDATE them in place via
+// applyOptions() instead of destroying + recreating every minute. The
+// remove/create cycle leaks internal state in lightweight-charts and was
+// causing the chart to freeze after 1-2 minutes (the same interval the
+// VWAPs refresh on).
+STATE._sessionVwapMap = {};   // { asia: IPriceLine, london: ..., ny: ... }
+STATE._sessionVwapFailed = false;
 function applySessionVwaps(candleSeries, vwaps) {
   if (!candleSeries || !candleSeries.createPriceLine) return;
-  // Clear prior
-  (STATE._sessionVwapLines || []).forEach(pl => { try { candleSeries.removePriceLine(pl); } catch {} });
-  STATE._sessionVwapLines = [];
-  for (const [key, v] of Object.entries(vwaps)) {
-    try {
-      const pl = candleSeries.createPriceLine({
-        price: v.price, color: v.color, lineStyle: 2, lineWidth: 1,
-        axisLabelVisible: true, title: v.label + ' VWAP',
-      });
-      STATE._sessionVwapLines.push(pl);
-    } catch {}
+  if (STATE._sessionVwapFailed) return; // hard-disabled after an error
+  try {
+    for (const s of SESSIONS) {
+      const v = vwaps[s.key];
+      const existing = STATE._sessionVwapMap[s.key];
+      if (!v) {
+        // No data for this session yet — leave existing line alone rather
+        // than removing it (remove is what was causing the freeze).
+        continue;
+      }
+      if (existing && typeof existing.applyOptions === 'function') {
+        // Only update if the price moved meaningfully (>= 0.05%) to avoid
+        // spamming the chart with near-identical redraws.
+        const prev = existing._lastPrice || 0;
+        if (Math.abs(v.price - prev) / Math.max(prev, 1e-9) > 0.0005) {
+          existing.applyOptions({ price: v.price });
+          existing._lastPrice = v.price;
+        }
+      } else {
+        const pl = candleSeries.createPriceLine({
+          price: v.price, color: v.color, lineStyle: 2, lineWidth: 1,
+          axisLabelVisible: true, title: v.label + ' VWAP',
+        });
+        pl._lastPrice = v.price;
+        STATE._sessionVwapMap[s.key] = pl;
+      }
+    }
+    // Also keep the old array populated for any other code that reads it
+    STATE._sessionVwapLines = Object.values(STATE._sessionVwapMap);
+  } catch (e) {
+    console.warn('[vwap] apply failed, disabling VWAP updates', e.message);
+    STATE._sessionVwapFailed = true;
   }
+}
+function resetSessionVwaps() {
+  // Called on symbol switch — remove old lines and let the next refresh
+  // rebuild them. Single batch + guarded, not on the 60s loop.
+  try {
+    for (const [k, pl] of Object.entries(STATE._sessionVwapMap || {})) {
+      try { STATE.candleSeries && STATE.candleSeries.removePriceLine(pl); } catch {}
+    }
+  } catch {}
+  STATE._sessionVwapMap = {};
+  STATE._sessionVwapLines = [];
+  STATE._sessionVwapFailed = false;
 }
 async function refreshSessionVwaps() {
   if (!STATE.candleSeries) return;
@@ -7819,12 +7866,13 @@ async function refreshSessionVwaps() {
 }
 refreshSessionVwaps();
 setInterval(refreshSessionVwaps, 60 * 1000);
-// Hook symbol switch
+// Hook symbol switch — reset VWAP lines so the new symbol rebuilds from scratch
 (function patchSwitchForVwap(){
   const orig = window.switchSymbol;
   if (typeof orig !== 'function') return;
   window.switchSymbol = function(sym) {
     orig(sym);
+    try { resetSessionVwaps(); } catch {}
     setTimeout(refreshSessionVwaps, 600);
   };
 })();
