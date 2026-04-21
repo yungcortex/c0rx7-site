@@ -8906,18 +8906,56 @@ function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, 
 setInterval(() => {
   try {
     const now = Date.now();
+    let staleCount = 0;
     WS_REGISTRY.forEach(h => {
       const d = STATE.diag.ws[h.name];
       if (!d) return;
       const sock = h.getSocket();
-      if (!sock || sock.readyState !== 1) return; // only watch "open" sockets
+      if (!sock || sock.readyState !== 1) { staleCount++; return; }
       if (d.lastMsg && (now - d.lastMsg) > h.staleMs) {
         h.forceReconnect('no msg ' + Math.round((now - d.lastMsg)/1000) + 's');
-        d.lastMsg = now; // avoid repeated force-reconnects during reconnection
+        d.lastMsg = now;
+        staleCount++;
       }
     });
-  } catch {}
+    // If most streams are stale at once, dump full diag to console so the user
+    // can paste it for debugging. Throttle so we don't spam the console.
+    if (staleCount >= 3) {
+      const last = window._lastDiagDump || 0;
+      if (now - last > 60000) {
+        window._lastDiagDump = now;
+        const diag = {};
+        Object.entries(STATE.diag.ws).forEach(([k,v]) => {
+          diag[k] = {
+            state: v.state,
+            age_s: v.lastMsg ? Math.round((now - v.lastMsg) / 1000) : null,
+            msgs: v.msgCount || 0,
+            reconnects: v.reconnects || 0
+          };
+        });
+        console.warn('[cortex-diag] streams stale · ' + staleCount + '/' + WS_REGISTRY.length, diag);
+      }
+    }
+  } catch (e) { console.warn('[cortex-diag] watchdog err', e); }
 }, 15000);
+
+// Quick diagnostic — paste this in console to see full stream health:
+//   window._cortexDiag()
+window._cortexDiag = function() {
+  const now = Date.now();
+  const out = {};
+  Object.entries(STATE.diag.ws || {}).forEach(([k,v]) => {
+    out[k] = {
+      state: v.state,
+      last_msg_s_ago: v.lastMsg ? Math.round((now - v.lastMsg)/1000) : 'never',
+      msgs: v.msgCount || 0,
+      reconnects: v.reconnects || 0,
+      readyState: (WS_REGISTRY.find(h => h.name === k)?.getSocket()?.readyState) ?? 'no-handle'
+    };
+  });
+  console.table(out);
+  return out;
+};
 
 // Also force a full reconnect of every ws when the tab wakes up from being
 // backgrounded — browsers throttle timers on hidden tabs and sockets often
