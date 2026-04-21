@@ -9005,35 +9005,34 @@ setInterval(() => {
   } catch (e) { console.warn('[cortex-diag] watchdog err', e); }
 }, 15000);
 
-// Quick diagnostic — paste this in console to see full stream health:
-//   window._cortexDiag()
+// Quick diagnostic — paste in console to see full stream health. Prints as
+// plain-text lines so it stays readable even when console objects are
+// collapsed; return value is the same structured data.
 window._cortexDiag = function() {
   const now = Date.now();
-  const out = {};
+  const lines = [];
+  const rs = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+  lines.push('═══ APP-LEVEL (factory-registered) ═══');
   Object.entries(STATE.diag.ws || {}).forEach(([k,v]) => {
-    out[k] = {
-      state: v.state,
-      last_msg_s_ago: v.lastMsg ? Math.round((now - v.lastMsg)/1000) : 'never',
-      msgs: v.msgCount || 0,
-      reconnects: v.reconnects || 0,
-      readyState: (WS_REGISTRY.find(h => h.name === k)?.getSocket()?.readyState) ?? 'no-handle'
-    };
+    const age = v.lastMsg ? Math.round((now - v.lastMsg)/1000) : '—';
+    const h = WS_REGISTRY.find(x => x.name === k);
+    const rst = h ? rs[h.getSocket()?.readyState ?? -1] || 'no-sock' : 'no-handle';
+    lines.push(`${k.padEnd(14)} ${String(v.state).padEnd(12)} ${rst.padEnd(12)} ${String(age).padStart(4)}s ago · ${v.msgCount||0} msgs · ${v.reconnects||0} rc`);
   });
-  // Also dump raw socket tracker — this is the source of truth post-patch
-  console.log('---REGISTERED (app-level)---');
-  console.table(out);
-  const raw = [];
+  lines.push('');
+  lines.push('═══ RAW SOCKETS (' + WS_ALL.size + ' tracked) ═══');
+  const raws = [];
   WS_ALL.forEach(s => {
-    const age = s.__cortexLastMsg ? Math.round((now - s.__cortexLastMsg)/1000) : 'never';
-    raw.push({
-      url: (s.__cortexUrl || '').slice(0, 70),
-      readyState: s.readyState,
-      last_msg_s: age
-    });
+    const age = s.__cortexLastMsg ? Math.round((now - s.__cortexLastMsg)/1000) : '—';
+    raws.push({ age, url: (s.__cortexUrl || '').slice(0, 90), rs: rs[s.readyState] || s.readyState });
   });
-  console.log('---RAW SOCKETS (' + raw.length + ' tracked)---');
-  console.table(raw);
-  return { registered: out, raw };
+  raws.sort((a,b) => (typeof b.age === 'number' ? b.age : -1) - (typeof a.age === 'number' ? a.age : -1));
+  raws.forEach(r => lines.push(`${String(r.age).padStart(4)}s  ${r.rs.padEnd(8)}  ${r.url}`));
+  const txt = lines.join('\n');
+  console.log(txt);
+  // Also stick in window so the user can select-and-copy
+  window._lastDiag = txt;
+  return txt;
 };
 
 // Also force a full reconnect of every ws when the tab wakes up from being
