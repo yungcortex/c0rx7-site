@@ -52,6 +52,36 @@
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- ============================================================================
+     EARLY WEBSOCKET PATCH
+     Must run before any app-level WebSocket is created. Tracks every socket
+     in window.WS_ALL so the watchdog (defined later in the main script) can
+     close ghost connections that silently stopped receiving messages.
+     ============================================================================ -->
+<script>
+window.WS_ALL = new Set();
+(function patchWS(){
+  const OrigWS = window.WebSocket;
+  if (!OrigWS || OrigWS.__cortexPatched) return;
+  function PatchedWS(url, protocols) {
+    const s = protocols === undefined ? new OrigWS(url) : new OrigWS(url, protocols);
+    s.__cortexCreated = Date.now();
+    s.__cortexLastMsg = Date.now();
+    s.__cortexUrl = String(url);
+    s.addEventListener('message', () => { s.__cortexLastMsg = Date.now(); });
+    s.addEventListener('close', () => { window.WS_ALL.delete(s); });
+    window.WS_ALL.add(s);
+    return s;
+  }
+  PatchedWS.prototype = OrigWS.prototype;
+  PatchedWS.CONNECTING = OrigWS.CONNECTING;
+  PatchedWS.OPEN = OrigWS.OPEN;
+  PatchedWS.CLOSING = OrigWS.CLOSING;
+  PatchedWS.CLOSED = OrigWS.CLOSED;
+  PatchedWS.__cortexPatched = true;
+  window.WebSocket = PatchedWS;
+})();
+</script>
+<!-- ============================================================================
      CLOUD SYNC · SUPABASE
      ============================================================================
      Enabled. Project URL + publishable (anon) key below. These are public
@@ -8837,6 +8867,42 @@ setInterval(() => {
 }, 2500);
 function markFundingDirty() { _wsFundingDirty = true; }
 
+// Global stale watchdog — covers every socket regardless of origin.
+// WS_ALL + the WebSocket monkey-patch are defined in an earlier <script>
+// block above so they run before any app-level WebSocket is created.
+setInterval(() => {
+  try {
+    const now = Date.now();
+    let closed = 0;
+    WS_ALL.forEach(s => {
+      if (s.readyState !== 1) return;            // only watch OPEN sockets
+      const age = now - (s.__cortexLastMsg || s.__cortexCreated || now);
+      // 60s without a single message = force close; existing app-level
+      // handlers (onclose) will trigger the normal reconnect flow.
+      if (age > 60000) {
+        try { s.close(4001, 'cortex-stale'); closed++; } catch {}
+      }
+    });
+    if (closed) console.warn('[cortex-wd] force-closed ' + closed + ' stale sockets');
+  } catch {}
+}, 15000);
+
+// Reconnect-on-visibility: nuke every socket that hasn't spoken recently
+// when the tab comes back. Lets the app's own onclose handlers reconnect.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  setTimeout(() => {
+    try {
+      const now = Date.now();
+      WS_ALL.forEach(s => {
+        if (s.readyState !== 1) return;
+        const age = now - (s.__cortexLastMsg || s.__cortexCreated || now);
+        if (age > 8000) { try { s.close(4002, 'cortex-resume'); } catch {} }
+      });
+    } catch {}
+  }, 800);
+});
+
 // Shared factory: auto-reconnect with exp backoff, heartbeat, diagnostics.
 // Also registers in WS_REGISTRY so a stale-socket watchdog can force-reconnect
 // sockets that stop receiving messages (NAT/intermediary silent drops).
@@ -8953,8 +9019,21 @@ window._cortexDiag = function() {
       readyState: (WS_REGISTRY.find(h => h.name === k)?.getSocket()?.readyState) ?? 'no-handle'
     };
   });
+  // Also dump raw socket tracker — this is the source of truth post-patch
+  console.log('---REGISTERED (app-level)---');
   console.table(out);
-  return out;
+  const raw = [];
+  WS_ALL.forEach(s => {
+    const age = s.__cortexLastMsg ? Math.round((now - s.__cortexLastMsg)/1000) : 'never';
+    raw.push({
+      url: (s.__cortexUrl || '').slice(0, 70),
+      readyState: s.readyState,
+      last_msg_s: age
+    });
+  });
+  console.log('---RAW SOCKETS (' + raw.length + ' tracked)---');
+  console.table(raw);
+  return { registered: out, raw };
 };
 
 // Also force a full reconnect of every ws when the tab wakes up from being
@@ -8975,10 +9054,15 @@ document.addEventListener('visibilitychange', () => {
   }, 1000);
 });
 
-// Manual rescue: window._reconnectAll() force-cycles every socket. Also
-// exposed via a ⌘K action.
+// Manual rescue: window._reconnectAll() force-cycles every socket — both
+// registry handles AND raw WebSockets tracked via WS_ALL.
 window._reconnectAll = function() {
   try { WS_REGISTRY.forEach(h => h.forceReconnect('manual')); } catch {}
+  try {
+    let n = 0;
+    WS_ALL.forEach(s => { if (s.readyState === 1) { try { s.close(4003, 'cortex-manual'); n++; } catch {} } });
+    console.warn('[cortex] manual reconnect · closed ' + n + ' raw sockets');
+  } catch {}
   try { flashAlert && flashAlert('reconnecting all streams…'); } catch {}
 };
 setTimeout(() => {
