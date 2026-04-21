@@ -8867,40 +8867,55 @@ setInterval(() => {
 }, 2500);
 function markFundingDirty() { _wsFundingDirty = true; }
 
-// Global stale watchdog — covers every socket regardless of origin.
+// Global watchdog — covers every socket regardless of origin.
 // WS_ALL + the WebSocket monkey-patch are defined in an earlier <script>
 // block above so they run before any app-level WebSocket is created.
+//
+// Two separate rules to avoid cascading mass-reconnect problems:
+//   1) OPEN socket silent >120s → close (ghost connection)
+//   2) CONNECTING socket stuck >15s → close (handshake never completed)
+//
+// We also rate-limit: close at most 1 stale socket per tick so reconnects
+// stagger naturally instead of flooding the browser's per-origin pool.
+const _cortexBootTime = Date.now();
 setInterval(() => {
   try {
+    // Let the page stabilize before starting to cull sockets
+    if (Date.now() - _cortexBootTime < 45000) return;
     const now = Date.now();
-    let closed = 0;
+    const staleOpen = [];
+    const stuckConnecting = [];
     WS_ALL.forEach(s => {
-      if (s.readyState !== 1) return;            // only watch OPEN sockets
       const age = now - (s.__cortexLastMsg || s.__cortexCreated || now);
-      // 60s without a single message = force close; existing app-level
-      // handlers (onclose) will trigger the normal reconnect flow.
-      if (age > 60000) {
-        try { s.close(4001, 'cortex-stale'); closed++; } catch {}
+      if (s.readyState === 1 && age > 120000) staleOpen.push({ s, age });
+      else if (s.readyState === 0 && (now - (s.__cortexCreated || now)) > 15000) {
+        stuckConnecting.push({ s, age: now - s.__cortexCreated });
       }
     });
-    if (closed) console.warn('[cortex-wd] force-closed ' + closed + ' stale sockets');
+    // Close at most 2 per tick, worst-first
+    staleOpen.sort((a,b) => b.age - a.age).slice(0, 2).forEach(({s, age}) => {
+      try { s.close(4001, 'cortex-stale-open'); console.warn('[cortex-wd] close stale open ' + Math.round(age/1000) + 's: ' + (s.__cortexUrl||'').slice(0,80)); } catch {}
+    });
+    stuckConnecting.forEach(({s, age}) => {
+      try { s.close(4002, 'cortex-stuck-connecting'); console.warn('[cortex-wd] close stuck connecting ' + Math.round(age/1000) + 's: ' + (s.__cortexUrl||'').slice(0,80)); } catch {}
+    });
   } catch {}
-}, 15000);
+}, 20000);
 
-// Reconnect-on-visibility: nuke every socket that hasn't spoken recently
-// when the tab comes back. Lets the app's own onclose handlers reconnect.
+// Reconnect-on-visibility: only nuke long-idle OPEN sockets (skip connecting).
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   setTimeout(() => {
     try {
       const now = Date.now();
+      let n = 0;
       WS_ALL.forEach(s => {
         if (s.readyState !== 1) return;
         const age = now - (s.__cortexLastMsg || s.__cortexCreated || now);
-        if (age > 8000) { try { s.close(4002, 'cortex-resume'); } catch {} }
+        if (age > 15000 && n < 3) { try { s.close(4003, 'cortex-resume'); n++; } catch {} }
       });
     } catch {}
-  }, 800);
+  }, 1200);
 });
 
 // Shared factory: auto-reconnect with exp backoff, heartbeat, diagnostics.
