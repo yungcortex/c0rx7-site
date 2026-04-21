@@ -58,6 +58,43 @@
      close ghost connections that silently stopped receiving messages.
      ============================================================================ -->
 <script>
+// Capture every uncaught JS error / promise rejection into a ring buffer
+// so the diag can surface them. One bad render (innerHTML on null, etc.)
+// will otherwise silently freeze a whole pipeline with no paper trail.
+window._cortexErrs = [];
+window.addEventListener('error', (e) => {
+  try {
+    window._cortexErrs.push({
+      t: Date.now(),
+      msg: (e.message || e.error?.message || '').slice(0, 200),
+      src: (e.filename || '') + ':' + (e.lineno || 0) + ':' + (e.colno || 0),
+      stack: (e.error?.stack || '').split('\n').slice(0, 4).join(' | ').slice(0, 400)
+    });
+    if (window._cortexErrs.length > 100) window._cortexErrs.shift();
+  } catch {}
+});
+window.addEventListener('unhandledrejection', (e) => {
+  try {
+    window._cortexErrs.push({
+      t: Date.now(),
+      msg: 'PROMISE: ' + String(e.reason?.message || e.reason || '').slice(0, 200),
+      src: '(unhandled rejection)',
+      stack: (e.reason?.stack || '').split('\n').slice(0, 4).join(' | ').slice(0, 400)
+    });
+    if (window._cortexErrs.length > 100) window._cortexErrs.shift();
+  } catch {}
+});
+window._cortexErrors = function() {
+  const lines = [];
+  (window._cortexErrs || []).slice(-30).forEach(e => {
+    lines.push((new Date(e.t).toLocaleTimeString()) + ' · ' + e.msg + ' @ ' + e.src);
+    if (e.stack) lines.push('    ' + e.stack);
+  });
+  const txt = lines.join('\n') || '(no errors captured)';
+  console.log(txt);
+  return txt;
+};
+
 window.WS_ALL = new Set();
 (function patchWS(){
   const OrigWS = window.WebSocket;
