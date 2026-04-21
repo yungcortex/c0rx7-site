@@ -58,6 +58,69 @@
      close ghost connections that silently stopped receiving messages.
      ============================================================================ -->
 <script>
+// Main-thread stall detector — runs a heartbeat every 1s. If it fires
+// late by > 750ms, the main thread was blocked. Log the stall so we can
+// correlate with the long-running operation that caused it.
+window._cortexStalls = [];
+(function stallDetector(){
+  let last = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    const gap = now - last;
+    if (gap > 1800) {      // stall of > 800ms over the 1s interval
+      const entry = { t: now, blocked_ms: gap - 1000 };
+      window._cortexStalls.push(entry);
+      if (window._cortexStalls.length > 40) window._cortexStalls.shift();
+      console.warn('[cortex-stall] main thread blocked ' + (gap - 1000) + 'ms');
+    }
+    last = now;
+  }, 1000);
+})();
+window._cortexStallReport = function() {
+  const lines = (window._cortexStalls || []).map(s => new Date(s.t).toLocaleTimeString() + ' · blocked ' + s.blocked_ms + 'ms');
+  const txt = lines.join('\n') || '(no stalls recorded yet)';
+  console.log(txt);
+  return txt;
+};
+
+// Instrument setInterval so we can catch the single worst-offender
+// callback. Wraps the function in a timer; anything taking > 150ms logs.
+(function instrumentIntervals(){
+  if (window.__cortexIntervalsPatched) return;
+  window.__cortexIntervalsPatched = true;
+  const Orig = window.setInterval;
+  window.setInterval = function(fn, ms) {
+    if (typeof fn !== 'function') return Orig.apply(this, arguments);
+    const tag = (fn.name || '(anon)') + '/' + (ms || 0) + 'ms';
+    const wrapped = function() {
+      const t0 = performance.now();
+      try { return fn.apply(this, arguments); }
+      finally {
+        const d = performance.now() - t0;
+        if (d > 150) {
+          window._cortexSlowIntervals = window._cortexSlowIntervals || {};
+          const k = tag;
+          const s = window._cortexSlowIntervals[k] = window._cortexSlowIntervals[k] || { count:0, totalMs:0, maxMs:0 };
+          s.count++; s.totalMs += d; if (d > s.maxMs) s.maxMs = d;
+        }
+      }
+    };
+    wrapped._cortexTag = tag;
+    return Orig.call(this, wrapped, ms);
+  };
+})();
+window._cortexSlowReport = function() {
+  const all = window._cortexSlowIntervals || {};
+  const rows = Object.entries(all).map(([tag, s]) => ({
+    tag, count: s.count, max_ms: Math.round(s.maxMs), avg_ms: Math.round(s.totalMs / s.count)
+  }));
+  rows.sort((a,b) => b.max_ms - a.max_ms);
+  const lines = rows.map(r => String(r.max_ms).padStart(5) + 'ms max  ' + String(r.avg_ms).padStart(4) + 'ms avg  ' + r.count + 'x  ' + r.tag);
+  const txt = lines.join('\n') || '(no slow intervals recorded)';
+  console.log(txt);
+  return txt;
+};
+
 // Capture every uncaught JS error / promise rejection into a ring buffer
 // so the diag can surface them. One bad render (innerHTML on null, etc.)
 // will otherwise silently freeze a whole pipeline with no paper trail.
