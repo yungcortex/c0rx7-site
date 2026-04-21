@@ -11797,7 +11797,7 @@ setInterval(() => {
 }, 1500);
 
 // --- Bybit public trades WS ---
-let _bybTradeWs = null, _bybTradeBackoff = 2000;
+let _bybTradeWs = null, _bybTradeBackoff = 2000, _bybTradePing = null;
 function _connectBybitTrades() {
   try { if (_bybTradeWs) _bybTradeWs.close(); } catch {}
   try { _bybTradeWs = new WebSocket('wss://stream.bybit.com/v5/public/linear'); }
@@ -11810,7 +11810,8 @@ function _connectBybitTrades() {
       op: 'subscribe',
       args: AGG_WHALE_SYMS.map(s => 'publicTrade.' + s),
     }));
-    setInterval(() => { try { _bybTradeWs.send(JSON.stringify({op:'ping'})); } catch {} }, 20000);
+    clearInterval(_bybTradePing);
+    _bybTradePing = setInterval(() => { try { _bybTradeWs.send(JSON.stringify({op:'ping'})); } catch {} }, 20000);
   };
   _bybTradeWs.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch { return; }
@@ -11834,6 +11835,7 @@ function _connectBybitTrades() {
   _bybTradeWs.onclose = () => {
     STATE.diag.ws.bybTrades.state = 'closed';
     STATE.diag.ws.bybTrades.reconnects = (STATE.diag.ws.bybTrades.reconnects || 0) + 1;
+    clearInterval(_bybTradePing); _bybTradePing = null;
     setTimeout(_connectBybitTrades, _bybTradeBackoff);
     _bybTradeBackoff = Math.min(_bybTradeBackoff * 1.8, 30000);
   };
@@ -11841,7 +11843,7 @@ function _connectBybitTrades() {
 _connectBybitTrades();
 
 // --- OKX public trades WS ---
-let _okxTradeWs = null, _okxTradeBackoff = 2000;
+let _okxTradeWs = null, _okxTradeBackoff = 2000, _okxTradePing = null;
 function _connectOkxTrades() {
   try { if (_okxTradeWs) _okxTradeWs.close(); } catch {}
   try { _okxTradeWs = new WebSocket('wss://ws.okx.com:8443/ws/v5/public'); }
@@ -11852,7 +11854,8 @@ function _connectOkxTrades() {
     STATE.diag.ws.okxTrades.state = 'open';
     const args = AGG_WHALE_SYMS.map(s => ({ channel: 'trades', instId: s.replace('USDT','') + '-USDT-SWAP' }));
     _okxTradeWs.send(JSON.stringify({ op: 'subscribe', args }));
-    setInterval(() => { try { _okxTradeWs.send('ping'); } catch {} }, 25000);
+    clearInterval(_okxTradePing);
+    _okxTradePing = setInterval(() => { try { _okxTradeWs.send('ping'); } catch {} }, 25000);
   };
   _okxTradeWs.onmessage = (ev) => {
     if (ev.data === 'pong') return;
@@ -11879,6 +11882,7 @@ function _connectOkxTrades() {
   _okxTradeWs.onclose = () => {
     STATE.diag.ws.okxTrades.state = 'closed';
     STATE.diag.ws.okxTrades.reconnects = (STATE.diag.ws.okxTrades.reconnects || 0) + 1;
+    clearInterval(_okxTradePing); _okxTradePing = null;
     setTimeout(_connectOkxTrades, _okxTradeBackoff);
     _okxTradeBackoff = Math.min(_okxTradeBackoff * 1.8, 30000);
   };
