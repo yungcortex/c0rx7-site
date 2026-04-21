@@ -8838,10 +8838,14 @@ setInterval(() => {
 function markFundingDirty() { _wsFundingDirty = true; }
 
 // Shared factory: auto-reconnect with exp backoff, heartbeat, diagnostics.
-function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, decoder }) {
+// Also registers in WS_REGISTRY so a stale-socket watchdog can force-reconnect
+// sockets that stop receiving messages (NAT/intermediary silent drops).
+const WS_REGISTRY = [];
+function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, decoder, staleTimeoutMs }) {
   STATE.diag.ws[name] = STATE.diag.ws[name] || { lastMsg:0, msgCount:0, reconnects:0, state:'idle' };
   const d = STATE.diag.ws[name];
   let ws = null, backoff = 2000, pingTimer = null, killed = false;
+  const staleMs = staleTimeoutMs || 75000; // force reconnect if no msg in 75s
   function scheduleReconnect() {
     if (killed) return;
     d.reconnects = (d.reconnects || 0) + 1;
@@ -8856,6 +8860,7 @@ function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, 
     ws.onopen = () => {
       d.state = 'open';
       backoff = 2000;
+      d.lastMsg = Date.now(); // seed so watchdog doesn't immediately reconnect
       try { onOpen && onOpen(ws); } catch (e) { console.warn('[ws] '+name+' onOpen', e); }
       if (pingIntervalMs && buildPing) {
         clearInterval(pingTimer);
@@ -8880,8 +8885,56 @@ function makeVenueWs({ name, url, onOpen, onMessage, pingIntervalMs, buildPing, 
     };
   }
   open();
-  return { close() { killed = true; clearInterval(pingTimer); try { ws && ws.close(); } catch {} } };
+  const handle = {
+    name, staleMs,
+    getSocket() { return ws; },
+    forceReconnect(reason) {
+      if (killed) return;
+      try { console.warn('[ws] '+name+' stale · reconnecting · ' + (reason||'')); } catch {}
+      try { if (ws) ws.close(); } catch {} // triggers onclose → scheduleReconnect
+    },
+    close() { killed = true; clearInterval(pingTimer); try { ws && ws.close(); } catch {} }
+  };
+  WS_REGISTRY.push(handle);
+  return handle;
 }
+
+// Stale-socket watchdog — catches ghost connections where the server or an
+// intermediary (NAT, corporate proxy, ISP) silently drops the socket without
+// signalling close. Browser still thinks it's "open", so the reconnect logic
+// never fires. Every 15s, check lastMsg; if past staleMs, force reconnect.
+setInterval(() => {
+  try {
+    const now = Date.now();
+    WS_REGISTRY.forEach(h => {
+      const d = STATE.diag.ws[h.name];
+      if (!d) return;
+      const sock = h.getSocket();
+      if (!sock || sock.readyState !== 1) return; // only watch "open" sockets
+      if (d.lastMsg && (now - d.lastMsg) > h.staleMs) {
+        h.forceReconnect('no msg ' + Math.round((now - d.lastMsg)/1000) + 's');
+        d.lastMsg = now; // avoid repeated force-reconnects during reconnection
+      }
+    });
+  } catch {}
+}, 15000);
+
+// Also force a full reconnect of every ws when the tab wakes up from being
+// backgrounded — browsers throttle timers on hidden tabs and sockets often
+// go stale during that period.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  setTimeout(() => {
+    try {
+      const now = Date.now();
+      WS_REGISTRY.forEach(h => {
+        const d = STATE.diag.ws[h.name];
+        if (!d) return;
+        if (d.lastMsg && (now - d.lastMsg) > 20000) h.forceReconnect('tab resumed');
+      });
+    } catch {}
+  }, 1200);
+});
 
 // ---------- BYBIT tickers (snapshot + delta on v5 linear) ----------
 const _bybitTickerCache = new Map();
