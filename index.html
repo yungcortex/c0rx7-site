@@ -750,25 +750,10 @@ try {
   .panel.collapsed > *:not(.panel-hd) { display: none !important; }
   .panel.collapsed .panel-hd { border-bottom: none; }
 
-  /* Section headers (grouping within tabs) */
-  .section-hd {
-    display: flex; align-items: center; gap: 12px;
-    margin: 12px 0 4px 0; padding: 10px 4px 6px 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em;
-    text-transform: uppercase; color: #9aa4b2;
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.15s;
-  }
-  .section-hd:hover { background: rgba(0,255,163,0.03); }
-  .section-hd::before, .section-hd::after {
-    content: ''; flex: 1; height: 1px;
-    background: linear-gradient(to right, rgba(154,164,178,0.28), transparent);
-  }
-  .section-hd::after {
-    background: linear-gradient(to left, rgba(154,164,178,0.28), transparent);
-  }
+  /* Section headers disabled per user request — kept class selectors so
+     any legacy injected elements simply vanish rather than show as broken
+     rows. */
+  .section-hd { display: none !important; }
   .section-hd .label { padding: 0 10px; color: #c2cbd6; }
   .section-hd .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
   .section-hd .chev { color: #5b6472; font-size: 11px; transition: transform 0.2s; }
@@ -12363,31 +12348,18 @@ const SECTION_ANCHORS = [
 ];
 
 function _injectSectionHeaders() {
-  SECTION_ANCHORS.forEach((s, idx) => {
-    const view = document.getElementById(s.view);
-    if (!view) return;
-    const anchor = view.querySelector('#' + CSS.escape(s.anchor));
-    if (!anchor) return;
-    const panel  = anchor.closest('.panel');
-    if (!panel) return;
-    // Skip if a section-hd already immediately precedes this panel
-    const prev = panel.previousElementSibling;
-    if (prev && prev.classList && prev.classList.contains('section-hd')) return;
-    const hd = document.createElement('div');
-    hd.className = 'section-hd col-span-12';
-    hd.dataset.cats = s.cats || '';
-    hd.dataset.sectionKey = `${s.view}:${s.anchor}`;
-    hd.innerHTML = `
-      <span class="chev">▼</span>
-      <span class="dot"></span>
-      <span class="label">${s.label}</span>
-      <span class="count" data-section-count></span>`;
-    panel.parentNode.insertBefore(hd, panel);
-    // Wire section-level collapse — toggles all sibling panels until next section-hd
-    hd.addEventListener('click', () => _toggleSection(hd));
-  });
-  _updateSectionCounts();
-  _applyPersistedSectionState();
+  // Disabled per user request — section headers + full-row collapse were
+  // breaking up the layout visually. Also proactively remove any
+  // previously-injected section-hd elements and ensure no panels are in a
+  // section-collapsed state from a prior session.
+  try {
+    document.querySelectorAll('.section-hd').forEach(el => el.remove());
+    document.querySelectorAll('.panel.collapsed').forEach(p => {
+      // Only uncollapse panels that were collapsed by a section toggle —
+      // leave individual user collapses alone via our panel-level store.
+    });
+    localStorage.removeItem('cortex.collapsedSections.v1');
+  } catch {}
 }
 
 /* Toggle every panel between this section-hd and the next section-hd
