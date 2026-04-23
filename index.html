@@ -3357,7 +3357,11 @@ const CFG = {
   symbols: ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','LTCUSDT','MATICUSDT','DOTUSDT','TRXUSDT','NEARUSDT','APTUSDT','ARBUSDT','OPUSDT','SUIUSDT','TIAUSDT','INJUSDT','SEIUSDT','ATOMUSDT','FILUSDT','ETCUSDT','BCHUSDT','RUNEUSDT','ORDIUSDT','PEPEUSDT','WIFUSDT','JUPUSDT','HYPEUSDT','ENAUSDT'],
   binance: {
     rest: '/binance',
-    ws:   'wss://fstream.binance.com/stream',
+    // fstream is geo-blocked from US. Set window.CORTEX_BINANCE_WS to a
+    // Cloudflare Worker WS proxy URL to bypass. Falls through to direct
+    // otherwise (works for non-US users).
+    ws:     (typeof window !== 'undefined' && window.CORTEX_BINANCE_WS) || 'wss://fstream.binance.com/stream',
+    wsSpot: (typeof window !== 'undefined' && window.CORTEX_BINANCE_WS_SPOT) || 'wss://stream.binance.com/stream',
   },
   hyperliquid: {
     rest: 'https://api.hyperliquid.xyz/info',
@@ -12080,7 +12084,7 @@ function _reconnectPerpSpotSpot(sym) {
   _spotSym = sym;
   _perpCvd = 0; _spotCvd = 0;
   STATE._psSeries = { sym, perp: [], spot: [] };
-  const url = `wss://stream.binance.com/stream?streams=${sym.toLowerCase()}@aggTrade`;
+  const url = `${CFG.binance.wsSpot}?streams=${sym.toLowerCase()}@aggTrade`;
   try { _spotWs = new WebSocket(url); } catch (e) { setTimeout(() => _reconnectPerpSpotSpot(sym), _spotBackoff); return; }
   STATE.diag.ws.spot = STATE.diag.ws.spot || { lastMsg:0, msgCount:0, reconnects:0, state:'connecting' };
   _spotWs.onopen = () => { _spotBackoff = 2000; STATE.diag.ws.spot.state = 'open'; };
