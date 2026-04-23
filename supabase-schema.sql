@@ -225,5 +225,49 @@ left join public.profiles p on p.id = c.user_id;
 
 grant select on public.comments_with_author to anon, authenticated;
 
+-- --------------------------- INVITE ALLOWLIST -------------------------------
+-- Signup is gated to this allowlist. Add emails manually (dashboard or SQL).
+-- A trigger on auth.users BEFORE INSERT rejects unlisted emails.
+create table if not exists public.allowed_emails (
+  email       text        primary key,
+  added_at    timestamptz not null default now(),
+  note        text
+);
+
+alter table public.allowed_emails enable row level security;
+
+-- Only the service role can read/write; no policies = no anon/authenticated access.
+-- Keep it empty intentionally so nobody can query the invite list from the client.
+
+-- Normalize comparisons: strip whitespace, lowercase.
+create or replace function public.check_email_allowlist()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  norm text := lower(trim(new.email));
+begin
+  if not exists (select 1 from public.allowed_emails where lower(trim(email)) = norm) then
+    raise exception 'email_not_on_allowlist: % is not invited', new.email
+      using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_email_allowlist on auth.users;
+create trigger enforce_email_allowlist
+  before insert on auth.users
+  for each row
+  execute function public.check_email_allowlist();
+
+-- Convenience seeds (edit before running; comment out if you don't want them)
+-- insert into public.allowed_emails (email, note) values
+--   ('yungcortex@gmail.com', 'owner'),
+--   ('watchdog@c0r7x.local', 'monitoring bot')
+-- on conflict (email) do nothing;
+
 -- --------------------------- DONE -------------------------------------------
 select 'cortex · schema ready ◆' as status;
