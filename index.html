@@ -3581,7 +3581,7 @@ async function fetchJson(name, url, opts) {
     throw new Error('CB_OPEN');
   }
   const t0 = performance.now();
-  const timeoutMs = (opts && opts.timeoutMs) || 8000;
+  const timeoutMs = (opts && opts.timeoutMs) || 15000;
   const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
   try {

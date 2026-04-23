@@ -60,6 +60,20 @@
       ]
     },
     {
+      "source": "/binance/fapi/v1/klines",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=15, stale-while-revalidate=60" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=15, stale-while-revalidate=60" }
+      ]
+    },
+    {
+      "source": "/binance/fapi/v1/openInterest",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=10, stale-while-revalidate=30" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=10, stale-while-revalidate=30" }
+      ]
+    },
+    {
       "source": "/",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
