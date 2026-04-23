@@ -2,6 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/binance/:path*",      "destination": "https://fapi.binance.com/:path*" },
+    { "source": "/binance-spot/:path*", "destination": "https://api.binance.com/:path*" },
     { "source": "/gate/:path*",    "destination": "https://api.gateio.ws/:path*" },
     { "source": "/gatefx/:path*",  "destination": "https://fx-api.gateio.ws/:path*" },
     { "source": "/kucoin/:path*",  "destination": "https://api-futures.kucoin.com/:path*" },

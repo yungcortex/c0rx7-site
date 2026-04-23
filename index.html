@@ -33,7 +33,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
-<link rel="preconnect" href="https://fapi.binance.com" crossorigin>
+<!-- binance REST proxied via /binance and /binance-spot rewrites in vercel.json (US geo-block workaround) -->
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Silence Tailwind CDN dev-warning before CDN script evaluates -->
@@ -3276,7 +3276,7 @@ const CFG = {
   defaultSymbol: 'BTCUSDT',
   symbols: ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','LTCUSDT','MATICUSDT','DOTUSDT','TRXUSDT','NEARUSDT','APTUSDT','ARBUSDT','OPUSDT','SUIUSDT','TIAUSDT','INJUSDT','SEIUSDT','ATOMUSDT','FILUSDT','ETCUSDT','BCHUSDT','RUNEUSDT','ORDIUSDT','PEPEUSDT','WIFUSDT','JUPUSDT','HYPEUSDT','ENAUSDT'],
   binance: {
-    rest: 'https://fapi.binance.com',
+    rest: '/binance',
     ws:   'wss://fstream.binance.com/stream',
   },
   hyperliquid: {
@@ -7517,7 +7517,7 @@ function renderVolRegime() {
 STATE.spotPrices = STATE.spotPrices || new Map();
 async function refreshSpotPrices() {
   try {
-    const arr = await fetchJson('binance:spotPrice', 'https://api.binance.com/api/v3/ticker/price');
+    const arr = await fetchJson('binance:spotPrice', '/binance-spot/api/v3/ticker/price');
     if (!Array.isArray(arr)) return;
     for (const row of arr) {
       if (!row?.symbol || !row.symbol.endsWith('USDT')) continue;
@@ -10114,6 +10114,54 @@ async function boot() {
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => setTimeout(savePrefs, 50)));
   // Expose for DevTools inspection (top-level const doesn't attach to window)
   try { window.STATE = STATE; window.CFG = CFG; } catch {}
+
+  // Flat health snapshot for the Puppeteer watchdog. Reads from STATE (already
+  // tracks every fetchJson + WebSocket), plus the chart-update heartbeat.
+  // Watchdog calls this via page.evaluate('window.__cortex_diag()').
+  try {
+    window.__cortex_diag = function () {
+      const now = Date.now();
+      const rest = {};
+      for (const [k, v] of Object.entries(STATE.diag?.rest || {})) {
+        rest[k] = {
+          ok: v.ok|0, err: v.err|0, count: v.count|0,
+          lastOk: v.lastOk|0,
+          ageMs: v.lastOk ? now - v.lastOk : null,
+          lastMs: Math.round(v.lastMs || 0),
+          emaMs: Math.round(v.emaMs || 0),
+          lastErr: v.lastErrMsg || '',
+          cbOpen: !!(v.cooldownUntil && now < v.cooldownUntil),
+        };
+      }
+      const ws = {};
+      for (const [k, v] of Object.entries(STATE.diag?.ws || {})) {
+        ws[k] = {
+          state: v.state || 'idle',
+          msgCount: v.msgCount|0,
+          reconnects: v.reconnects|0,
+          lastMsg: v.lastMsg|0,
+          ageMs: v.lastMsg ? now - v.lastMsg : null,
+        };
+      }
+      return {
+        ts: now,
+        symbol: STATE.symbol,
+        timeframe: STATE.timeframe,
+        view: STATE.view,
+        connections: { ...STATE.connections },
+        chart: {
+          lastUpdate: STATE._chartLastUpdate || 0,
+          lastUpdateAgeMs: STATE._chartLastUpdate ? now - STATE._chartLastUpdate : null,
+          failCount: STATE._chartFailCount || 0,
+        },
+        tape: {
+          trades: (STATE.trades || []).length,
+          lastTradeAgeMs: STATE.trades?.[0]?.t ? now - STATE.trades[0].t : null,
+        },
+        rest, ws,
+      };
+    };
+  } catch {}
 
   // Mobile safety net: some iOS Safari builds render ECharts with stale layout
   // when the container's box hasn't finished its first paint. Force a resize +
