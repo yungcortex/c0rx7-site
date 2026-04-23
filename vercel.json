@@ -25,6 +25,41 @@
       ]
     },
     {
+      "source": "/binance/fapi/v1/ticker/24hr",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=5, stale-while-revalidate=15" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=5, stale-while-revalidate=15" }
+      ]
+    },
+    {
+      "source": "/binance/fapi/v1/premiumIndex",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=5, stale-while-revalidate=15" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=5, stale-while-revalidate=15" }
+      ]
+    },
+    {
+      "source": "/binance-spot/api/v3/ticker/price",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=5, stale-while-revalidate=15" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=5, stale-while-revalidate=15" }
+      ]
+    },
+    {
+      "source": "/binance/fapi/v1/fundingRate",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=30, stale-while-revalidate=120" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=30, stale-while-revalidate=120" }
+      ]
+    },
+    {
+      "source": "/binance/futures/data/(.*)",
+      "headers": [
+        { "key": "CDN-Cache-Control",    "value": "public, s-maxage=30, stale-while-revalidate=120" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "public, s-maxage=30, stale-while-revalidate=120" }
+      ]
+    },
+    {
       "source": "/",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
