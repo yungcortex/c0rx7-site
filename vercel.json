@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
+  "regions": ["fra1"],
   "rewrites": [
     { "source": "/binance/:path*",      "destination": "https://fapi.binance.com/:path*" },
     { "source": "/binance-spot/:path*", "destination": "https://api.binance.com/:path*" },

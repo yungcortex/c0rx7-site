@@ -13,7 +13,7 @@ const PROBES = [
   { name: 'bybit',          url: 'https://api.bybit.com/v5/market/time' },
   { name: 'okx',            url: 'https://www.okx.com/api/v5/public/time' },
   { name: 'coinbase',       url: 'https://api.exchange.coinbase.com/time' },
-  { name: 'coinbase-intx',  url: 'https://api.international.coinbase.com/api/v1/time' },
+  { name: 'coinbase-intx',  url: 'https://api.international.coinbase.com/api/v1/assets' },
   { name: 'bitget',         url: 'https://api.bitget.com/api/v2/public/time' },
   { name: 'gate',           url: 'https://api.gateio.ws/api/v4/spot/time' },
   { name: 'kucoin',         url: 'https://api-futures.kucoin.com/api/v1/timestamp' },
