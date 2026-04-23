@@ -199,10 +199,20 @@ create policy "watchlists owner delete"
 
 -- --------------------------- REALTIME ---------------------------------------
 -- Publish tables so the client can subscribe to live changes.
-alter publication supabase_realtime add table public.ideas;
-alter publication supabase_realtime add table public.idea_likes;
-alter publication supabase_realtime add table public.comments;
-alter publication supabase_realtime add table public.profiles;
+-- Wrapped in DO blocks so re-running the schema is idempotent (ALTER PUBLICATION
+-- ADD TABLE errors with 42710 if the table is already a member).
+do $$ begin
+  alter publication supabase_realtime add table public.ideas;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.idea_likes;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.comments;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.profiles;
+exception when duplicate_object then null; end $$;
 
 -- --------------------------- VIEWS ------------------------------------------
 -- ideas_with_author: convenient joined read for the feed
