@@ -2,6 +2,7 @@ import { useState } from "react";
 
 interface Props {
   onBack: () => void;
+  onNew: () => void;
 }
 
 interface CharacterStub {
@@ -18,7 +19,7 @@ const PLACEHOLDERS: CharacterStub[] = [
   { id: "3", name: "— empty —", heritage: "", level: 0, aspect: "" },
 ];
 
-export function CharacterSelectScreen({ onBack }: Props) {
+export function CharacterSelectScreen({ onBack, onNew }: Props) {
   const [selected, setSelected] = useState(0);
 
   return (
@@ -53,7 +54,7 @@ export function CharacterSelectScreen({ onBack }: Props) {
         <button className="primary-btn" disabled>
           enter Hyrr
         </button>
-        <button className="primary-btn">
+        <button className="primary-btn" onClick={onNew}>
           new Waker
         </button>
       </div>

@@ -1,6 +1,7 @@
 import type { Engine, Scene } from "@babylonjs/core";
 import { buildTitleScene } from "@game/scenes/title/TitleScene";
 import { buildCharacterSelectScene } from "@game/scenes/character-select/CharacterSelectScene";
+import { buildCharacterCreatorScene } from "@game/scenes/character-creator/CharacterCreatorScene";
 
 export type SceneId = "title" | "character-select" | "character-creator" | "hub";
 
@@ -9,7 +10,7 @@ type Builder = (engine: Engine, canvas: HTMLCanvasElement) => Scene;
 const builders: Record<SceneId, Builder> = {
   title: buildTitleScene,
   "character-select": buildCharacterSelectScene,
-  "character-creator": buildTitleScene, // stub, to be replaced in Phase 1
+  "character-creator": buildCharacterCreatorScene,
   hub: buildTitleScene, // stub, to be replaced in Phase 2
 };
 

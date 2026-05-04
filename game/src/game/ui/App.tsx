@@ -5,6 +5,7 @@ import { useScene } from "@state/scene";
 import { TitleScreen } from "@ui/screens/TitleScreen";
 import { AuthScreen } from "@ui/screens/AuthScreen";
 import { CharacterSelectScreen } from "@ui/screens/CharacterSelectScreen";
+import { CharacterCreatorScreen } from "@ui/screens/CharacterCreatorScreen";
 
 interface Props {
   engine: GameEngine;
@@ -40,7 +41,16 @@ export function App({ engine }: Props) {
         />
       )}
       {current === "character-select" && (
-        <CharacterSelectScreen onBack={() => engine.go("title")} />
+        <CharacterSelectScreen
+          onBack={() => engine.go("title")}
+          onNew={() => engine.go("character-creator")}
+        />
+      )}
+      {current === "character-creator" && (
+        <CharacterCreatorScreen
+          onBack={() => engine.go("character-select")}
+          onConfirm={() => engine.go("character-select")}
+        />
       )}
       {showAuth && (
         <AuthScreen
