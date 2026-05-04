@@ -170,10 +170,12 @@ export function buildCharacterCreatorScene(
   const switchToHeritage = async (heritage: Heritage) => {
     if (activeHeritage === heritage) return;
 
-    // Hide whatever's currently visible
+    // Hide whatever's currently visible — including its particle systems
     if (activeHeritage) {
       const prevRoot = rootByHeritage.get(activeHeritage);
       if (prevRoot) prevRoot.setEnabled(false);
+      const prevCostume = costumeByHeritage.get(activeHeritage);
+      if (prevCostume) prevCostume.particles.forEach((p) => p.stop());
     }
 
     let la = loadedByHeritage.get(heritage);
@@ -228,6 +230,9 @@ export function buildCharacterCreatorScene(
       loadedAvatar = la;
       activeHeritage = heritage;
       applySlidersToLoaded(la);
+      // Restart particles for the now-active costume
+      const costume = costumeByHeritage.get(heritage);
+      if (costume) costume.particles.forEach((p) => p.start());
     }
   };
 
