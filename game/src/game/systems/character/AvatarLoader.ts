@@ -152,10 +152,39 @@ export async function loadAvatar(
       m.parent = root;
     }
   }
-  root.scaling = new Vector3(scale, scale, scale);
+
+  // Compute the bounding box of all loaded meshes so we can auto-fit the
+  // character to ~2m tall regardless of the source asset's units. The user-
+  // supplied `scale` becomes a multiplier on top of the auto-fit.
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const m of meshes) {
+    if (m.getTotalVertices && m.getTotalVertices() > 0) {
+      m.computeWorldMatrix(true);
+      const bb = m.getBoundingInfo().boundingBox;
+      const lowY = bb.minimumWorld.y;
+      const highY = bb.maximumWorld.y;
+      if (lowY < minY) minY = lowY;
+      if (highY > maxY) maxY = highY;
+    }
+  }
+  const naturalHeight = maxY - minY;
+  const targetHeight = 1.95; // metres
+  const autoScale =
+    naturalHeight > 0.01 && isFinite(naturalHeight) ? targetHeight / naturalHeight : 1;
+  const finalScale = autoScale * scale * 25; // scale arg now acts as a tweaker
+
+  root.scaling = new Vector3(finalScale, finalScale, finalScale);
+  console.info(
+    `[AvatarLoader] natural height ${naturalHeight.toFixed(2)} → final scale ${finalScale.toFixed(3)}`,
+  );
 
   // Categorise meshes by region; tint the underlying material instead of
   // replacing it (replacing breaks bone-skinning).
+  //
+  // We classify by NAME first; if everything falls into "skin" (because the
+  // asset uses generic names), we re-classify by VERTICAL POSITION as a
+  // fallback so hair/outfit sliders still have meshes to target.
   const meshesByRegion: LoadedAvatar["meshesByRegion"] = {
     skin: [],
     hair: [],
@@ -170,12 +199,15 @@ export async function loadAvatar(
     other: [],
   };
 
+  const regionByMesh = new Map<Mesh, "skin" | "hair" | "outfit" | "other">();
+
   for (const m of meshes) {
     if (!(m instanceof Mesh)) continue;
     if (!m.material) continue;
     const region = classifyMeshName(m.name);
     meshesByRegion[region].push(m);
     meshNamesByRegion[region]!.push(m.name);
+    regionByMesh.set(m, region);
 
     // Painterly tweaks to the existing material — preserves skinning
     if (m.material instanceof PBRMaterial) {
@@ -196,6 +228,52 @@ export async function loadAvatar(
       m.renderOutline = true;
       m.outlineWidth = region === "hair" ? 0.6 : 0.4;
       m.outlineColor = new Color3(0.04, 0.02, 0.08);
+    }
+  }
+
+  // Fallback: if name-based classification produced 0 hair AND 0 outfit
+  // meshes, classify by mesh-local Y position so the sliders still target
+  // distinct regions.
+  if (meshesByRegion.hair.length === 0 || meshesByRegion.outfit.length === 0) {
+    const heights: { mesh: Mesh; centerY: number }[] = [];
+    for (const m of meshes) {
+      if (!(m instanceof Mesh) || !m.material) continue;
+      m.computeWorldMatrix(true);
+      const bb = m.getBoundingInfo().boundingBox;
+      const cy = (bb.minimumWorld.y + bb.maximumWorld.y) / 2;
+      heights.push({ mesh: m, centerY: cy });
+    }
+    if (heights.length > 1) {
+      const ys = heights.map((h) => h.centerY).sort((a, b) => a - b);
+      const totalLow = ys[0]!;
+      const totalHigh = ys[ys.length - 1]!;
+      const range = Math.max(0.01, totalHigh - totalLow);
+      const headThreshold = totalHigh - range * 0.2; // top 20%
+      const torsoThreshold = totalLow + range * 0.45; // mid
+
+      for (const h of heights) {
+        const existing = regionByMesh.get(h.mesh);
+        // Only re-route meshes that fell into the default "skin" bucket
+        if (existing !== "skin") continue;
+        let newRegion: "skin" | "hair" | "outfit" = "skin";
+        if (h.centerY >= headThreshold) {
+          // Top of character — likely head/hair. If the mesh is small and
+          // dark, lean hair; if it's a face, leave as skin. We can't easily
+          // detect that here, so route to hair (works for most assets).
+          newRegion = "hair";
+        } else if (h.centerY < torsoThreshold) {
+          newRegion = "outfit"; // legs
+        } else {
+          newRegion = "outfit"; // torso
+        }
+        // newRegion is always hair or outfit here (top of character → hair,
+        // otherwise → outfit). Move the mesh from skin to its new bucket.
+        const skinIdx = meshesByRegion.skin.indexOf(h.mesh);
+        if (skinIdx >= 0) meshesByRegion.skin.splice(skinIdx, 1);
+        meshesByRegion[newRegion].push(h.mesh);
+        regionByMesh.set(h.mesh, newRegion);
+        meshNamesByRegion[newRegion]!.push(h.mesh.name + " (by-pos)");
+      }
     }
   }
 

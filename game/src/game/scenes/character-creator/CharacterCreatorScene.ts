@@ -48,21 +48,24 @@ export function buildCharacterCreatorScene(
 
   const camera = new ArcRotateCamera(
     "creator-cam",
-    Math.PI / 2,           // looking from +Z toward origin → sees character's FRONT
-    Math.PI / 2.2,
-    3.6,
-    new Vector3(0, 1.3, 0),
+    Math.PI / 2,
+    Math.PI / 2.3,
+    3.4,
+    new Vector3(0, 1.5, 0),
     scene,
   );
-  camera.lowerRadiusLimit = 2.0;
-  camera.upperRadiusLimit = 8;
-  camera.lowerBetaLimit = 0.3;
-  camera.upperBetaLimit = Math.PI / 1.9;
-  camera.minZ = 0.1;
+  camera.lowerRadiusLimit = 1.2;
+  camera.upperRadiusLimit = 9;
+  camera.lowerBetaLimit = 0.15;
+  camera.upperBetaLimit = Math.PI / 1.6;
+  camera.minZ = 0.05;
   camera.fov = 0.95;
   camera.attachControl(_canvas, true);
   camera.panningSensibility = 0;
-  camera.wheelPrecision = 60;
+  camera.wheelPrecision = 40;
+  camera.angularSensibilityX = 1200;
+  camera.angularSensibilityY = 1200;
+  camera.useNaturalPinchZoom = true;
 
   const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0.2), scene);
   ambient.intensity = 0.55;
@@ -134,7 +137,7 @@ export function buildCharacterCreatorScene(
     la.applyCelMats(skinPalette, hairColor, outfitColor);
   };
 
-  loadAvatar(scene, loadedRoot, { outline: true, scale: 0.04 })
+  loadAvatar(scene, loadedRoot, { outline: true, scale: 0.18 })
     .then((la) => {
       loadedAvatar = la;
       // Hide the placeholder once the real avatar arrives
