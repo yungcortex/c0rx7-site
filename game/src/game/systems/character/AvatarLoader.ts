@@ -10,6 +10,7 @@ import {
   AssetContainer,
   Vector3,
   Skeleton,
+  MeshBuilder,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 
@@ -332,15 +333,89 @@ export async function loadAvatar(
     );
   };
 
+  // Heritage marker meshes — long elf-ears for Sivit, cat ears + tail for
+  // Vellish. These are NOT skinned — they're parented to the avatar root,
+  // not the head bone, so they orbit with the character's overall sway but
+  // not with skeletal head animation. Good enough for a turntable preview.
+  const heritageMarkers = new TransformNode("heritage-markers", scene);
+  heritageMarkers.parent = root;
+  heritageMarkers.setEnabled(false);
+
+  // ============ HERITAGE PROPS ============
+
+  const skinPropMat = new StandardMaterial("skin-prop-mat", scene);
+  skinPropMat.diffuseColor = new Color3(0.92, 0.78, 0.62);
+  skinPropMat.specularColor = new Color3(0.05, 0.05, 0.06);
+  skinPropMat.emissiveColor = new Color3(0.18, 0.14, 0.1);
+
+  // Sivit long ears — flat triangles attached to head sides
+  const sivitProps = new TransformNode("sivit-props", scene);
+  sivitProps.parent = heritageMarkers;
+  for (const side of [-1, 1] as const) {
+    const ear = MeshBuilder.CreateBox(
+      `sivit-ear-${side}`,
+      { width: 0.08, height: 0.45, depth: 0.05 },
+      scene,
+    );
+    ear.parent = sivitProps;
+    // Position relative to scaled-up character. Head is at ~y=1.7 in mesh
+    // coords for HVGirl after auto-scale. We use approximate offsets that
+    // look right after applyTransforms scaling.
+    ear.position.set(side * 0.18, 1.75, 0);
+    ear.rotation.z = side * 0.2;
+    ear.rotation.x = -0.1;
+    ear.material = skinPropMat;
+  }
+
+  // Vellish cat ears + tail
+  const vellishProps = new TransformNode("vellish-props", scene);
+  vellishProps.parent = heritageMarkers;
+  for (const side of [-1, 1] as const) {
+    const cat = MeshBuilder.CreateCylinder(
+      `vellish-ear-${side}`,
+      { diameterTop: 0.0, diameterBottom: 0.13, height: 0.18, tessellation: 4 },
+      scene,
+    );
+    cat.parent = vellishProps;
+    cat.position.set(side * 0.1, 1.95, 0.05);
+    cat.rotation.z = side * 0.18;
+    cat.material = skinPropMat;
+  }
+  // tail
+  const tail = MeshBuilder.CreateCylinder(
+    "vellish-tail",
+    { diameterTop: 0.04, diameterBottom: 0.09, height: 0.7, tessellation: 8 },
+    scene,
+  );
+  tail.parent = vellishProps;
+  tail.position.set(0, 0.85, -0.18);
+  tail.rotation.x = -0.7;
+  tail.material = skinPropMat;
+
+  // Korr — beard tuft for Tall-Korr (sub-build 0)
+  const korrProps = new TransformNode("korr-props", scene);
+  korrProps.parent = heritageMarkers;
+  const beard = MeshBuilder.CreateBox(
+    "korr-beard",
+    { width: 0.18, height: 0.18, depth: 0.1 },
+    scene,
+  );
+  beard.parent = korrProps;
+  beard.position.set(0, 1.6, 0.13);
+  const beardMat = new StandardMaterial("beard-mat", scene);
+  beardMat.diffuseColor = new Color3(0.25, 0.15, 0.08);
+  beardMat.specularColor = new Color3(0, 0, 0);
+  beard.material = beardMat;
+
   /**
    * Per-heritage and per-slider proportional transforms. Same base mesh,
    * very different silhouettes — Sivit taller/thinner, Korr short/broad,
    * etc. Body sliders modulate on top.
    */
   const applyTransforms = (xform: AvatarTransform) => {
-    const heightSlider = (xform.height - 0.5) * 0.3; // ±15% from slider
-    const buildSlider = (xform.buildWeight - 0.5) * 0.3; // ±15%
-    const muscleSlider = (xform.muscle - 0.5) * 0.2; // ±10%
+    const heightSlider = (xform.height - 0.5) * 0.4; // ±20% from slider
+    const buildSlider = (xform.buildWeight - 0.5) * 0.4; // ±20%
+    const muscleSlider = (xform.muscle - 0.5) * 0.3; // ±15%
     const fem = xform.bodyType; // 0..1
 
     let heritageY = 1.0;
@@ -348,32 +423,32 @@ export async function loadAvatar(
     let heritageZ = 1.0;
     switch (xform.heritage) {
       case "sivit":
-        heritageY = 1.12;
-        heritageX = 0.9;
-        heritageZ = 0.9;
+        heritageY = 1.18; // taller
+        heritageX = 0.85; // narrower
+        heritageZ = 0.85;
         break;
       case "korr":
         if (xform.subBuild === 1) {
-          // Short-Korr
-          heritageY = 0.74;
-          heritageX = 1.18;
-          heritageZ = 1.18;
+          // Short-Korr — half the height, ~30% wider
+          heritageY = 0.62;
+          heritageX = 1.3;
+          heritageZ = 1.3;
         } else {
-          // Tall-Korr
-          heritageY = 0.92;
-          heritageX = 1.16;
-          heritageZ = 1.16;
+          // Tall-Korr — bulkier
+          heritageY = 0.88;
+          heritageX = 1.25;
+          heritageZ = 1.25;
         }
         break;
       case "vellish":
-        heritageY = 1.02;
-        heritageX = 0.95;
-        heritageZ = 0.95;
+        heritageY = 1.05;
+        heritageX = 0.92;
+        heritageZ = 0.92;
         break;
       case "ashen":
-        heritageY = 0.99;
-        heritageX = 0.94;
-        heritageZ = 0.94;
+        heritageY = 1.02;
+        heritageX = 0.88;
+        heritageZ = 0.88;
         break;
       case "hjari":
       default:
@@ -381,8 +456,8 @@ export async function loadAvatar(
     }
 
     // Body type: shifts shoulder/hip width slightly along X
-    const bodyTypeX = 1 - (fem - 0.5) * 0.08; // masc = wider, fem = narrower
-    const bodyTypeZ = 1 + (fem - 0.5) * 0.04;
+    const bodyTypeX = 1 - (fem - 0.5) * 0.12;
+    const bodyTypeZ = 1 + (fem - 0.5) * 0.06;
 
     const finalY = baseScale * heritageY * (1 + heightSlider);
     const finalX = baseScale * heritageX * (1 + buildSlider) * bodyTypeX * (1 + muscleSlider);
@@ -395,6 +470,12 @@ export async function loadAvatar(
       const offset = -minY * finalY;
       root.position.y = offset;
     }
+
+    // Show / hide heritage props based on choice
+    heritageMarkers.setEnabled(true);
+    sivitProps.setEnabled(xform.heritage === "sivit");
+    vellishProps.setEnabled(xform.heritage === "vellish");
+    korrProps.setEnabled(xform.heritage === "korr" && xform.subBuild === 0);
   };
 
   return {

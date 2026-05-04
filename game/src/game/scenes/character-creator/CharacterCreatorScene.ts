@@ -124,7 +124,7 @@ export function buildCharacterCreatorScene(
   let loadedAvatar: LoadedAvatar | null = null;
   const loadedRoot = new TransformNode("loaded-avatar-root", scene);
   loadedRoot.position.y = 0.13;
-  loadedRoot.rotation.y = Math.PI; // glb forward axis differs — face the camera
+  loadedRoot.rotation.y = 0; // HVGirl's native forward is +Z which matches our camera
 
   const applySlidersToLoaded = (la: LoadedAvatar) => {
     const s = useCreator.getState().sliders;
@@ -162,7 +162,8 @@ export function buildCharacterCreatorScene(
     if (loadedAvatar) applySlidersToLoaded(loadedAvatar);
   });
 
-  // Slow turntable — small range so face stays visible most of the time
+  // Slow turntable — applied to the loaded character root, not the placeholder
+  // (placeholder gets disabled once glb loads). ±25° sway; face stays visible.
   const turntable = new Animation(
     "turntable",
     "rotation.y",
@@ -171,12 +172,12 @@ export function buildCharacterCreatorScene(
     Animation.ANIMATIONLOOPMODE_CYCLE,
   );
   turntable.setKeys([
-    { frame: 0,    value: -0.35 },
-    { frame: 240,  value:  0.35 },
-    { frame: 480,  value: -0.35 },
+    { frame: 0,   value: -0.45 },
+    { frame: 240, value:  0.45 },
+    { frame: 480, value: -0.45 },
   ]);
-  avatar.root.animations.push(turntable);
-  scene.beginAnimation(avatar.root, 0, 480, true, 0.4);
+  loadedRoot.animations.push(turntable);
+  scene.beginAnimation(loadedRoot, 0, 480, true, 0.5);
 
   const glow = new GlowLayer("creator-glow", scene);
   glow.intensity = 0.4;
