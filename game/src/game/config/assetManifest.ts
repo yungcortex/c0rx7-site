@@ -5,16 +5,18 @@ import type { Heritage } from "@game/systems/character/SliderBlob";
  * character meshes by heritage; environment props by zone; weapon meshes by
  * Aspect id.
  *
- * Phase 1: most paths are stubs — the runtime falls back to the parametric
- * placeholder when a glb isn't present (see MorphController.buildPlaceholder).
+ * Each heritage gets a distinct base mesh. v1 uses CC0 humanoid glbs from
+ * the threejs / Khronos sample CDNs, committed locally so Vercel serves
+ * them. When we author Ætherwake-original characters in MakeHuman / Blender,
+ * we just swap the URLs here.
  */
 
-export const characterMeshes: Record<Heritage, string | null> = {
-  hjari: null, // "/play/assets/models/character/base-hjari.glb",
-  sivit: null,
-  korr: null,
-  vellish: null,
-  ashen: null,
+export const characterMeshes: Record<Heritage, string> = {
+  hjari: "/play/assets/models/character/Michelle.glb",        // mature human female
+  sivit: "/play/assets/models/character/Xbot.glb",            // tall stylised humanoid
+  korr: "/play/assets/models/character/Soldier.glb",          // bulky armoured silhouette
+  vellish: "https://assets.babylonjs.com/meshes/HVGirl.glb",  // chibi (kept for variety)
+  ashen: "/play/assets/models/character/CesiumMan.glb",       // angular alien proportions
 };
 
 export const aspectWeaponMeshes = {

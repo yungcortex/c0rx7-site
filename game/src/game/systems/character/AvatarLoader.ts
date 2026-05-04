@@ -69,6 +69,12 @@ export interface AvatarTransform {
 
 const PRIMARY_URL = "https://assets.babylonjs.com/meshes/HVGirl.glb";
 
+export interface LoadAvatarOptions {
+  url?: string;
+  outline?: boolean;
+  scale?: number;
+}
+
 /**
  * Detect what region a sub-mesh belongs to by name heuristics. HVGirl uses
  * descriptive mesh names; this is a permissive matcher so we route most
@@ -145,7 +151,7 @@ function setMaterialColor(mat: any, color: Color3, strength = 0.55) {
 export async function loadAvatar(
   scene: Scene,
   parent: TransformNode,
-  options: { url?: string; outline?: boolean; scale?: number } = {},
+  options: LoadAvatarOptions = {},
 ): Promise<LoadedAvatar> {
   const url = options.url ?? PRIMARY_URL;
   const useOutline = options.outline ?? true;

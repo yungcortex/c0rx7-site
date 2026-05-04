@@ -21,6 +21,8 @@ import {
 import { loadAvatar, playIdle, type LoadedAvatar } from "@game/systems/character/AvatarLoader";
 import { useCreator } from "@state/character";
 import { TransformNode } from "@babylonjs/core";
+import { characterMeshes } from "@game/config/assetManifest";
+import type { Heritage } from "@game/systems/character/SliderBlob";
 
 export type LightPreset = "sunset" | "dungeon" | "town";
 
@@ -121,10 +123,13 @@ export function buildCharacterCreatorScene(
   morphController.attach(avatar);
   morphController.apply(useCreator.getState().sliders);
 
+  // Per-heritage model cache — load each glb on first switch, keep them
+  // around so subsequent switches are instant. Only the active model is
+  // visible; the rest are hidden but live in the scene.
+  const loadedByHeritage = new Map<Heritage, LoadedAvatar>();
+  const rootByHeritage = new Map<Heritage, TransformNode>();
   let loadedAvatar: LoadedAvatar | null = null;
-  const loadedRoot = new TransformNode("loaded-avatar-root", scene);
-  loadedRoot.position.y = 0.13;
-  loadedRoot.rotation.y = 0; // HVGirl's native forward is +Z which matches our camera
+  let activeHeritage: Heritage | null = null;
 
   const applySlidersToLoaded = (la: LoadedAvatar) => {
     const s = useCreator.getState().sliders;
@@ -143,41 +148,87 @@ export function buildCharacterCreatorScene(
     });
   };
 
-  loadAvatar(scene, loadedRoot, { outline: true, scale: 1.0 })
-    .then((la) => {
-      loadedAvatar = la;
-      // Hide the placeholder once the real avatar arrives
-      avatar.root.setEnabled(false);
-      playIdle(la, scene);
-      // Initial color application
-      applySlidersToLoaded(la);
-      console.info("[creator] glb avatar ready, sliders should now drive tint");
-    })
-    .catch((err) => {
-      console.warn("[creator] glb load failed; staying on placeholder", err);
-    });
+  /**
+   * Switch the visible avatar to the given heritage's model. Loads the glb
+   * lazily on first use and caches it for subsequent switches. Each heritage
+   * gets its own root TransformNode so transforms don't collide.
+   */
+  const switchToHeritage = async (heritage: Heritage) => {
+    if (activeHeritage === heritage) return;
 
+    // Hide whatever's currently visible
+    if (activeHeritage) {
+      const prevRoot = rootByHeritage.get(activeHeritage);
+      if (prevRoot) prevRoot.setEnabled(false);
+    }
+
+    let la = loadedByHeritage.get(heritage);
+    let heritageRoot = rootByHeritage.get(heritage);
+
+    if (!la) {
+      heritageRoot = new TransformNode(`avatar-root-${heritage}`, scene);
+      heritageRoot.position.y = 0.13;
+      // Each model has different forward axis — start at 0, flip if user
+      // sees the back. (Soldier and Michelle from threejs face +Z; we'll
+      // adjust per-model when we see them in-scene.)
+      heritageRoot.rotation.y = 0;
+
+      // Plinth-side turntable
+      const turn = new Animation(
+        `turntable-${heritage}`,
+        "rotation.y",
+        30,
+        Animation.ANIMATIONTYPE_FLOAT,
+        Animation.ANIMATIONLOOPMODE_CYCLE,
+      );
+      turn.setKeys([
+        { frame: 0, value: -0.4 },
+        { frame: 240, value: 0.4 },
+        { frame: 480, value: -0.4 },
+      ]);
+      heritageRoot.animations.push(turn);
+      scene.beginAnimation(heritageRoot, 0, 480, true, 0.5);
+
+      const url = characterMeshes[heritage];
+      try {
+        la = await loadAvatar(scene, heritageRoot, { outline: true, scale: 1.0, url });
+        loadedByHeritage.set(heritage, la);
+        rootByHeritage.set(heritage, heritageRoot);
+        avatar.root.setEnabled(false);
+        playIdle(la, scene);
+      } catch (err) {
+        console.warn(`[creator] failed loading ${heritage} glb (${url}):`, err);
+        if (heritageRoot) heritageRoot.dispose();
+        return;
+      }
+    } else {
+      heritageRoot?.setEnabled(true);
+    }
+
+    if (la && heritageRoot) {
+      heritageRoot.setEnabled(true);
+      loadedAvatar = la;
+      activeHeritage = heritage;
+      applySlidersToLoaded(la);
+    }
+  };
+
+  // Initial load — pick whatever heritage the creator state is on
+  switchToHeritage(useCreator.getState().sliders.heritage);
+
+  let lastHeritage = useCreator.getState().sliders.heritage;
   const unsub = useCreator.subscribe((s) => {
     morphController.apply(s.sliders);
-    if (loadedAvatar) applySlidersToLoaded(loadedAvatar);
+    if (s.sliders.heritage !== lastHeritage) {
+      lastHeritage = s.sliders.heritage;
+      switchToHeritage(s.sliders.heritage);
+    } else if (loadedAvatar) {
+      applySlidersToLoaded(loadedAvatar);
+    }
   });
 
-  // Slow turntable — applied to the loaded character root, not the placeholder
-  // (placeholder gets disabled once glb loads). ±25° sway; face stays visible.
-  const turntable = new Animation(
-    "turntable",
-    "rotation.y",
-    30,
-    Animation.ANIMATIONTYPE_FLOAT,
-    Animation.ANIMATIONLOOPMODE_CYCLE,
-  );
-  turntable.setKeys([
-    { frame: 0,   value: -0.45 },
-    { frame: 240, value:  0.45 },
-    { frame: 480, value: -0.45 },
-  ]);
-  loadedRoot.animations.push(turntable);
-  scene.beginAnimation(loadedRoot, 0, 480, true, 0.5);
+  // (Per-heritage turntable applied inside switchToHeritage() so each
+  // model gets its own animation track.)
 
   const glow = new GlowLayer("creator-glow", scene);
   glow.intensity = 0.4;
@@ -230,7 +281,9 @@ export function buildCharacterCreatorScene(
     dispose: () => {
       unsub();
       morphController.detach();
-      loadedAvatar?.dispose();
+      for (const la of loadedByHeritage.values()) la.dispose();
+      loadedByHeritage.clear();
+      rootByHeritage.clear();
     },
   };
 
