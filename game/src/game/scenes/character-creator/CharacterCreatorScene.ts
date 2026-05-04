@@ -18,13 +18,16 @@ import {
   MorphController,
   type CharacterAvatar,
 } from "@game/systems/character/MorphController";
+import { loadAvatar, playIdle, type LoadedAvatar } from "@game/systems/character/AvatarLoader";
 import { useCreator } from "@state/character";
+import { TransformNode } from "@babylonjs/core";
 
 export type LightPreset = "sunset" | "dungeon" | "town";
 
 export interface CharacterCreatorContext {
   scene: Scene;
   avatar: CharacterAvatar;
+  loadedAvatar: LoadedAvatar | null;
   morphController: MorphController;
   setLightPreset: (preset: LightPreset) => void;
   cycleExpression: () => void;
@@ -105,7 +108,9 @@ export function buildCharacterCreatorScene(
   haloMat.emissiveColor = new Color3(0.6, 0.45, 0.18);
   halo.material = haloMat;
 
-  // Avatar — front-facing the camera (camera is at +Z, avatar faces +Z, perfect)
+  // Two-stage avatar: ship a parametric placeholder immediately, then
+  // upgrade to a real glb when the network fetch completes. The placeholder
+  // is the fallback if the load fails or while it's downloading.
   const avatar = buildPlaceholderAvatar(scene);
   avatar.root.position.y = 0.13;
 
@@ -113,7 +118,37 @@ export function buildCharacterCreatorScene(
   morphController.attach(avatar);
   morphController.apply(useCreator.getState().sliders);
 
-  const unsub = useCreator.subscribe((s) => morphController.apply(s.sliders));
+  let loadedAvatar: LoadedAvatar | null = null;
+  const loadedRoot = new TransformNode("loaded-avatar-root", scene);
+  loadedRoot.position.y = 0.13;
+  loadedRoot.rotation.y = Math.PI; // glb forward axis differs — face the camera
+
+  loadAvatar(scene, loadedRoot, { outline: true, scale: 0.04 })
+    .then((la) => {
+      loadedAvatar = la;
+      // Hide the placeholder once the real avatar arrives
+      avatar.root.setEnabled(false);
+      playIdle(la, scene);
+      // Initial color application
+      applySlidersToLoaded(la);
+    })
+    .catch((err) => {
+      console.warn("[creator] glb load failed; staying on placeholder", err);
+    });
+
+  const applySlidersToLoaded = (la: LoadedAvatar) => {
+    const s = useCreator.getState().sliders;
+    const skinPalette = SKIN_TO_COLOR(s.skin.paletteIndex);
+    const hairStop = s.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
+    const hairColor = hsvToRgbColor(hairStop.h, hairStop.s, hairStop.v);
+    const outfitColor = new Color3(0.42, 0.28, 0.5);
+    la.applyCelMats(skinPalette, hairColor, outfitColor);
+  };
+
+  const unsub = useCreator.subscribe((s) => {
+    morphController.apply(s.sliders);
+    if (loadedAvatar) applySlidersToLoaded(loadedAvatar);
+  });
 
   // Slow turntable — small range so face stays visible most of the time
   const turntable = new Animation(
@@ -175,12 +210,14 @@ export function buildCharacterCreatorScene(
   activeContext = {
     scene,
     avatar,
+    loadedAvatar,
     morphController,
     setLightPreset,
     cycleExpression,
     dispose: () => {
       unsub();
       morphController.detach();
+      loadedAvatar?.dispose();
     },
   };
 
@@ -194,4 +231,35 @@ export function buildCharacterCreatorScene(
 
 export function getCreatorContext(): CharacterCreatorContext | null {
   return activeContext;
+}
+
+// 20-slot palette keyed to the skin swatch row in the creator UI
+function SKIN_TO_COLOR(idx: number): Color3 {
+  const PALETTE: [number, number, number][] = [
+    [0.94, 0.82, 0.71], [0.91, 0.78, 0.66], [0.86, 0.72, 0.59], [0.79, 0.64, 0.5],
+    [0.69, 0.54, 0.42], [0.58, 0.43, 0.33], [0.45, 0.32, 0.24], [0.34, 0.23, 0.18],
+    [0.24, 0.16, 0.13], [0.16, 0.11, 0.09],
+    [0.93, 0.84, 0.78], [0.88, 0.79, 0.74], [0.82, 0.72, 0.68], [0.74, 0.64, 0.6],
+    [0.65, 0.55, 0.51], [0.55, 0.46, 0.43], [0.45, 0.36, 0.34], [0.35, 0.28, 0.26],
+    [0.25, 0.2, 0.19], [0.16, 0.13, 0.13],
+  ];
+  const c = PALETTE[Math.max(0, Math.min(19, idx))]!;
+  return new Color3(c[0], c[1], c[2]);
+}
+
+function hsvToRgbColor(h: number, s: number, v: number): Color3 {
+  const hh = (h / 255) * 360;
+  const ss = s / 255;
+  const vv = v / 255;
+  const c = vv * ss;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = vv - c;
+  let r = 0, g = 0, b = 0;
+  if (hh < 60) { r = c; g = x; }
+  else if (hh < 120) { r = x; g = c; }
+  else if (hh < 180) { g = c; b = x; }
+  else if (hh < 240) { g = x; b = c; }
+  else if (hh < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return new Color3(r + m, g + m, b + m);
 }
