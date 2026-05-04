@@ -105,29 +105,22 @@ function classifyMeshName(name: string): "skin" | "hair" | "outfit" | "other" {
 }
 
 /**
- * Aggressively tint a PBR/Standard material toward the given color. We
- * preserve any texture detail (face features painted into the diffuse map)
- * but bias the overall hue toward the target so sliders are *visible*.
- *
- * Strategy:
- * - albedoColor / diffuseColor multiplier is the primary handle (white-balance
- *   bias on top of the original texture).
- * - emissiveColor adds a constant additive tint of ~25% so even with a strong
- *   texture, the slider hue is unmistakable.
- * - For hair/outfit we go harder (40% emissive add) since those are usually
- *   pure-colour regions.
+ * Tint a PBR/Standard material toward `color`. PBR multiplies albedoColor
+ * with the albedo texture, so subtle hue shifts get washed out. We use a
+ * heavy emissive add to guarantee the slider hue is unmistakable.
  */
-function setMaterialColor(mat: any, color: Color3, mode: "skin" | "hair" | "outfit") {
-  const emissiveStrength = mode === "skin" ? 0.18 : 0.4;
+function setMaterialColor(mat: any, color: Color3, strength = 0.55) {
   if (mat instanceof PBRMaterial) {
     mat.albedoColor = color;
-    mat.emissiveColor = color.scale(emissiveStrength);
-    // Tame the texture if present so the tint reads
-    mat.environmentIntensity = 0.25;
-    mat.directIntensity = 1.6;
+    mat.emissiveColor = color.scale(strength);
+    mat.environmentIntensity = 0.15;
+    mat.directIntensity = 1.4;
+    mat.metallic = 0;
+    mat.roughness = 1;
   } else if (mat instanceof StandardMaterial) {
     mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(emissiveStrength);
+    mat.emissiveColor = color.scale(strength);
+    mat.specularColor = new Color3(0, 0, 0);
   }
 }
 
@@ -215,15 +208,26 @@ export async function loadAvatar(
   );
 
   const applyCelMats = (skinColor: Color3, hairColor: Color3, outfitColor: Color3) => {
-    for (const m of meshesByRegion.skin) {
-      if (m.material) setMaterialColor(m.material, skinColor, "skin");
+    // Pass 1: paint EVERY mesh with the skin color first (worst case if
+    // classifier missed: at least skin slider drives the whole character).
+    for (const m of meshes) {
+      if (m instanceof Mesh && m.material) {
+        setMaterialColor(m.material, skinColor, 0.45);
+      }
     }
+    // Pass 2: hair-classified meshes get hair color (overrides pass 1).
     for (const m of meshesByRegion.hair) {
-      if (m.material) setMaterialColor(m.material, hairColor, "hair");
+      if (m.material) setMaterialColor(m.material, hairColor, 0.7);
     }
+    // Pass 3: outfit-classified meshes get outfit color (overrides pass 1).
     for (const m of meshesByRegion.outfit) {
-      if (m.material) setMaterialColor(m.material, outfitColor, "outfit");
+      if (m.material) setMaterialColor(m.material, outfitColor, 0.6);
     }
+    console.info(
+      `[AvatarLoader] tint applied — skin: rgb(${(skinColor.r * 255) | 0}, ${
+        (skinColor.g * 255) | 0
+      }, ${(skinColor.b * 255) | 0})`,
+    );
   };
 
   return {

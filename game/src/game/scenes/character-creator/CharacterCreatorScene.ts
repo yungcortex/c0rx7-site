@@ -123,6 +123,17 @@ export function buildCharacterCreatorScene(
   loadedRoot.position.y = 0.13;
   loadedRoot.rotation.y = Math.PI; // glb forward axis differs — face the camera
 
+  const applySlidersToLoaded = (la: LoadedAvatar) => {
+    const s = useCreator.getState().sliders;
+    const skinPalette = SKIN_TO_COLOR(s.skin.paletteIndex);
+    const hairStop = s.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
+    const hairColor = hsvToRgbColor(hairStop.h, hairStop.s, hairStop.v);
+    // Outfit color = a complement of the hair, so multi-region characters
+    // show clear differentiation when sliders move.
+    const outfitColor = new Color3(0.42, 0.28, 0.5);
+    la.applyCelMats(skinPalette, hairColor, outfitColor);
+  };
+
   loadAvatar(scene, loadedRoot, { outline: true, scale: 0.04 })
     .then((la) => {
       loadedAvatar = la;
@@ -131,19 +142,11 @@ export function buildCharacterCreatorScene(
       playIdle(la, scene);
       // Initial color application
       applySlidersToLoaded(la);
+      console.info("[creator] glb avatar ready, sliders should now drive tint");
     })
     .catch((err) => {
       console.warn("[creator] glb load failed; staying on placeholder", err);
     });
-
-  const applySlidersToLoaded = (la: LoadedAvatar) => {
-    const s = useCreator.getState().sliders;
-    const skinPalette = SKIN_TO_COLOR(s.skin.paletteIndex);
-    const hairStop = s.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
-    const hairColor = hsvToRgbColor(hairStop.h, hairStop.s, hairStop.v);
-    const outfitColor = new Color3(0.42, 0.28, 0.5);
-    la.applyCelMats(skinPalette, hairColor, outfitColor);
-  };
 
   const unsub = useCreator.subscribe((s) => {
     morphController.apply(s.sliders);
