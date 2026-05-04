@@ -621,3 +621,237 @@ input {
   letter-spacing: 0.05em;
 }
 .name-input:focus { border-color: var(--gold); }
+
+.creator-error {
+  padding: 0.6rem 1rem;
+  background: rgba(160, 45, 61, 0.18);
+  border-top: 1px solid rgba(160, 45, 61, 0.5);
+  color: #ffb6b6;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.slot-empty { opacity: 0.5; transition: opacity 0.2s ease; }
+.slot-empty:hover { opacity: 0.85; }
+.slot-delete {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  font-size: 1.1rem;
+  color: rgba(244, 234, 212, 0.4);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.slot-delete:hover {
+  color: var(--crimson);
+  border-color: var(--crimson);
+  background: rgba(160, 45, 61, 0.15);
+}
+.slot-btn { position: relative; }
+
+.select-status {
+  position: absolute;
+  bottom: 14rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--paper-soft);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-style: italic;
+}
+
+/* ---- Hub HUD ---- */
+.hub-top {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(180deg, rgba(7, 4, 13, 0.6), transparent);
+  z-index: 50;
+}
+.hub-zone, .hub-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.zone-label {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.3em;
+  color: var(--gold-bright);
+}
+.zone-sub, .roster-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+}
+.hub-roster { align-items: flex-end; }
+.roster-count {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.4rem;
+  color: var(--paper);
+}
+
+/* ---- Chat overlay ---- */
+.chat-overlay {
+  pointer-events: auto;
+  position: fixed;
+  bottom: 1.2rem;
+  left: 1.2rem;
+  width: min(540px, 50vw);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.chat-list {
+  max-height: 240px;
+  overflow-y: auto;
+  background: rgba(7, 4, 13, 0.42);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(201, 168, 90, 0.18);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.chat-list::-webkit-scrollbar { width: 6px; }
+.chat-list::-webkit-scrollbar-thumb { background: rgba(201, 168, 90, 0.25); }
+.chat-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
+  color: var(--paper);
+  letter-spacing: 0.02em;
+}
+.chat-channel {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.chat-author {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.95rem;
+  color: var(--gold);
+}
+.chat-body { color: var(--paper); }
+.chat-input input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  background: rgba(7, 4, 13, 0.85);
+  border: 1px solid var(--gold);
+  color: var(--paper);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+}
+
+/* ---- Interact prompt ---- */
+.interact-prompt {
+  pointer-events: none;
+  position: fixed;
+  bottom: 14rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.2rem;
+  background: rgba(7, 4, 13, 0.7);
+  border: 1px solid var(--gold);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  color: var(--paper);
+  z-index: 55;
+  animation: interact-pulse 1.6s ease-in-out infinite;
+}
+@keyframes interact-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 90, 0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(201, 168, 90, 0); }
+}
+.interact-key {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.interact-title {
+  margin-left: 0.4rem;
+  color: var(--paper-soft);
+  font-style: italic;
+}
+
+/* ---- Dialogue overlay ---- */
+.dialogue-overlay {
+  pointer-events: auto;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, transparent, rgba(7, 4, 13, 0.92));
+  padding: 4rem 2rem 2rem 2rem;
+  z-index: 80;
+  animation: dialogue-fade 0.3s ease;
+}
+@keyframes dialogue-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.dialogue-card {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.4rem 1.8rem 1.2rem 1.8rem;
+  background: linear-gradient(180deg, rgba(26, 18, 38, 0.95), rgba(11, 6, 18, 0.95));
+  border: 1px solid rgba(201, 168, 90, 0.4);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5), inset 0 0 30px rgba(201, 168, 90, 0.04);
+}
+.dialogue-speaker {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  color: var(--gold-bright);
+  margin-bottom: 0.6rem;
+}
+.dialogue-body {
+  font-size: 1rem;
+  color: var(--paper);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  margin-bottom: 1rem;
+}
+.dialogue-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dialogue-progress {
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+}
+.dialogue-next {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  background: rgba(201, 168, 90, 0.06);
+  transition: all 0.2s ease;
+}
+.dialogue-next:hover { background: var(--gold); color: var(--ink); }

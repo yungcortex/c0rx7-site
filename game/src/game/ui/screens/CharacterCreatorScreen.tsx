@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent } from "react";
-import { useCreator } from "@state/character";
+import { useCreator, useCharacters } from "@state/character";
+import { useAuth } from "@state/auth";
+import { createCharacter } from "@game/systems/save/characterRepo";
 import {
   HERITAGES,
   type Heritage,
@@ -88,19 +90,63 @@ const BACKSTORY_QUESTIONS = [
 export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
   const [tab, setTab] = useState<Tab>("heritage");
   const [light, setLight] = useState<LightPreset>("town");
+  const [error, setError] = useState<string | null>(null);
+  const user = useAuth((s) => s.user);
   const sliders = useCreator((s) => s.sliders);
   const name = useCreator((s) => s.name);
+  const saving = useCreator((s) => s.saving);
   const setName = useCreator((s) => s.setName);
   const setHeritage = useCreator((s) => s.setHeritage);
   const setSubBuild = useCreator((s) => s.setSubBuild);
   const setSliderState = useCreator((s) => s.set);
   const setFaceSlider = useCreator((s) => s.setFaceSlider);
   const setBodySlider = useCreator((s) => s.setBodySlider);
+  const setSaving = useCreator((s) => s.setSaving);
   const reset = useCreator((s) => s.reset);
+  const addCharacter = useCharacters((s) => s.add);
+  const setSelected = useCharacters((s) => s.setSelected);
+  const characterList = useCharacters((s) => s.list);
 
   const setLightPreset = (preset: LightPreset) => {
     setLight(preset);
     getCreatorContext()?.setLightPreset(preset);
+  };
+
+  const onBindAspect = async () => {
+    setError(null);
+    if (name.trim().length < 2) {
+      setError("Your Waker needs a name.");
+      return;
+    }
+    if (!user) {
+      setError("Sign in to bind a Waker. Guest characters aren't persisted yet.");
+      return;
+    }
+    setSaving(true);
+    const usedSlots = new Set(characterList.map((c) => c.slot));
+    let nextSlot = 1;
+    while (usedSlots.has(nextSlot) && nextSlot <= 8) nextSlot++;
+    if (nextSlot > 8) {
+      setError("All Waker slots are full. Unbind one first.");
+      setSaving(false);
+      return;
+    }
+    const created = await createCharacter({
+      slot: nextSlot,
+      name: name.trim(),
+      heritage: sliders.heritage,
+      sliders,
+      active_aspect: aspectFromBackstory(sliders.backstory),
+    });
+    setSaving(false);
+    if (!created) {
+      setError("The city refused to remember. (Save failed — check your connection.)");
+      return;
+    }
+    addCharacter(created);
+    setSelected(created);
+    reset();
+    onConfirm();
   };
 
   return (
@@ -419,15 +465,27 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
           </button>
           <button
             className="primary-btn"
-            disabled={name.trim().length < 2}
-            onClick={onConfirm}
+            disabled={name.trim().length < 2 || saving}
+            onClick={onBindAspect}
           >
-            bind aspect
+            {saving ? "binding…" : "bind aspect"}
           </button>
         </footer>
+        {error && <div className="creator-error">{error}</div>}
       </aside>
     </div>
   );
+}
+
+function aspectFromBackstory(b: [number, number, number, number]): "tempest" | "choir" | "vow" | "hush" | "hymn" | "bloom" | "ember" | "veil" {
+  // Heuristic: the 4th question ("what calls you") drives starting Aspect
+  switch (b[3]) {
+    case 0: return "tempest";
+    case 1: return "choir";
+    case 2: return "vow";
+    case 3: return "hush";
+    default: return "tempest";
+  }
 }
 
 interface SliderProps {
