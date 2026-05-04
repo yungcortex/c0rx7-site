@@ -50,19 +50,19 @@ export function buildCharacterCreatorScene(
     "creator-cam",
     Math.PI / 2,
     Math.PI / 2.3,
-    3.4,
-    new Vector3(0, 1.5, 0),
+    4.6,
+    new Vector3(0, 1.0, 0),
     scene,
   );
-  camera.lowerRadiusLimit = 1.2;
-  camera.upperRadiusLimit = 9;
+  camera.lowerRadiusLimit = 1.5;
+  camera.upperRadiusLimit = 12;
   camera.lowerBetaLimit = 0.15;
   camera.upperBetaLimit = Math.PI / 1.6;
   camera.minZ = 0.05;
-  camera.fov = 0.95;
+  camera.fov = 0.85;
   camera.attachControl(_canvas, true);
   camera.panningSensibility = 0;
-  camera.wheelPrecision = 40;
+  camera.wheelPrecision = 30;
   camera.angularSensibilityX = 1200;
   camera.angularSensibilityY = 1200;
   camera.useNaturalPinchZoom = true;
@@ -131,13 +131,19 @@ export function buildCharacterCreatorScene(
     const skinPalette = SKIN_TO_COLOR(s.skin.paletteIndex);
     const hairStop = s.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
     const hairColor = hsvToRgbColor(hairStop.h, hairStop.s, hairStop.v);
-    // Outfit color = a complement of the hair, so multi-region characters
-    // show clear differentiation when sliders move.
     const outfitColor = new Color3(0.42, 0.28, 0.5);
     la.applyCelMats(skinPalette, hairColor, outfitColor);
+    la.applyTransforms({
+      heritage: s.heritage,
+      subBuild: s.subBuild,
+      bodyType: s.bodyType / 255,
+      muscle: s.muscle / 255,
+      height: s.height / 255,
+      buildWeight: s.buildWeight / 255,
+    });
   };
 
-  loadAvatar(scene, loadedRoot, { outline: true, scale: 0.18 })
+  loadAvatar(scene, loadedRoot, { outline: true, scale: 1.0 })
     .then((la) => {
       loadedAvatar = la;
       // Hide the placeholder once the real avatar arrives

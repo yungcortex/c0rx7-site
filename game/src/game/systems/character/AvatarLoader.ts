@@ -34,6 +34,8 @@ export interface LoadedAvatar {
   root: TransformNode;
   meshes: AbstractMesh[];
   skeletons: Skeleton[];
+  /** auto-computed base scale that fits the asset to ~1.95m tall */
+  baseScale: number;
   /** Per-region mesh map so we can re-tint when sliders change */
   meshesByRegion: {
     skin: AbstractMesh[];
@@ -46,7 +48,22 @@ export interface LoadedAvatar {
     hairColor: Color3,
     outfitColor: Color3,
   ) => void;
+  /** Drive per-heritage + per-slider proportions on the loaded mesh. */
+  applyTransforms: (xform: AvatarTransform) => void;
   dispose: () => void;
+}
+
+export interface AvatarTransform {
+  heritage: "hjari" | "sivit" | "korr" | "vellish" | "ashen";
+  subBuild: number;
+  /** 0..1, 0=masc 1=fem */
+  bodyType: number;
+  /** 0..1 */
+  muscle: number;
+  /** 0..1 */
+  height: number;
+  /** 0..1 — overall build width */
+  buildWeight: number;
 }
 
 const PRIMARY_URL = "https://assets.babylonjs.com/meshes/HVGirl.glb";
@@ -155,7 +172,7 @@ export async function loadAvatar(
 
   // Compute the bounding box of all loaded meshes so we can auto-fit the
   // character to ~2m tall regardless of the source asset's units. The user-
-  // supplied `scale` becomes a multiplier on top of the auto-fit.
+  // supplied `scale` is a multiplier (default 1.0) on top of the auto-fit.
   let minY = Infinity;
   let maxY = -Infinity;
   for (const m of meshes) {
@@ -172,11 +189,18 @@ export async function loadAvatar(
   const targetHeight = 1.95; // metres
   const autoScale =
     naturalHeight > 0.01 && isFinite(naturalHeight) ? targetHeight / naturalHeight : 1;
-  const finalScale = autoScale * scale * 25; // scale arg now acts as a tweaker
+  const baseScale = autoScale * scale;
 
-  root.scaling = new Vector3(finalScale, finalScale, finalScale);
+  root.scaling = new Vector3(baseScale, baseScale, baseScale);
+
+  // Re-anchor so feet sit at parent.y = 0 (parent in scene supplies the floor)
+  if (isFinite(minY)) {
+    const offset = -minY * baseScale;
+    root.position.y += offset;
+  }
+
   console.info(
-    `[AvatarLoader] natural height ${naturalHeight.toFixed(2)} → final scale ${finalScale.toFixed(3)}`,
+    `[AvatarLoader] natural height ${naturalHeight.toFixed(2)} → base scale ${baseScale.toFixed(3)} (target ${targetHeight}m)`,
   );
 
   // Categorise meshes by region; tint the underlying material instead of
@@ -308,12 +332,79 @@ export async function loadAvatar(
     );
   };
 
+  /**
+   * Per-heritage and per-slider proportional transforms. Same base mesh,
+   * very different silhouettes — Sivit taller/thinner, Korr short/broad,
+   * etc. Body sliders modulate on top.
+   */
+  const applyTransforms = (xform: AvatarTransform) => {
+    const heightSlider = (xform.height - 0.5) * 0.3; // ±15% from slider
+    const buildSlider = (xform.buildWeight - 0.5) * 0.3; // ±15%
+    const muscleSlider = (xform.muscle - 0.5) * 0.2; // ±10%
+    const fem = xform.bodyType; // 0..1
+
+    let heritageY = 1.0;
+    let heritageX = 1.0;
+    let heritageZ = 1.0;
+    switch (xform.heritage) {
+      case "sivit":
+        heritageY = 1.12;
+        heritageX = 0.9;
+        heritageZ = 0.9;
+        break;
+      case "korr":
+        if (xform.subBuild === 1) {
+          // Short-Korr
+          heritageY = 0.74;
+          heritageX = 1.18;
+          heritageZ = 1.18;
+        } else {
+          // Tall-Korr
+          heritageY = 0.92;
+          heritageX = 1.16;
+          heritageZ = 1.16;
+        }
+        break;
+      case "vellish":
+        heritageY = 1.02;
+        heritageX = 0.95;
+        heritageZ = 0.95;
+        break;
+      case "ashen":
+        heritageY = 0.99;
+        heritageX = 0.94;
+        heritageZ = 0.94;
+        break;
+      case "hjari":
+      default:
+        break;
+    }
+
+    // Body type: shifts shoulder/hip width slightly along X
+    const bodyTypeX = 1 - (fem - 0.5) * 0.08; // masc = wider, fem = narrower
+    const bodyTypeZ = 1 + (fem - 0.5) * 0.04;
+
+    const finalY = baseScale * heritageY * (1 + heightSlider);
+    const finalX = baseScale * heritageX * (1 + buildSlider) * bodyTypeX * (1 + muscleSlider);
+    const finalZ = baseScale * heritageZ * (1 + buildSlider) * bodyTypeZ * (1 + muscleSlider);
+
+    root.scaling.set(finalX, finalY, finalZ);
+
+    // Re-anchor feet to ground after re-scale
+    if (isFinite(minY)) {
+      const offset = -minY * finalY;
+      root.position.y = offset;
+    }
+  };
+
   return {
     root,
     meshes,
     skeletons,
+    baseScale,
     meshesByRegion,
     applyCelMats,
+    applyTransforms,
     dispose: () => {
       container.removeAllFromScene();
       container.dispose();
