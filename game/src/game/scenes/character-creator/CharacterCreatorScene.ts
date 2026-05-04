@@ -45,38 +45,41 @@ export function buildCharacterCreatorScene(
 
   const camera = new ArcRotateCamera(
     "creator-cam",
-    -Math.PI / 2,
-    Math.PI / 2.4,
-    4.5,
-    new Vector3(0, 1.4, 0),
+    Math.PI / 2,           // looking from +Z toward origin → sees character's FRONT
+    Math.PI / 2.2,
+    3.6,
+    new Vector3(0, 1.3, 0),
     scene,
   );
-  camera.lowerRadiusLimit = 2.5;
+  camera.lowerRadiusLimit = 2.0;
   camera.upperRadiusLimit = 8;
   camera.lowerBetaLimit = 0.3;
   camera.upperBetaLimit = Math.PI / 1.9;
   camera.minZ = 0.1;
-  camera.fov = 0.85;
+  camera.fov = 0.95;
   camera.attachControl(_canvas, true);
   camera.panningSensibility = 0;
-  camera.wheelPrecision = 50;
+  camera.wheelPrecision = 60;
 
-  const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0), scene);
-  ambient.intensity = 0.4;
-  ambient.diffuse = new Color3(0.6, 0.55, 0.75);
-  ambient.groundColor = new Color3(0.1, 0.07, 0.18);
+  const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0.2), scene);
+  ambient.intensity = 0.55;
+  ambient.diffuse = new Color3(0.7, 0.6, 0.8);
+  ambient.groundColor = new Color3(0.12, 0.08, 0.2);
 
-  const key = new DirectionalLight("key", new Vector3(-0.4, -0.7, -0.4), scene);
-  key.intensity = 1.2;
-  key.diffuse = new Color3(1, 0.9, 0.7);
+  // Key light from upper-front-left (lights the face properly)
+  const key = new DirectionalLight("key", new Vector3(-0.4, -0.7, -0.6), scene);
+  key.intensity = 1.4;
+  key.diffuse = new Color3(1, 0.9, 0.72);
 
-  const rim = new DirectionalLight("rim", new Vector3(0.6, 0.2, 0.7), scene);
-  rim.intensity = 0.55;
-  rim.diffuse = new Color3(0.45, 0.7, 0.85);
+  // Rim from behind-right (kicks the silhouette)
+  const rim = new DirectionalLight("rim", new Vector3(0.5, 0.1, 0.8), scene);
+  rim.intensity = 0.7;
+  rim.diffuse = new Color3(0.55, 0.75, 0.95);
 
-  const fill = new DirectionalLight("fill", new Vector3(0.3, -0.4, -0.6), scene);
-  fill.intensity = 0.25;
-  fill.diffuse = new Color3(0.55, 0.5, 0.7);
+  // Front fill (face stays readable when camera orbits)
+  const fill = new DirectionalLight("fill", new Vector3(0, -0.3, -0.95), scene);
+  fill.intensity = 0.45;
+  fill.diffuse = new Color3(0.7, 0.65, 0.85);
 
   // Plinth
   const plinth = MeshBuilder.CreateCylinder(
@@ -102,7 +105,7 @@ export function buildCharacterCreatorScene(
   haloMat.emissiveColor = new Color3(0.6, 0.45, 0.18);
   halo.material = haloMat;
 
-  // Avatar
+  // Avatar — front-facing the camera (camera is at +Z, avatar faces +Z, perfect)
   const avatar = buildPlaceholderAvatar(scene);
   avatar.root.position.y = 0.13;
 
@@ -112,7 +115,7 @@ export function buildCharacterCreatorScene(
 
   const unsub = useCreator.subscribe((s) => morphController.apply(s.sliders));
 
-  // Slow turntable
+  // Slow turntable — small range so face stays visible most of the time
   const turntable = new Animation(
     "turntable",
     "rotation.y",
@@ -121,11 +124,12 @@ export function buildCharacterCreatorScene(
     Animation.ANIMATIONLOOPMODE_CYCLE,
   );
   turntable.setKeys([
-    { frame: 0, value: 0 },
-    { frame: 720, value: Math.PI * 2 },
+    { frame: 0,    value: -0.35 },
+    { frame: 240,  value:  0.35 },
+    { frame: 480,  value: -0.35 },
   ]);
   avatar.root.animations.push(turntable);
-  scene.beginAnimation(avatar.root, 0, 720, true, 0.5);
+  scene.beginAnimation(avatar.root, 0, 480, true, 0.4);
 
   const glow = new GlowLayer("creator-glow", scene);
   glow.intensity = 0.4;
