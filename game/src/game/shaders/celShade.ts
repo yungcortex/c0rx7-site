@@ -4,6 +4,7 @@ import {
   DefaultRenderingPipeline,
   ImageProcessingConfiguration,
   Color4,
+  SSAO2RenderingPipeline,
 } from "@babylonjs/core";
 
 /**
@@ -43,6 +44,24 @@ export function applyCelShade(scene: Scene, camera: Camera): DefaultRenderingPip
   ip.vignetteCameraFov = 0.5;
 
   ip.colorGradingEnabled = false;
+
+  // Try SSAO2 — gracefully bail on platforms that don't support it
+  try {
+    const ssao = new SSAO2RenderingPipeline(
+      "aetherwake-ssao",
+      scene,
+      0.75,
+      [camera],
+    );
+    ssao.radius = 1.4;
+    ssao.totalStrength = 1.0;
+    ssao.expensiveBlur = false;
+    ssao.samples = 8;
+    ssao.maxZ = 200;
+  } catch (e) {
+    // SSAO2 needs WebGL2; fallback platforms just go without
+    console.info("[celShade] SSAO2 unavailable; continuing without ambient occlusion");
+  }
 
   return pipeline;
 }

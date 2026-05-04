@@ -15,6 +15,7 @@ import {
   GlowLayer,
 } from "@babylonjs/core";
 import { applyCelShade } from "@game/shaders/celShade";
+import { applyStylizedToMesh } from "@game/shaders/celMaterial";
 
 /**
  * Title scene — painterly purple void, rotating placeholder Aspect crystal,
@@ -54,19 +55,29 @@ export function buildTitleScene(engine: Engine, _canvas: HTMLCanvasElement): Sce
   rim.intensity = 0.6;
   rim.diffuse = new Color3(0.42, 0.66, 0.83);
 
-  // Placeholder Aspect crystal — octahedron with gold standard mat
+  // Placeholder Aspect crystal — octahedron with cel shader + outline
   const crystal = MeshBuilder.CreatePolyhedron(
     "aspect-crystal",
     { type: 1, size: 1.1 },
     scene,
   );
   crystal.position.y = 0.4;
-  const crystalMat = new StandardMaterial("crystal-mat", scene);
-  crystalMat.diffuseColor = new Color3(0.78, 0.66, 0.34);
-  crystalMat.specularColor = new Color3(1, 0.9, 0.5);
-  crystalMat.emissiveColor = new Color3(0.18, 0.13, 0.04);
-  crystalMat.specularPower = 64;
-  crystal.material = crystalMat;
+  applyStylizedToMesh(
+    crystal,
+    scene,
+    {
+      baseColor: new Color3(0.95, 0.78, 0.42),       // gold
+      shadowTint: new Color3(0.55, 0.35, 0.6),       // warm purple shadow
+      highlightTint: new Color3(1.1, 1.0, 0.85),     // warm highlight
+      rimColor: new Color3(0.8, 0.65, 1.0),          // cyan-purple rim against scene purple
+      rimPower: 2.5,
+      rimIntensity: 1.2,
+      bands: 3,
+      ambient: 0.3,
+      lightDir: new Vector3(-0.4, -0.7, -0.5).normalize(),
+    },
+    { thickness: 0.04, color: new Color3(0.05, 0.02, 0.08) },
+  );
 
   // Slow rotation animation
   const anim = new Animation(

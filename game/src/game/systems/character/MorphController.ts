@@ -5,10 +5,11 @@ import {
   MorphTargetManager,
   TransformNode,
   Vector3,
-  StandardMaterial,
+  ShaderMaterial,
   Color3,
 } from "@babylonjs/core";
 import type { SliderState } from "@game/systems/character/SliderBlob";
+import { createCelMaterial, addOutline } from "@game/shaders/celMaterial";
 
 /**
  * MorphController owns the visible character avatar in a scene and applies a
@@ -24,11 +25,18 @@ export interface CharacterAvatar {
   root: TransformNode;
   body: Mesh;
   head: Mesh;
-  hair: Mesh;
-  skinMat: StandardMaterial;
-  hairMat: StandardMaterial;
-  eyeMatL: StandardMaterial;
-  eyeMatR: StandardMaterial;
+  hairRoot: TransformNode;
+  hairCards: Mesh[];
+  outfitTop: Mesh;
+  outfitBottom: Mesh;
+  eyebrows: Mesh[];
+  skinMat: ShaderMaterial;
+  hairMat: ShaderMaterial;
+  outfitTopMat: ShaderMaterial;
+  outfitBottomMat: ShaderMaterial;
+  browMat: ShaderMaterial;
+  eyeMatL: ShaderMaterial;
+  eyeMatR: ShaderMaterial;
   morphManager: MorphTargetManager | null;
   /** registry of morph-target influence setters by slider name */
   morphSetters: Map<string, (v01: number) => void>;
@@ -153,37 +161,36 @@ export class MorphController {
     const palette = SKIN_PALETTES[state.skin.paletteIndex] ?? SKIN_PALETTES[12]!;
     const baseSkin = new Color3(...palette.rgb);
     const undertoneShift = (state.skin.undertone - 2) * 0.04;
-    const skinTint = baseSkin
-      .add(new Color3(undertoneShift, 0, -undertoneShift))
-      .scale(1);
+    const skinTint = baseSkin.add(new Color3(undertoneShift, 0, -undertoneShift));
     skinTint.r = Math.max(0, Math.min(1, skinTint.r));
     skinTint.g = Math.max(0, Math.min(1, skinTint.g));
     skinTint.b = Math.max(0, Math.min(1, skinTint.b));
-    a.skinMat.diffuseColor = skinTint;
-    a.skinMat.specularColor = skinTint.scale(0.18);
+    a.skinMat.setColor3("baseColor", skinTint);
 
     // ---- Hair (use first gradient stop as primary tone)
     const hairStop = state.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
     const hairColor = hsvToRgb(hairStop.h, hairStop.s, hairStop.v);
-    a.hairMat.diffuseColor = hairColor;
-    a.hairMat.specularColor = hairColor.scale(0.15);
-    a.hair.scaling.y = 0.5 + (state.hair.density / 255) * 0.8;
-    a.hair.setEnabled(state.hair.style > 0);
+    a.hairMat.setColor3("baseColor", hairColor);
+    a.browMat.setColor3("baseColor", hairColor.scale(0.7));
+    a.hairRoot.scaling.set(1, 0.6 + (state.hair.density / 255) * 0.8, 1);
+    a.hairRoot.setEnabled(state.hair.style > 0);
+
+    // ---- Outfit (default neutral palette tinted by Aspect when known)
+    const outfitTopColor = new Color3(0.32, 0.22, 0.36);
+    const outfitBottomColor = new Color3(0.18, 0.13, 0.22);
+    a.outfitTopMat.setColor3("baseColor", outfitTopColor);
+    a.outfitBottomMat.setColor3("baseColor", outfitBottomColor);
 
     // ---- Eyes
-    a.eyeMatL.diffuseColor = hsvToRgb(
-      state.eyes.leftHsv.h,
-      state.eyes.leftHsv.s,
-      state.eyes.leftHsv.v,
-    );
-    a.eyeMatR.diffuseColor = hsvToRgb(
-      state.eyes.rightHsv.h,
-      state.eyes.rightHsv.s,
-      state.eyes.rightHsv.v,
-    );
+    const lc = hsvToRgb(state.eyes.leftHsv.h, state.eyes.leftHsv.s, state.eyes.leftHsv.v);
+    const rc = hsvToRgb(state.eyes.rightHsv.h, state.eyes.rightHsv.s, state.eyes.rightHsv.v);
+    a.eyeMatL.setColor3("baseColor", lc);
+    a.eyeMatR.setColor3("baseColor", rc);
     const glow = state.eyes.glow / 255;
-    a.eyeMatL.emissiveColor = a.eyeMatL.diffuseColor.scale(glow * 0.7);
-    a.eyeMatR.emissiveColor = a.eyeMatR.diffuseColor.scale(glow * 0.7);
+    a.eyeMatL.setColor3("rimColor", lc.scale(1 + glow * 1.5));
+    a.eyeMatR.setColor3("rimColor", rc.scale(1 + glow * 1.5));
+    a.eyeMatL.setFloat("rimIntensity", 0.6 + glow * 1.4);
+    a.eyeMatR.setFloat("rimIntensity", 0.6 + glow * 1.4);
 
     // ---- Morph targets (real mesh; no-op when placeholder)
     if (a.morphManager) {
@@ -218,66 +225,225 @@ function heritageHeight(heritage: SliderState["heritage"], heightSlider: number)
 }
 
 /**
- * Build a parametric humanoid placeholder. Returns a CharacterAvatar with
- * the nodes/materials wired up so MorphController can drive it. Eventually
- * replaced by a real glTF loader pulling from assets/models/character/.
+ * Build a parametric humanoid placeholder using cel-shaded materials and
+ * card-based hair. The mesh is still primitive — we'll replace with real
+ * MakeHuman/Blender output in Tier 2 — but every surface is now stylized.
+ *
+ *   Skin / hair / outfit / eyes all use a 3-band cel shader with warm-shadow
+ *   / cool-highlight tinting + Fresnel rim. Each gets an inverted-hull outline
+ *   pass at half-thickness for a hand-drawn read.
  */
 export function buildPlaceholderAvatar(scene: Scene): CharacterAvatar {
   const root = new TransformNode("avatar-root", scene);
 
-  const skinMat = new StandardMaterial("skin-mat", scene);
-  skinMat.diffuseColor = new Color3(0.85, 0.72, 0.58);
-  skinMat.specularColor = new Color3(0.18, 0.15, 0.12);
-  skinMat.specularPower = 32;
+  const skinMat = createCelMaterial(scene, {
+    baseColor: new Color3(0.85, 0.72, 0.58),
+    bands: 3,
+    shadowTint: new Color3(0.55, 0.4, 0.55),
+    highlightTint: new Color3(1.05, 1.0, 0.95),
+    rimColor: new Color3(0.95, 0.85, 0.65),
+    rimPower: 3.5,
+    rimIntensity: 0.6,
+    ambient: 0.32,
+  });
+  const hairMat = createCelMaterial(scene, {
+    baseColor: new Color3(0.18, 0.1, 0.05),
+    bands: 4,
+    shadowTint: new Color3(0.4, 0.3, 0.5),
+    highlightTint: new Color3(1.3, 1.15, 0.9),
+    rimColor: new Color3(1, 0.9, 0.7),
+    rimPower: 2.5,
+    rimIntensity: 1.4,
+    ambient: 0.22,
+  });
+  const browMat = createCelMaterial(scene, {
+    baseColor: new Color3(0.12, 0.07, 0.04),
+    bands: 2,
+    rimIntensity: 0,
+    ambient: 0.5,
+  });
+  const outfitTopMat = createCelMaterial(scene, {
+    baseColor: new Color3(0.32, 0.22, 0.36),
+    bands: 3,
+    shadowTint: new Color3(0.4, 0.25, 0.5),
+    highlightTint: new Color3(1.05, 1.0, 1.05),
+    rimColor: new Color3(0.6, 0.7, 1.0),
+    rimPower: 3,
+    rimIntensity: 0.5,
+    ambient: 0.25,
+  });
+  const outfitBottomMat = createCelMaterial(scene, {
+    baseColor: new Color3(0.18, 0.13, 0.22),
+    bands: 3,
+    shadowTint: new Color3(0.3, 0.2, 0.4),
+    highlightTint: new Color3(1.0, 0.95, 1.0),
+    rimColor: new Color3(0.5, 0.6, 0.9),
+    rimPower: 3,
+    rimIntensity: 0.45,
+    ambient: 0.22,
+  });
+  const eyeMatL = createCelMaterial(scene, {
+    baseColor: new Color3(0.18, 0.32, 0.45),
+    bands: 2,
+    rimColor: new Color3(0.4, 0.8, 1),
+    rimIntensity: 1.2,
+    ambient: 0.6,
+  });
+  const eyeMatR = createCelMaterial(scene, {
+    baseColor: new Color3(0.18, 0.32, 0.45),
+    bands: 2,
+    rimColor: new Color3(0.4, 0.8, 1),
+    rimIntensity: 1.2,
+    ambient: 0.6,
+  });
 
-  const hairMat = new StandardMaterial("hair-mat", scene);
-  hairMat.diffuseColor = new Color3(0.18, 0.1, 0.05);
-  hairMat.specularColor = new Color3(0.15, 0.08, 0.04);
+  const OUTLINE = { thickness: 0.018, color: new Color3(0.04, 0.02, 0.08) };
 
-  const eyeMatL = new StandardMaterial("eye-mat-l", scene);
-  eyeMatL.diffuseColor = new Color3(0.18, 0.32, 0.45);
-  eyeMatL.emissiveColor = new Color3(0.04, 0.08, 0.12);
+  // Torso (outfit top) — wraps the chest
+  const outfitTop = MeshBuilder.CreateCapsule(
+    "avatar-outfit-top",
+    { radius: 0.34, height: 0.95, tessellation: 16 },
+    scene,
+  );
+  outfitTop.parent = root;
+  outfitTop.position.y = 1.2;
+  outfitTop.material = outfitTopMat;
+  addOutline(outfitTop, scene, OUTLINE);
 
-  const eyeMatR = new StandardMaterial("eye-mat-r", scene);
-  eyeMatR.diffuseColor = new Color3(0.18, 0.32, 0.45);
-  eyeMatR.emissiveColor = new Color3(0.04, 0.08, 0.12);
+  // Lower body (pants)
+  const outfitBottom = MeshBuilder.CreateCapsule(
+    "avatar-outfit-bottom",
+    { radius: 0.3, height: 0.95, tessellation: 16 },
+    scene,
+  );
+  outfitBottom.parent = root;
+  outfitBottom.position.y = 0.55;
+  outfitBottom.material = outfitBottomMat;
+  addOutline(outfitBottom, scene, OUTLINE);
 
-  // Body — capsule
+  // Body — bare skin around the joint between top and bottom (neck/wrists area)
   const body = MeshBuilder.CreateCapsule(
     "avatar-body",
-    { radius: 0.32, height: 1.7, tessellation: 16 },
+    { radius: 0.31, height: 1.7, tessellation: 16 },
     scene,
   );
   body.parent = root;
   body.position.y = 1.0;
   body.material = skinMat;
+  body.isPickable = false;
+  body.visibility = 0.0; // hidden — outfit covers, but kept for proportion + outlining
 
-  // Head — sphere
+  // Arms (skin) — show forearm-down
+  const armL = MeshBuilder.CreateCapsule(
+    "avatar-arm-l",
+    { radius: 0.085, height: 0.7, tessellation: 12 },
+    scene,
+  );
+  armL.parent = root;
+  armL.position.set(-0.4, 1.05, 0);
+  armL.rotation.z = 0.05;
+  armL.material = skinMat;
+  addOutline(armL, scene, OUTLINE);
+
+  const armR = MeshBuilder.CreateCapsule(
+    "avatar-arm-r",
+    { radius: 0.085, height: 0.7, tessellation: 12 },
+    scene,
+  );
+  armR.parent = root;
+  armR.position.set(0.4, 1.05, 0);
+  armR.rotation.z = -0.05;
+  armR.material = skinMat;
+  addOutline(armR, scene, OUTLINE);
+
+  // Head — sphere with soft cel skin
   const head = MeshBuilder.CreateSphere("avatar-head", { diameter: 0.42, segments: 24 }, scene);
   head.parent = root;
   head.position.y = 1.95;
   head.material = skinMat;
+  addOutline(head, scene, { ...OUTLINE, thickness: 0.014 });
 
-  // Hair — torus + sphere top
-  const hair = MeshBuilder.CreateSphere(
-    "avatar-hair",
-    { diameter: 0.46, segments: 16, slice: 0.6 },
-    scene,
-  );
-  hair.parent = root;
-  hair.position.y = 2.04;
-  hair.scaling.y = 0.6;
-  hair.material = hairMat;
-
-  const eyeL = MeshBuilder.CreateSphere("eye-l", { diameter: 0.06 }, scene);
+  // Eyes — flatter discs with rim glow
+  const eyeL = MeshBuilder.CreateSphere("eye-l", { diameter: 0.07, segments: 12 }, scene);
   eyeL.parent = head;
-  eyeL.position.set(-0.07, 0.02, 0.18);
+  eyeL.position.set(-0.07, 0.018, 0.175);
+  eyeL.scaling.set(1, 0.7, 0.5);
   eyeL.material = eyeMatL;
 
-  const eyeR = MeshBuilder.CreateSphere("eye-r", { diameter: 0.06 }, scene);
+  const eyeR = MeshBuilder.CreateSphere("eye-r", { diameter: 0.07, segments: 12 }, scene);
   eyeR.parent = head;
-  eyeR.position.set(0.07, 0.02, 0.18);
+  eyeR.position.set(0.07, 0.018, 0.175);
+  eyeR.scaling.set(1, 0.7, 0.5);
   eyeR.material = eyeMatR;
+
+  // Eyebrows — small flattened cards
+  const browL = MeshBuilder.CreateBox(
+    "brow-l",
+    { width: 0.075, height: 0.012, depth: 0.018 },
+    scene,
+  );
+  browL.parent = head;
+  browL.position.set(-0.07, 0.07, 0.19);
+  browL.rotation.z = 0.18;
+  browL.material = browMat;
+
+  const browR = MeshBuilder.CreateBox(
+    "brow-r",
+    { width: 0.075, height: 0.012, depth: 0.018 },
+    scene,
+  );
+  browR.parent = head;
+  browR.position.set(0.07, 0.07, 0.19);
+  browR.rotation.z = -0.18;
+  browR.material = browMat;
+
+  // Hair — multi-card layered fan instead of single sphere
+  const hairRoot = new TransformNode("hair-root", scene);
+  hairRoot.parent = root;
+  hairRoot.position.y = 2.04;
+
+  const hairCards: Mesh[] = [];
+  // Crown / scalp piece
+  const crown = MeshBuilder.CreateSphere(
+    "hair-crown",
+    { diameter: 0.46, segments: 14, slice: 0.55 },
+    scene,
+  );
+  crown.parent = hairRoot;
+  crown.scaling.set(1.05, 0.65, 1.05);
+  crown.material = hairMat;
+  addOutline(crown, scene, OUTLINE);
+  hairCards.push(crown);
+
+  // Side & back fringe cards (planes that fan out)
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const card = MeshBuilder.CreatePlane(
+      `hair-card-${i}`,
+      { width: 0.18, height: 0.36 },
+      scene,
+    );
+    card.parent = hairRoot;
+    card.position.set(Math.cos(ang) * 0.18, -0.12, Math.sin(ang) * 0.18);
+    card.rotation.y = ang + Math.PI;
+    card.rotation.x = -0.05;
+    card.material = hairMat;
+    hairCards.push(card);
+  }
+  // Front fringe pair (slightly forward)
+  for (let i = 0; i < 3; i++) {
+    const offset = (i - 1) * 0.12;
+    const fringe = MeshBuilder.CreatePlane(
+      `hair-fringe-${i}`,
+      { width: 0.16, height: 0.22 },
+      scene,
+    );
+    fringe.parent = hairRoot;
+    fringe.position.set(offset, 0.02, 0.2);
+    fringe.rotation.x = 0.4;
+    fringe.material = hairMat;
+    hairCards.push(fringe);
+  }
 
   // Pivot the root so it sits on the ground (y=0)
   root.position = new Vector3(0, 0, 0);
@@ -286,9 +452,16 @@ export function buildPlaceholderAvatar(scene: Scene): CharacterAvatar {
     root,
     body,
     head,
-    hair,
+    hairRoot,
+    hairCards,
+    outfitTop,
+    outfitBottom,
+    eyebrows: [browL, browR],
     skinMat,
     hairMat,
+    outfitTopMat,
+    outfitBottomMat,
+    browMat,
     eyeMatL,
     eyeMatR,
     morphManager: null,

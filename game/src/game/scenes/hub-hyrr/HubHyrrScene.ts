@@ -18,6 +18,7 @@ import {
   Quaternion,
 } from "@babylonjs/core";
 import { applyCelShade } from "@game/shaders/celShade";
+import { applyStylizedToMesh, createCelMaterial, addOutline } from "@game/shaders/celMaterial";
 import {
   buildPlaceholderAvatar,
   MorphController,
@@ -152,11 +153,21 @@ export function buildHubHyrrScene(engine: Engine, canvas: HTMLCanvasElement): Sc
     );
     ring.parent = spireRoot;
     ring.position.y = 4 + i * 3.5;
-    const ringMat = new StandardMaterial(`spire-ring-mat-${i}`, scene);
-    ringMat.diffuseColor = new Color3(0.78, 0.66, 0.34);
-    ringMat.emissiveColor = new Color3(0.32, 0.24, 0.1);
-    ringMat.specularColor = new Color3(1, 0.9, 0.5);
-    ring.material = ringMat;
+    applyStylizedToMesh(
+      ring,
+      scene,
+      {
+        baseColor: new Color3(0.95, 0.78, 0.35),
+        bands: 4,
+        shadowTint: new Color3(0.65, 0.4, 0.55),
+        highlightTint: new Color3(1.2, 1.1, 0.85),
+        rimColor: new Color3(1, 0.95, 0.7),
+        rimIntensity: 1.5,
+        rimPower: 2,
+        ambient: 0.4,
+      },
+      { thickness: 0.02, color: new Color3(0.18, 0.08, 0.04) },
+    );
 
     // Slow counter-rotation
     const spin = new Animation(
@@ -183,11 +194,21 @@ export function buildHubHyrrScene(engine: Engine, canvas: HTMLCanvasElement): Sc
   );
   spireCap.parent = spireRoot;
   spireCap.position.y = 15.5;
-  const capMat = new StandardMaterial("spire-cap-mat", scene);
-  capMat.diffuseColor = new Color3(0.95, 0.82, 0.45);
-  capMat.emissiveColor = new Color3(0.6, 0.45, 0.2);
-  capMat.specularColor = new Color3(1, 0.9, 0.5);
-  spireCap.material = capMat;
+  applyStylizedToMesh(
+    spireCap,
+    scene,
+    {
+      baseColor: new Color3(1.0, 0.85, 0.45),
+      bands: 5,
+      shadowTint: new Color3(0.85, 0.55, 0.6),
+      highlightTint: new Color3(1.4, 1.25, 1.0),
+      rimColor: new Color3(1, 1, 0.9),
+      rimIntensity: 2.2,
+      rimPower: 1.8,
+      ambient: 0.55,
+    },
+    { thickness: 0.025, color: new Color3(0.2, 0.1, 0.04) },
+  );
 
   const capSpin = new Animation(
     "spire-cap-spin",
@@ -351,10 +372,20 @@ function buildBuilding(
   );
   body.parent = root;
   body.position.y = 3.5;
-  const bodyMat = new StandardMaterial("bld-body-mat", scene);
-  bodyMat.diffuseColor = baseColor;
-  bodyMat.specularColor = new Color3(0.05, 0.05, 0.05);
-  body.material = bodyMat;
+  applyStylizedToMesh(
+    body,
+    scene,
+    {
+      baseColor,
+      bands: 3,
+      shadowTint: new Color3(0.4, 0.25, 0.5),
+      highlightTint: new Color3(1.1, 1.0, 1.05),
+      rimColor: new Color3(0.6, 0.7, 1.0),
+      rimIntensity: 0.4,
+      ambient: 0.28,
+    },
+    { thickness: 0.04, color: new Color3(0.05, 0.02, 0.08) },
+  );
 
   const roof: Mesh = MeshBuilder.CreateCylinder(
     "bld-roof",
@@ -364,10 +395,20 @@ function buildBuilding(
   roof.parent = root;
   roof.position.y = 8.5;
   roof.rotation.y = Math.PI / 4;
-  const roofMat = new StandardMaterial("bld-roof-mat", scene);
-  roofMat.diffuseColor = baseColor.scale(0.6);
-  roofMat.specularColor = new Color3(0.05, 0.05, 0.05);
-  roof.material = roofMat;
+  applyStylizedToMesh(
+    roof,
+    scene,
+    {
+      baseColor: baseColor.scale(0.55),
+      bands: 3,
+      shadowTint: new Color3(0.35, 0.22, 0.45),
+      highlightTint: new Color3(1.05, 1.0, 1.0),
+      rimColor: new Color3(0.8, 0.6, 0.5),
+      rimIntensity: 0.5,
+      ambient: 0.22,
+    },
+    { thickness: 0.05, color: new Color3(0.05, 0.02, 0.08) },
+  );
 
   // Door
   const door = MeshBuilder.CreateBox(
@@ -377,10 +418,20 @@ function buildBuilding(
   );
   door.parent = root;
   door.position.set(0, 1.2, 2.55);
-  const doorMat = new StandardMaterial("bld-door-mat", scene);
-  doorMat.diffuseColor = new Color3(0.78, 0.66, 0.34);
-  doorMat.emissiveColor = new Color3(0.18, 0.13, 0.04);
-  door.material = doorMat;
+  applyStylizedToMesh(
+    door,
+    scene,
+    {
+      baseColor: new Color3(0.85, 0.7, 0.35),
+      bands: 3,
+      shadowTint: new Color3(0.5, 0.35, 0.5),
+      highlightTint: new Color3(1.2, 1.1, 0.9),
+      rimColor: new Color3(1, 0.9, 0.6),
+      rimIntensity: 0.7,
+      ambient: 0.45,
+    },
+    false,
+  );
 
   // Window panes (lit)
   for (let i = 0; i < 2; i++) {
@@ -391,10 +442,13 @@ function buildBuilding(
     );
     win.parent = root;
     win.position.set(-1.7 + i * 3.4, 4.3, 2.51);
-    const winMat = new StandardMaterial("bld-win-mat", scene);
-    winMat.diffuseColor = new Color3(0.9, 0.65, 0.3);
-    winMat.emissiveColor = new Color3(0.65, 0.4, 0.15);
-    winMat.specularColor = new Color3(0, 0, 0);
+    const winMat = createCelMaterial(scene, {
+      baseColor: new Color3(1, 0.7, 0.32),
+      bands: 2,
+      rimColor: new Color3(1, 0.9, 0.6),
+      rimIntensity: 1.4,
+      ambient: 0.85,
+    });
     win.material = winMat;
   }
 }
@@ -406,18 +460,30 @@ function buildLantern(scene: Scene, x: number, z: number) {
     scene,
   );
   post.position.set(x, 1.3, z);
-  const postMat = new StandardMaterial("lantern-post-mat", scene);
-  postMat.diffuseColor = new Color3(0.18, 0.14, 0.22);
-  postMat.specularColor = new Color3(0.05, 0.05, 0.05);
-  post.material = postMat;
+  applyStylizedToMesh(
+    post,
+    scene,
+    {
+      baseColor: new Color3(0.18, 0.14, 0.22),
+      bands: 3,
+      ambient: 0.25,
+      rimIntensity: 0.3,
+    },
+    { thickness: 0.012, color: new Color3(0.05, 0.02, 0.08) },
+  );
 
   const bulb = MeshBuilder.CreateSphere("lantern-bulb", { diameter: 0.45 }, scene);
   bulb.position.set(x, 2.7, z);
-  const bulbMat = new StandardMaterial("lantern-bulb-mat", scene);
-  bulbMat.diffuseColor = new Color3(0.95, 0.7, 0.35);
-  bulbMat.emissiveColor = new Color3(0.85, 0.55, 0.25);
-  bulbMat.specularColor = new Color3(0, 0, 0);
+  const bulbMat = createCelMaterial(scene, {
+    baseColor: new Color3(1.0, 0.75, 0.35),
+    bands: 2,
+    rimColor: new Color3(1, 0.95, 0.6),
+    rimIntensity: 2.0,
+    rimPower: 1.5,
+    ambient: 0.85,
+  });
   bulb.material = bulbMat;
+  addOutline(bulb, scene, { thickness: 0.012, color: new Color3(0.4, 0.25, 0.05) });
 }
 
 function createSpriteTexture(scene: Scene, color: string): Texture {
