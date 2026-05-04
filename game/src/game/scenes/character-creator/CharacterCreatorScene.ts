@@ -23,6 +23,7 @@ import { useCreator } from "@state/character";
 import { TransformNode } from "@babylonjs/core";
 import { characterMeshes } from "@game/config/assetManifest";
 import type { Heritage } from "@game/systems/character/SliderBlob";
+import { buildCostume, type Costume } from "@game/systems/character/Costume";
 
 export type LightPreset = "sunset" | "dungeon" | "town";
 
@@ -89,17 +90,29 @@ export function buildCharacterCreatorScene(
   fill.intensity = 0.45;
   fill.diffuse = new Color3(0.7, 0.65, 0.85);
 
-  // Plinth
-  const plinth = MeshBuilder.CreateCylinder(
-    "plinth",
-    { diameterTop: 1.6, diameterBottom: 1.8, height: 0.25, tessellation: 24 },
+  // Plinth — multi-tier so it reads as a heroic platform, not a coaster
+  const plinthBase = MeshBuilder.CreateCylinder(
+    "plinth-base",
+    { diameterTop: 2.0, diameterBottom: 2.2, height: 0.18, tessellation: 24 },
     scene,
   );
-  plinth.position.y = 0;
+  plinthBase.position.y = 0;
   const plinthMat = new StandardMaterial("plinth-mat", scene);
-  plinthMat.diffuseColor = new Color3(0.16, 0.12, 0.22);
+  plinthMat.diffuseColor = new Color3(0.14, 0.1, 0.2);
   plinthMat.specularColor = new Color3(0.05, 0.05, 0.05);
-  plinth.material = plinthMat;
+  plinthBase.material = plinthMat;
+
+  const plinthMid = MeshBuilder.CreateCylinder(
+    "plinth-mid",
+    { diameterTop: 1.7, diameterBottom: 1.85, height: 0.1, tessellation: 24 },
+    scene,
+  );
+  plinthMid.position.y = 0.14;
+  const plinthMidMat = new StandardMaterial("plinth-mid-mat", scene);
+  plinthMidMat.diffuseColor = new Color3(0.4, 0.32, 0.16);
+  plinthMidMat.specularColor = new Color3(0.3, 0.25, 0.12);
+  plinthMidMat.emissiveColor = new Color3(0.15, 0.12, 0.05);
+  plinthMid.material = plinthMidMat;
 
   // Halo ring on the floor
   const halo = MeshBuilder.CreateTorus(
@@ -128,6 +141,7 @@ export function buildCharacterCreatorScene(
   // visible; the rest are hidden but live in the scene.
   const loadedByHeritage = new Map<Heritage, LoadedAvatar>();
   const rootByHeritage = new Map<Heritage, TransformNode>();
+  const costumeByHeritage = new Map<Heritage, Costume>();
   let loadedAvatar: LoadedAvatar | null = null;
   let activeHeritage: Heritage | null = null;
 
@@ -196,6 +210,10 @@ export function buildCharacterCreatorScene(
         rootByHeritage.set(heritage, heritageRoot);
         avatar.root.setEnabled(false);
         playIdle(la, scene);
+
+        // Layer the procedural costume + weapon + aura on top of the bare mesh
+        const costume = buildCostume(scene, heritageRoot, { heritage });
+        costumeByHeritage.set(heritage, costume);
       } catch (err) {
         console.warn(`[creator] failed loading ${heritage} glb (${url}):`, err);
         if (heritageRoot) heritageRoot.dispose();
@@ -281,7 +299,9 @@ export function buildCharacterCreatorScene(
     dispose: () => {
       unsub();
       morphController.detach();
+      for (const c of costumeByHeritage.values()) c.dispose();
       for (const la of loadedByHeritage.values()) la.dispose();
+      costumeByHeritage.clear();
       loadedByHeritage.clear();
       rootByHeritage.clear();
     },
