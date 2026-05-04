@@ -53,29 +53,81 @@ const PRIMARY_URL = "https://assets.babylonjs.com/meshes/HVGirl.glb";
 
 /**
  * Detect what region a sub-mesh belongs to by name heuristics. HVGirl uses
- * descriptive mesh names (Hair, Body, Eye, etc.) so we can route them.
+ * descriptive mesh names; this is a permissive matcher so we route most
+ * possible namings cleanly.
  */
 function classifyMeshName(name: string): "skin" | "hair" | "outfit" | "other" {
   const n = name.toLowerCase();
-  if (n.includes("hair")) return "hair";
-  if (n.includes("eye") || n.includes("brow") || n.includes("lash")) return "other";
-  if (n.includes("face") || n.includes("head") || n.includes("body") || n.includes("skin") || n.includes("arm") || n.includes("leg") || n.includes("hand"))
+  if (n.includes("hair") || n.includes("ponytail") || n.includes("braid") || n.includes("fringe")) return "hair";
+  if (n.includes("eye") || n.includes("brow") || n.includes("lash") || n.includes("teeth") || n.includes("tongue") || n.includes("pupil") || n.includes("iris")) return "other";
+  if (
+    n.includes("face") ||
+    n.includes("head") ||
+    n.includes("body") ||
+    n.includes("skin") ||
+    n.includes("arm") ||
+    n.includes("leg") ||
+    n.includes("hand") ||
+    n.includes("foot") ||
+    n.includes("torso") ||
+    n.includes("neck")
+  )
     return "skin";
-  if (n.includes("cloth") || n.includes("shirt") || n.includes("dress") || n.includes("pant") || n.includes("skirt") || n.includes("shoe") || n.includes("boot") || n.includes("top") || n.includes("bottom"))
+  if (
+    n.includes("cloth") ||
+    n.includes("shirt") ||
+    n.includes("dress") ||
+    n.includes("pant") ||
+    n.includes("skirt") ||
+    n.includes("shoe") ||
+    n.includes("boot") ||
+    n.includes("top") ||
+    n.includes("bottom") ||
+    n.includes("jacket") ||
+    n.includes("robe") ||
+    n.includes("suit") ||
+    n.includes("uniform") ||
+    n.includes("vest") ||
+    n.includes("collar") ||
+    n.includes("hood") ||
+    n.includes("hat") ||
+    n.includes("cape") ||
+    n.includes("scarf") ||
+    n.includes("glove") ||
+    n.includes("sock") ||
+    n.includes("legs") ||
+    n.includes("upper") ||
+    n.includes("lower")
+  )
     return "outfit";
-  return "outfit"; // default unknown to outfit (clothing is most common)
+  // Unknown → treat as skin so tinting still does something visible
+  return "skin";
 }
 
 /**
- * Set the material's base colour, regardless of whether it's PBR or Standard.
+ * Aggressively tint a PBR/Standard material toward the given color. We
+ * preserve any texture detail (face features painted into the diffuse map)
+ * but bias the overall hue toward the target so sliders are *visible*.
+ *
+ * Strategy:
+ * - albedoColor / diffuseColor multiplier is the primary handle (white-balance
+ *   bias on top of the original texture).
+ * - emissiveColor adds a constant additive tint of ~25% so even with a strong
+ *   texture, the slider hue is unmistakable.
+ * - For hair/outfit we go harder (40% emissive add) since those are usually
+ *   pure-colour regions.
  */
-function setMaterialColor(mat: any, color: Color3) {
+function setMaterialColor(mat: any, color: Color3, mode: "skin" | "hair" | "outfit") {
+  const emissiveStrength = mode === "skin" ? 0.18 : 0.4;
   if (mat instanceof PBRMaterial) {
     mat.albedoColor = color;
-    mat.emissiveColor = color.scale(0.04); // tiny emissive lift for painterly read
+    mat.emissiveColor = color.scale(emissiveStrength);
+    // Tame the texture if present so the tint reads
+    mat.environmentIntensity = 0.25;
+    mat.directIntensity = 1.6;
   } else if (mat instanceof StandardMaterial) {
     mat.diffuseColor = color;
-    mat.emissiveColor = color.scale(0.04);
+    mat.emissiveColor = color.scale(emissiveStrength);
   }
 }
 
@@ -118,19 +170,27 @@ export async function loadAvatar(
     other: [],
   };
 
+  const meshNamesByRegion: Record<string, string[]> = {
+    skin: [],
+    hair: [],
+    outfit: [],
+    other: [],
+  };
+
   for (const m of meshes) {
     if (!(m instanceof Mesh)) continue;
+    if (!m.material) continue;
     const region = classifyMeshName(m.name);
     meshesByRegion[region].push(m);
+    meshNamesByRegion[region]!.push(m.name);
 
     // Painterly tweaks to the existing material — preserves skinning
     if (m.material instanceof PBRMaterial) {
       const pbr = m.material;
       pbr.metallic = 0;
       pbr.roughness = 1;
-      pbr.environmentIntensity = 0.3;
-      pbr.directIntensity = 1.4;
-      // A little ambient lift so banded post-FX has somewhere to bite
+      pbr.environmentIntensity = 0.25;
+      pbr.directIntensity = 1.6;
       if (pbr.ambientColor) pbr.ambientColor = new Color3(0.35, 0.3, 0.42);
     } else if (m.material instanceof StandardMaterial) {
       const std = m.material;
@@ -146,15 +206,23 @@ export async function loadAvatar(
     }
   }
 
+  // Diagnostic: log the breakdown so we can tune the classifier
+  console.info(
+    "[AvatarLoader] mesh classification:",
+    Object.fromEntries(
+      Object.entries(meshNamesByRegion).map(([k, v]) => [k, v.length ? v : "(none)"]),
+    ),
+  );
+
   const applyCelMats = (skinColor: Color3, hairColor: Color3, outfitColor: Color3) => {
     for (const m of meshesByRegion.skin) {
-      if (m.material) setMaterialColor(m.material, skinColor);
+      if (m.material) setMaterialColor(m.material, skinColor, "skin");
     }
     for (const m of meshesByRegion.hair) {
-      if (m.material) setMaterialColor(m.material, hairColor);
+      if (m.material) setMaterialColor(m.material, hairColor, "hair");
     }
     for (const m of meshesByRegion.outfit) {
-      if (m.material) setMaterialColor(m.material, outfitColor);
+      if (m.material) setMaterialColor(m.material, outfitColor, "outfit");
     }
   };
 
