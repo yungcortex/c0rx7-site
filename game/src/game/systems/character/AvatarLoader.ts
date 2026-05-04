@@ -12,16 +12,19 @@ import {
   Skeleton,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
-import { createCelMaterial, addOutline } from "@game/shaders/celMaterial";
 
 /**
- * Loads an external rigged humanoid glb and dresses every sub-mesh in our
- * cel shader. The result is a real character (~13K tris, properly skinned)
- * with the painterly art direction applied on top.
+ * Loads an external rigged humanoid glb. Keeps the asset's original
+ * materials (so skinning + bone weights keep working) and uses Babylon's
+ * native renderOutline path for the painterly outline. Slider updates
+ * re-tint the materials in place.
+ *
+ * Custom GLSL cel shading on a skinned mesh is non-trivial (needs bone
+ * matrices in the vertex shader) — instead we layer painterly look via
+ * post-process pipeline and per-mesh colour modulation. Worth upgrading
+ * to a proper cel-skinning shader later, but not load-bearing for v1.
  *
  * Source: Babylon's free HVGirl asset on assets.babylonjs.com (CC0).
- * It's a stylized humanoid with face geometry, hair, clothing, and a
- * working skeleton — perfect placeholder until our own meshes are authored.
  *
  * Future: swap the URL for our authored glb in `assets/models/character/`
  * and the rest of the pipeline keeps working.
@@ -31,12 +34,12 @@ export interface LoadedAvatar {
   root: TransformNode;
   meshes: AbstractMesh[];
   skeletons: Skeleton[];
-  /** Per-region material map so we can re-tint when sliders change */
-  materialsByRegion: {
-    skin: ReturnType<typeof createCelMaterial>[];
-    hair: ReturnType<typeof createCelMaterial>[];
-    outfit: ReturnType<typeof createCelMaterial>[];
-    other: ReturnType<typeof createCelMaterial>[];
+  /** Per-region mesh map so we can re-tint when sliders change */
+  meshesByRegion: {
+    skin: AbstractMesh[];
+    hair: AbstractMesh[];
+    outfit: AbstractMesh[];
+    other: AbstractMesh[];
   };
   applyCelMats: (
     skinColor: Color3,
@@ -64,17 +67,16 @@ function classifyMeshName(name: string): "skin" | "hair" | "outfit" | "other" {
 }
 
 /**
- * Extract the dominant base color from a loaded material so we preserve
- * the original asset's per-region tints when no slider override is given.
+ * Set the material's base colour, regardless of whether it's PBR or Standard.
  */
-function extractBaseColor(mat: any): Color3 {
+function setMaterialColor(mat: any, color: Color3) {
   if (mat instanceof PBRMaterial) {
-    return mat.albedoColor?.clone() ?? new Color3(0.8, 0.7, 0.6);
+    mat.albedoColor = color;
+    mat.emissiveColor = color.scale(0.04); // tiny emissive lift for painterly read
+  } else if (mat instanceof StandardMaterial) {
+    mat.diffuseColor = color;
+    mat.emissiveColor = color.scale(0.04);
   }
-  if (mat instanceof StandardMaterial) {
-    return mat.diffuseColor?.clone() ?? new Color3(0.8, 0.7, 0.6);
-  }
-  return new Color3(0.8, 0.7, 0.6);
 }
 
 export async function loadAvatar(
@@ -107,8 +109,9 @@ export async function loadAvatar(
   }
   root.scaling = new Vector3(scale, scale, scale);
 
-  // Replace materials with cel shaders, classified by region
-  const materialsByRegion: LoadedAvatar["materialsByRegion"] = {
+  // Categorise meshes by region; tint the underlying material instead of
+  // replacing it (replacing breaks bone-skinning).
+  const meshesByRegion: LoadedAvatar["meshesByRegion"] = {
     skin: [],
     hair: [],
     outfit: [],
@@ -117,76 +120,49 @@ export async function loadAvatar(
 
   for (const m of meshes) {
     if (!(m instanceof Mesh)) continue;
-    if (!m.material) continue;
     const region = classifyMeshName(m.name);
-    const baseColor = extractBaseColor(m.material);
+    meshesByRegion[region].push(m);
 
-    const celOpts = {
-      skin: {
-        baseColor,
-        bands: 3,
-        shadowTint: new Color3(0.65, 0.45, 0.55),
-        highlightTint: new Color3(1.08, 1.02, 0.95),
-        rimColor: new Color3(1.0, 0.85, 0.65),
-        rimPower: 3.5,
-        rimIntensity: 0.5,
-        ambient: 0.45,
-      },
-      hair: {
-        baseColor,
-        bands: 4,
-        shadowTint: new Color3(0.35, 0.25, 0.45),
-        highlightTint: new Color3(1.5, 1.25, 0.95),
-        rimColor: new Color3(1, 0.9, 0.7),
-        rimPower: 2.2,
-        rimIntensity: 1.6,
-        ambient: 0.28,
-      },
-      outfit: {
-        baseColor,
-        bands: 3,
-        shadowTint: new Color3(0.45, 0.3, 0.55),
-        highlightTint: new Color3(1.08, 1.0, 1.08),
-        rimColor: new Color3(0.65, 0.75, 1.0),
-        rimPower: 3,
-        rimIntensity: 0.55,
-        ambient: 0.32,
-      },
-      other: {
-        baseColor,
-        bands: 2,
-        rimIntensity: 0.6,
-        ambient: 0.55,
-      },
-    }[region];
+    // Painterly tweaks to the existing material — preserves skinning
+    if (m.material instanceof PBRMaterial) {
+      const pbr = m.material;
+      pbr.metallic = 0;
+      pbr.roughness = 1;
+      pbr.environmentIntensity = 0.3;
+      pbr.directIntensity = 1.4;
+      // A little ambient lift so banded post-FX has somewhere to bite
+      if (pbr.ambientColor) pbr.ambientColor = new Color3(0.35, 0.3, 0.42);
+    } else if (m.material instanceof StandardMaterial) {
+      const std = m.material;
+      std.specularColor = new Color3(0.1, 0.1, 0.12);
+      std.specularPower = 32;
+    }
 
-    const cel = createCelMaterial(scene, celOpts);
-    m.material = cel;
-    materialsByRegion[region].push(cel);
-
+    // Babylon's native outline renderer — works on skinned meshes
     if (useOutline && region !== "other") {
-      try {
-        addOutline(m, scene, {
-          thickness: region === "hair" ? 0.5 : 0.4, // world-space thickness scales with mesh, our scale is 0.04
-          color: new Color3(0.04, 0.02, 0.08),
-        });
-      } catch (e) {
-        // Some glb sub-meshes don't support cloning (lines, etc) — skip silently
-      }
+      m.renderOutline = true;
+      m.outlineWidth = region === "hair" ? 0.6 : 0.4;
+      m.outlineColor = new Color3(0.04, 0.02, 0.08);
     }
   }
 
   const applyCelMats = (skinColor: Color3, hairColor: Color3, outfitColor: Color3) => {
-    materialsByRegion.skin.forEach((m) => m.setColor3("baseColor", skinColor));
-    materialsByRegion.hair.forEach((m) => m.setColor3("baseColor", hairColor));
-    materialsByRegion.outfit.forEach((m) => m.setColor3("baseColor", outfitColor));
+    for (const m of meshesByRegion.skin) {
+      if (m.material) setMaterialColor(m.material, skinColor);
+    }
+    for (const m of meshesByRegion.hair) {
+      if (m.material) setMaterialColor(m.material, hairColor);
+    }
+    for (const m of meshesByRegion.outfit) {
+      if (m.material) setMaterialColor(m.material, outfitColor);
+    }
   };
 
   return {
     root,
     meshes,
     skeletons,
-    materialsByRegion,
+    meshesByRegion,
     applyCelMats,
     dispose: () => {
       container.removeAllFromScene();
