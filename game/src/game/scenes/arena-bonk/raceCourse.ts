@@ -58,11 +58,15 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
   const segments: Segment[] = [];
   let zCursor = 0;
 
+  // Widened track: 14m wide (was 6m). Player has way more room to dodge.
+  const TRACK_HALF_WIDTH = 7;
+  const TRACK_WIDTH = TRACK_HALF_WIDTH * 2;
+
   // ============== 1. START PAD ==============
   const startLen = 8;
   const startPad = MeshBuilder.CreateBox(
     "race-start",
-    { width: 6, height: 1, depth: startLen },
+    { width: TRACK_WIDTH, height: 1, depth: startLen },
     scene,
   );
   startPad.parent = root;
@@ -77,12 +81,12 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
       scene,
     );
     post.parent = root;
-    post.position.set(side * 3, 2, 0.5);
+    post.position.set(side * (TRACK_HALF_WIDTH - 1), 2, 0.5);
     post.material = flatMat(scene, `arch-post-${side}`, GOLD, 0.4);
   }
   const archTop = MeshBuilder.CreateBox(
     "race-arch-top",
-    { width: 6.6, height: 0.4, depth: 0.4 },
+    { width: TRACK_WIDTH - 1, height: 0.4, depth: 0.4 },
     scene,
   );
   archTop.parent = root;
@@ -91,7 +95,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   segments.push({
     inside: (x, z) => ({
-      ok: Math.abs(x) <= 3 && z >= 0 && z <= startLen,
+      ok: Math.abs(x) <= TRACK_HALF_WIDTH && z >= 0 && z <= startLen,
       y: 0,
     }),
   });
@@ -104,7 +108,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
   // Floor segments with a 2m gap mid-section
   const barsFloorA = MeshBuilder.CreateBox(
     "bars-floor-a",
-    { width: 6, height: 0.8, depth: barsLen / 2 - 1 },
+    { width: TRACK_WIDTH, height: 0.8, depth: barsLen / 2 - 1 },
     scene,
   );
   barsFloorA.parent = root;
@@ -113,37 +117,36 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   const barsFloorB = MeshBuilder.CreateBox(
     "bars-floor-b",
-    { width: 6, height: 0.8, depth: barsLen / 2 - 1 },
+    { width: TRACK_WIDTH, height: 0.8, depth: barsLen / 2 - 1 },
     scene,
   );
   barsFloorB.parent = root;
   barsFloorB.position.set(0, -0.4, barsZStart + barsLen / 2 + 1 + (barsLen / 2 - 1) / 2);
   barsFloorB.material = flatMat(scene, "bars-floor-b-mat", BLUE);
 
-  // 3 spinning bars at staggered Z + heights
+  // Spinning bars — wider so they sweep more of the track (but leave room
+  // to dodge between them) and SHORTER than full track so the player can
+  // duck around the ends
   const spinningBars: { mesh: Mesh; baseZ: number; speed: number }[] = [];
   for (let i = 0; i < 3; i++) {
     const bar = MeshBuilder.CreateBox(
       `race-bar-${i}`,
-      { width: 8, height: 0.4, depth: 0.5 },
+      { width: TRACK_WIDTH * 0.7, height: 0.4, depth: 0.5 },
       scene,
     );
     const barZ = barsZStart + 2.5 + i * 4;
     bar.parent = root;
     bar.position.set(0, 0.6, barZ);
     bar.material = flatMat(scene, `race-bar-mat-${i}`, HAZARD, 0.4);
-    spinningBars.push({ mesh: bar, baseZ: barZ, speed: (i % 2 === 0 ? 1 : -1) * 1.2 });
+    spinningBars.push({ mesh: bar, baseZ: barZ, speed: (i % 2 === 0 ? 1 : -1) * 1.0 });
   }
 
   segments.push({
     inside: (x, z) => {
-      if (Math.abs(x) > 3) return { ok: false, y: 0 };
+      if (Math.abs(x) > TRACK_HALF_WIDTH) return { ok: false, y: 0 };
       const localZ = z - barsZStart;
-      // Floor A
       if (localZ >= 0 && localZ <= barsLen / 2 - 1) return { ok: true, y: 0 };
-      // Gap (2m wide)
       if (localZ > barsLen / 2 - 1 && localZ < barsLen / 2 + 1) return { ok: false, y: 0 };
-      // Floor B
       if (localZ >= barsLen / 2 + 1 && localZ <= barsLen) return { ok: true, y: 0 };
       return { ok: false, y: 0 };
     },
@@ -172,7 +175,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   const hammerFloor = MeshBuilder.CreateBox(
     "hammer-floor",
-    { width: 6, height: 0.8, depth: hammerLen },
+    { width: TRACK_WIDTH, height: 0.8, depth: hammerLen },
     scene,
   );
   hammerFloor.parent = root;
@@ -209,7 +212,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   segments.push({
     inside: (x, z) => ({
-      ok: Math.abs(x) <= 3 && z >= hammerZStart && z <= hammerZStart + hammerLen,
+      ok: Math.abs(x) <= TRACK_HALF_WIDTH && z >= hammerZStart && z <= hammerZStart + hammerLen,
       y: 0,
     }),
     tick: (_dt, hazards) => {
@@ -234,11 +237,11 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
   const dropZStart = zCursor;
   const dropLen = 14;
   const tileSize = 1.6;
-  const tileGrid = 7; // 7 columns × Z rows
+  const tileGrid = 9; // 9 columns × Z rows for the wider track
   const dropTiles: { mesh: Mesh; baseY: number; falling: boolean; respawnAt: number; gx: number; gz: number }[] = [];
 
   for (let zi = 0; zi < 8; zi++) {
-    for (let xi = -3; xi <= 3; xi++) {
+    for (let xi = -4; xi <= 4; xi++) {
       const tile = MeshBuilder.CreateBox(
         `drop-tile-${zi}-${xi}`,
         { width: tileSize - 0.05, height: 0.3, depth: tileSize - 0.05 },
@@ -265,7 +268,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   segments.push({
     inside: (x, z) => {
-      if (Math.abs(x) > 3.5 * tileSize) return { ok: false, y: 0 };
+      if (Math.abs(x) > 4.5 * tileSize) return { ok: false, y: 0 };
       const localZ = z - dropZStart;
       if (localZ < 0 || localZ > dropLen) return { ok: false, y: 0 };
       // Find the tile under the player
@@ -312,31 +315,31 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
   // Static start pad
   const movStart = MeshBuilder.CreateBox(
     "mov-start",
-    { width: 6, height: 0.8, depth: 3 },
+    { width: TRACK_WIDTH, height: 0.8, depth: 3 },
     scene,
   );
   movStart.parent = root;
   movStart.position.set(0, -0.4, movZStart + 1.5);
   movStart.material = flatMat(scene, "mov-start-mat", BLUE);
 
-  // 2 moving platforms
+  // 3 moving platforms (was 2) — wider track allows more
   const movingPlats: { mesh: Mesh; phase: number }[] = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const plat = MeshBuilder.CreateBox(
       `mov-plat-${i}`,
-      { width: 3, height: 0.4, depth: 3 },
+      { width: 4, height: 0.4, depth: 3 },
       scene,
     );
     plat.parent = root;
-    plat.position.set(0, 0, movZStart + 4 + i * 3);
+    plat.position.set(0, 0, movZStart + 3.5 + i * 2.5);
     plat.material = flatMat(scene, `mov-plat-mat-${i}`, GREEN, 0.3);
-    movingPlats.push({ mesh: plat, phase: i * Math.PI });
+    movingPlats.push({ mesh: plat, phase: i * (Math.PI * 0.7) });
   }
 
   // Static end pad
   const movEnd = MeshBuilder.CreateBox(
     "mov-end",
-    { width: 6, height: 0.8, depth: 3 },
+    { width: TRACK_WIDTH, height: 0.8, depth: 3 },
     scene,
   );
   movEnd.parent = root;
@@ -345,15 +348,14 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   segments.push({
     inside: (x, z) => {
-      if (Math.abs(x) > 3) return { ok: false, y: 0 };
+      if (Math.abs(x) > TRACK_HALF_WIDTH) return { ok: false, y: 0 };
       const localZ = z - movZStart;
       if (localZ >= 0 && localZ <= 3) return { ok: true, y: 0 };
       if (localZ >= movLen - 3 && localZ <= movLen) return { ok: true, y: 0 };
-      // Moving platforms — check current world Z of each plat
       for (const p of movingPlats) {
         const dx = Math.abs(x - p.mesh.position.x);
         const dz = Math.abs(z - p.mesh.position.z);
-        if (dx <= 1.5 && dz <= 1.5) return { ok: true, y: 0.2 };
+        if (dx <= 2 && dz <= 1.5) return { ok: true, y: 0.2 };
       }
       return { ok: false, y: 0 };
     },
@@ -361,8 +363,8 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
       const t = performance.now() / 1000;
       for (let i = 0; i < movingPlats.length; i++) {
         const p = movingPlats[i]!;
-        // Sweep left ↔ right across the X axis
-        p.mesh.position.x = Math.sin(t * 1.0 + p.phase) * 2.4;
+        // Sweep left ↔ right across more of the track now that it's wider
+        p.mesh.position.x = Math.sin(t * 0.8 + p.phase) * (TRACK_HALF_WIDTH - 2);
       }
     },
   });
@@ -374,7 +376,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   const ramp = MeshBuilder.CreateBox(
     "race-ramp",
-    { width: 6, height: 0.8, depth: 4 },
+    { width: TRACK_WIDTH, height: 0.8, depth: 4 },
     scene,
   );
   ramp.parent = root;
@@ -437,7 +439,7 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
 
   segments.push({
     inside: (x, z) => {
-      if (Math.abs(x) > 3) return { ok: false, y: 0 };
+      if (Math.abs(x) > TRACK_HALF_WIDTH) return { ok: false, y: 0 };
       const localZ = z - goalZStart;
       if (localZ >= 0 && localZ <= 4) return { ok: true, y: 0 };
       if (Math.hypot(x, z - (goalZStart + 7)) < 2.5) return { ok: true, y: 1.7 };
@@ -499,9 +501,10 @@ export function buildBeanRaceCourse(scene: Scene): ArenaSurface {
   sparkles.start();
 
   // ============== AI SPAWNS ==============
+  // Spread the AI across the wider track at the starting line
   const aiSpawns: Vector3[] = [];
   for (let i = 0; i < 5; i++) {
-    aiSpawns.push(new Vector3(-2 + i * 1.0, 1, 1.5));
+    aiSpawns.push(new Vector3(-5 + i * 2.5, 1, 1.5));
   }
 
   const hazards: DynamicHazard[] = [];

@@ -269,10 +269,10 @@ export function buildBlockParty(scene: Scene): ArenaSurface {
   scene.fogColor = new Color3(0.78, 0.45, 0.85);
   scene.fogDensity = 0.012;
 
-  // Long platform: 6m wide, 30m deep (player walks/runs to dodge walls)
+  // Wider track: 18m wide, 36m deep (was 12 × 30)
   const platform = MeshBuilder.CreateBox(
     "bp-platform",
-    { width: 12, height: 1, depth: 30 },
+    { width: 18, height: 1, depth: 36 },
     scene,
   );
   platform.parent = root;
@@ -291,34 +291,34 @@ export function buildBlockParty(scene: Scene): ArenaSurface {
   const walls: BPWall[] = [];
   const wallGapWidth = 3.5;
 
+  const HALF_W = 9;
   for (let i = 0; i < 5; i++) {
-    const startZ = 12 + i * 5;
-    const gapX = (Math.random() - 0.5) * 6;
+    const startZ = 14 + i * 5.5;
+    const gapX = (Math.random() - 0.5) * 10;
 
-    // Two halves: left segment + right segment with a gap between them
-    const leftWidth = (gapX + 6) - wallGapWidth / 2;
-    const rightWidth = (6 - gapX) - wallGapWidth / 2;
+    const leftWidth = (gapX + HALF_W) - wallGapWidth / 2;
+    const rightWidth = (HALF_W - gapX) - wallGapWidth / 2;
     if (leftWidth > 0.2) {
       const left = MeshBuilder.CreateBox(`bp-wall-${i}-l`, { width: leftWidth, height: 2.2, depth: 0.5 }, scene);
       left.parent = root;
-      left.position.set(-6 + leftWidth / 2, 1.1, startZ);
+      left.position.set(-HALF_W + leftWidth / 2, 1.1, startZ);
       left.material = flatMat(scene, `bp-wall-mat-${i}-l`, new Color3(0.95, 0.5, 0.32), 0.3);
-      walls.push({ mesh: left, speed: 4 + i * 0.3, gapX, initialZ: startZ });
+      walls.push({ mesh: left, speed: 3.5 + i * 0.3, gapX, initialZ: startZ });
     }
     if (rightWidth > 0.2) {
       const right = MeshBuilder.CreateBox(`bp-wall-${i}-r`, { width: rightWidth, height: 2.2, depth: 0.5 }, scene);
       right.parent = root;
-      right.position.set(6 - rightWidth / 2, 1.1, startZ);
+      right.position.set(HALF_W - rightWidth / 2, 1.1, startZ);
       right.material = flatMat(scene, `bp-wall-mat-${i}-r`, new Color3(0.95, 0.5, 0.32), 0.3);
-      walls.push({ mesh: right, speed: 4 + i * 0.3, gapX, initialZ: startZ });
+      walls.push({ mesh: right, speed: 3.5 + i * 0.3, gapX, initialZ: startZ });
     }
   }
 
   // Edge trim
   for (const side of [-1, 1] as const) {
-    const trim = MeshBuilder.CreateBox(`bp-trim-${side}`, { width: 0.4, height: 0.5, depth: 30 }, scene);
+    const trim = MeshBuilder.CreateBox(`bp-trim-${side}`, { width: 0.4, height: 0.5, depth: 36 }, scene);
     trim.parent = root;
-    trim.position.set(side * 6.2, 0.08, 0);
+    trim.position.set(side * (HALF_W + 0.2), 0.08, 0);
     trim.material = flatMat(scene, `bp-trim-mat-${side}`, new Color3(1, 0.85, 0.42), 0.5);
   }
 
@@ -326,32 +326,29 @@ export function buildBlockParty(scene: Scene): ArenaSurface {
 
   const aiSpawns: Vector3[] = [];
   for (let i = 0; i < 5; i++) {
-    aiSpawns.push(new Vector3(-2 + i * 1.0, 1, -10));
+    aiSpawns.push(new Vector3(-6 + i * 3, 1, -14));
   }
 
   return {
-    inside: (x, z) => Math.abs(x) <= 6 && z >= -15 && z <= 15,
+    inside: (x, z) => Math.abs(x) <= HALF_W && z >= -18 && z <= 18,
     floorY: () => 0,
-    playerSpawn: new Vector3(0, 1, -10),
+    playerSpawn: new Vector3(0, 1, -14),
     aiSpawns,
     hazards: [],
     tick: (dt) => {
-      // Walls slide TOWARD -Z (toward player who starts at z=-10)
       for (const w of walls) {
         w.mesh.position.z -= w.speed * dt;
-        if (w.mesh.position.z < -16) {
-          // Re-spawn on the far side at +15, randomize gap
-          const newGapX = (Math.random() - 0.5) * 6;
-          // Approximate: left wall has center on left half, right wall on right half
+        if (w.mesh.position.z < -19) {
+          const newGapX = (Math.random() - 0.5) * 10;
           const isLeft = w.mesh.position.x < 0;
           const halfWidth = isLeft
-            ? (newGapX + 6) - wallGapWidth / 2
-            : (6 - newGapX) - wallGapWidth / 2;
+            ? (newGapX + HALF_W) - wallGapWidth / 2
+            : (HALF_W - newGapX) - wallGapWidth / 2;
           if (halfWidth > 0.2) {
-            w.mesh.position.x = isLeft ? -6 + halfWidth / 2 : 6 - halfWidth / 2;
+            w.mesh.position.x = isLeft ? -HALF_W + halfWidth / 2 : HALF_W - halfWidth / 2;
             w.mesh.scaling.x = halfWidth / w.mesh.getBoundingInfo().boundingBox.extendSize.x / 2;
           }
-          w.mesh.position.z = 15 + Math.random() * 4;
+          w.mesh.position.z = 18 + Math.random() * 4;
           w.gapX = newGapX;
         }
       }
