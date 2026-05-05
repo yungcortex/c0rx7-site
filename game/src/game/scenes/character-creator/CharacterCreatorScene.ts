@@ -176,14 +176,15 @@ export function buildCharacterCreatorScene(
     if (!bean) {
       bean = buildBean(scene, beanRoot, look);
     } else {
-      // Heritage change requires rebuild (different proportions)
       const sameHeritage = bean.root.metadata?.heritage === look.heritage;
       if (!sameHeritage) {
         bean.dispose();
         bean = buildBean(scene, beanRoot, look);
       } else {
-        bean.setLook(look);
+        // Proportions FIRST so eyeSizeMul + body height are current before
+        // setLook re-paints the eye style (which uses eyeSizeMul as base).
         if (look.proportions) bean.setProportions(look.proportions);
+        bean.setLook(look);
       }
     }
     if (bean) bean.root.metadata = { heritage: look.heritage };

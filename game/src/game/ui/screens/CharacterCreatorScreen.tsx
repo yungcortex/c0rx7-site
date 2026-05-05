@@ -1,6 +1,8 @@
 import { useState, type ChangeEvent } from "react";
 import { useCreator, useCharacters } from "@state/character";
 import { useAuth } from "@state/auth";
+import { useWallet } from "@state/wallet";
+import { useProfile } from "@state/profile";
 import { createCharacter } from "@game/systems/save/characterRepo";
 import {
   HERITAGES,
@@ -124,6 +126,8 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
   const [light, setLight] = useState<LightPreset>("town");
   const [error, setError] = useState<string | null>(null);
   const user = useAuth((s) => s.user);
+  const wallet = useWallet((s) => s.info);
+  const profile = useProfile((s) => s.profile);
   const sliders = useCreator((s) => s.sliders);
   const cosmetic = useCreator((s) => s.cosmetic);
   const name = useCreator((s) => s.name);
@@ -151,8 +155,11 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
       setError("Your bean needs a name.");
       return;
     }
-    if (!user) {
-      setError("Sign in to save your bean across cycles.");
+    // Identity = whichever auth route the user has. Profile (username) is
+    // the minimum; wallet or supabase auth strengthen it.
+    const identity = profile?.identity ?? wallet?.pubkey ?? user?.id;
+    if (!identity) {
+      setError("Set up a username first.");
       return;
     }
     setSaving(true);
@@ -164,17 +171,36 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
       setSaving(false);
       return;
     }
-    const created = await createCharacter({
+    // Try Supabase first (best for cross-device sync); fall back to local
+    // characterRepo cache if Supabase isn't configured / authed.
+    let created = await createCharacter({
       slot: nextSlot,
       name: name.trim(),
       heritage: sliders.heritage,
       sliders,
     });
-    setSaving(false);
     if (!created) {
-      setError("The city refused to remember. Save failed.");
-      return;
+      // Local fallback: synthesize a Character row in memory + persist via
+      // the inventory's localStorage already used by zustand's persist.
+      created = {
+        id: `local-${Date.now()}-${nextSlot}`,
+        user_id: identity,
+        slot: nextSlot,
+        name: name.trim(),
+        heritage: sliders.heritage,
+        sliders,
+        metadata: {},
+        active_aspect: "tempest",
+        aspect_xp: {},
+        level: 1,
+        zone: "hyrr-central",
+        position: { x: 0, y: 0, z: 0, r: 0 },
+        playtime_sec: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
     }
+    setSaving(false);
     addCharacter(created);
     setSelected(created);
     reset();

@@ -106,6 +106,11 @@ export interface Bean {
   accessoryRoot: TransformNode;
   /** Materials of secondary parts (hands, feet, ears, tail) so we can tint them */
   secondaryMats: StandardMaterial[];
+  /** Current proportional eye-size multiplier (driven by Eye Size slider).
+   *  Eye style picker multiplies on top of this for shape variations. */
+  eyeSizeMul: number;
+  /** Heritage proportions, kept around so updates can re-anchor hat etc. */
+  hp: HeritageProportions;
   setLook: (look: BeanLook) => void;
   setProportions: (p: BeanProportions) => void;
   dispose: () => void;
@@ -344,9 +349,11 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   }
 
   // ---- HAT / OUTFIT / ACCESSORY ROOT NODES
+  // Hat sits on top of body — initial Y matches body top with the
+  // default-height capsule (will be recomputed in setProportions).
   const hatRoot = new TransformNode("bean-hat-root", scene);
   hatRoot.parent = root;
-  hatRoot.position.y = 1.6 * props.squash;
+  hatRoot.position.y = 0.85 + 0.85 * props.bodyHeight * props.squash;
 
   const outfitRoot = new TransformNode("bean-outfit-root", scene);
   outfitRoot.parent = root;
@@ -412,6 +419,8 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     outfitRoot,
     accessoryRoot,
     secondaryMats: [feetMat, handsMat, earsMat, tailMat],
+    eyeSizeMul: 1,
+    hp: props,
     setLook: (newLook: BeanLook) => applyBeanLook(scene, bean, newLook, props),
     setProportions: (p: BeanProportions) => applyProportions(bean, p, props),
     dispose: () => {
@@ -420,15 +429,21 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     },
   };
 
-  applyBeanLook(scene, bean, look, props);
+  // Apply proportions FIRST so applyBeanLook's paintEyeStyle has the
+  // current eyeSizeMul as a base.
   if (look.proportions) applyProportions(bean, look.proportions, props);
+  applyBeanLook(scene, bean, look, props);
   return bean;
 }
 
 /**
  * Apply per-slider physical proportions to the bean. All sliders are 0..1.
  * Heritage proportions still drive the base silhouette; this is a multiplier
- * on top so a tall Sivit slider goes BOTH heritage-tall AND extra-tall.
+ * on top.
+ *
+ * Pupils are NOT scaled here — paintEyeStyle owns pupil shape, and uses
+ * bean.eyeSizeMul as its base size so the Eye Size slider still drives
+ * pupils, but the Eye Style picker can re-shape them per style.
  */
 function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportions) {
   // Body scale (with heritage as baseline)
@@ -436,14 +451,16 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   const heightMul = mix(p.height, 0.7, 1.4);
   bean.body.scaling.x = hp.bodyRX * widthMul;
   bean.body.scaling.z = hp.bodyRZ * widthMul;
-  bean.body.scaling.y = hp.bodyHeight * hp.squash * heightMul;
+  const finalBodyY = hp.bodyHeight * hp.squash * heightMul;
+  bean.body.scaling.y = finalBodyY;
 
-  // Head / face plate size — affects facePlane width/height + ear/tail offsets
+  // Head / face plate size
   const headMul = mix(p.headSize, 0.75, 1.3);
   bean.facePlane.scaling.x = headMul;
   bean.facePlane.scaling.y = headMul;
 
-  // Eye size + spacing
+  // Eye size + spacing — affects eye whites; pupils get the multiplier
+  // saved on bean for paintEyeStyle to use.
   const eyeMul = mix(p.eyeSize, 0.7, 1.4);
   const eyeSpread = mix(p.eyeSpacing, 0.6, 1.3);
   const baseSpread = 0.22 * hp.bodyRX;
@@ -453,8 +470,7 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   bean.eyes.right.position.x = baseSpread * eyeSpread;
   bean.eyes.pupilL.position.x = -baseSpread * eyeSpread;
   bean.eyes.pupilR.position.x = baseSpread * eyeSpread;
-  bean.eyes.pupilL.scaling.set(eyeMul, eyeMul, eyeMul);
-  bean.eyes.pupilR.scaling.set(eyeMul, eyeMul, eyeMul);
+  bean.eyeSizeMul = eyeMul;
 
   // Hand size
   const handMul = mix(p.handSize, 0.6, 1.5);
@@ -473,6 +489,23 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   if (bean.tail) bean.tail.outlineWidth = 0.022 * outlineMul;
   bean.eyes.left.outlineWidth = 0.025 * outlineMul;
   bean.eyes.right.outlineWidth = 0.025 * outlineMul;
+
+  // Hat sits on top of body — recompute Y based on current scaled body height.
+  // Body pivot is at y=0.85, capsule extends ~0.7 above pivot at scale 1.
+  const bodyTop = 0.85 + 0.85 * finalBodyY;
+  bean.hatRoot.position.y = bodyTop;
+
+  // Face plane sits on the front of the body — recompute Z so it doesn't
+  // float when width slider changes.
+  bean.facePlane.position.z = 0.61 * hp.bodyRZ * widthMul;
+  bean.facePlane.position.y = 0.85 + 0.45 * finalBodyY;
+
+  // Eyes also need to track body height (they sit just below face top)
+  const eyeY = 0.85 + 0.55 * finalBodyY;
+  bean.eyes.left.position.y = eyeY;
+  bean.eyes.right.position.y = eyeY;
+  bean.eyes.pupilL.position.y = eyeY;
+  bean.eyes.pupilR.position.y = eyeY;
 }
 
 function applyBeanLook(
@@ -667,41 +700,49 @@ function drawMouth(ctx: CanvasRenderingContext2D, style: BeanMouthStyle, W: numb
 
 function paintEyeStyle(bean: Bean, style: BeanEyeStyle) {
   const { pupilL, pupilR, left, right } = bean.eyes;
+  const m = bean.eyeSizeMul; // base size from proportions
 
   pupilL.setEnabled(true);
   pupilR.setEnabled(true);
-  pupilL.scaling.set(1, 1, 1);
-  pupilR.scaling.set(1, 1, 1);
-  left.scaling.set(1, 1.1, 0.6);
-  right.scaling.set(1, 1.1, 0.6);
 
+  // Sleepy collapses both whites + pupils vertically
   if (style === "sleepy") {
-    left.scaling.y = 0.55;
-    right.scaling.y = 0.55;
-    pupilL.scaling.y = 0.55;
-    pupilR.scaling.y = 0.55;
+    left.scaling.set(m, m * 0.55, m * 0.6);
+    right.scaling.set(m, m * 0.55, m * 0.6);
+    pupilL.scaling.set(m, m * 0.55, m);
+    pupilR.scaling.set(m, m * 0.55, m);
     return;
   }
 
+  // Otherwise eye-white scaling already set by applyProportions; we just
+  // shape the pupils per style, scaled by m.
   switch (style) {
     case "round":
+      pupilL.scaling.set(m, m, m);
+      pupilR.scaling.set(m, m, m);
       break;
     case "sparkle":
-      pupilL.scaling.set(0.95, 0.95, 0.95);
-      pupilR.scaling.set(0.95, 0.95, 0.95);
+      // small + bright (highlight effect)
+      pupilL.scaling.set(m * 0.9, m * 0.9, m * 0.9);
+      pupilR.scaling.set(m * 0.9, m * 0.9, m * 0.9);
       break;
     case "angry":
-      pupilL.scaling.set(1.0, 0.6, 1);
-      pupilR.scaling.set(1.0, 0.6, 1);
+      // narrow vertical slits
+      pupilL.scaling.set(m * 1.1, m * 0.55, m);
+      pupilR.scaling.set(m * 1.1, m * 0.55, m);
       break;
     case "dead":
       pupilL.setEnabled(false);
       pupilR.setEnabled(false);
       break;
     case "heart":
+      // Wide squat pupils — closest we get without custom geometry
+      pupilL.scaling.set(m * 1.2, m * 0.95, m);
+      pupilR.scaling.set(m * 1.2, m * 0.95, m);
+      break;
     case "swirl":
-      pupilL.scaling.set(0.85, 0.85, 0.85);
-      pupilR.scaling.set(0.85, 0.85, 0.85);
+      pupilL.scaling.set(m * 0.85, m * 0.85, m * 0.85);
+      pupilR.scaling.set(m * 0.85, m * 0.85, m * 0.85);
       break;
   }
 }
