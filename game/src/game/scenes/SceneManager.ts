@@ -3,8 +3,14 @@ import { buildTitleScene } from "@game/scenes/title/TitleScene";
 import { buildCharacterSelectScene } from "@game/scenes/character-select/CharacterSelectScene";
 import { buildCharacterCreatorScene } from "@game/scenes/character-creator/CharacterCreatorScene";
 import { buildHubHyrrScene } from "@game/scenes/hub-hyrr/HubHyrrScene";
+import { buildBonkArenaScene } from "@game/scenes/arena-bonk/BonkArenaScene";
 
-export type SceneId = "title" | "character-select" | "character-creator" | "hub";
+export type SceneId =
+  | "title"
+  | "character-select"
+  | "character-creator"
+  | "hub"
+  | "arena-bonk";
 
 type Builder = (engine: Engine, canvas: HTMLCanvasElement) => Scene;
 
@@ -13,6 +19,7 @@ const builders: Record<SceneId, Builder> = {
   "character-select": buildCharacterSelectScene,
   "character-creator": buildCharacterCreatorScene,
   hub: buildHubHyrrScene,
+  "arena-bonk": buildBonkArenaScene,
 };
 
 const subscribers = new Set<(id: SceneId) => void>();

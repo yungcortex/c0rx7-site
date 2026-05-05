@@ -1,0 +1,41 @@
+import { create } from "zustand";
+
+export type MatchPhase = "ready" | "playing" | "won" | "lost";
+
+interface MatchState {
+  phase: MatchPhase;
+  totalBeans: number;
+  beansAlive: number;
+  bonks: number;
+  startedAt: number;
+  reset: (totalBeans: number) => void;
+  registerKO: () => void;
+  setPlayerDead: () => void;
+  incrementBonks: () => void;
+}
+
+export const useMatch = create<MatchState>((set, get) => ({
+  phase: "ready",
+  totalBeans: 0,
+  beansAlive: 0,
+  bonks: 0,
+  startedAt: 0,
+  reset: (totalBeans) =>
+    set({
+      phase: "playing",
+      totalBeans,
+      beansAlive: totalBeans,
+      bonks: 0,
+      startedAt: Date.now(),
+    }),
+  registerKO: () => {
+    const next = Math.max(0, get().beansAlive - 1);
+    if (next <= 1) {
+      set({ beansAlive: next, phase: "won" });
+    } else {
+      set({ beansAlive: next });
+    }
+  },
+  setPlayerDead: () => set({ phase: "lost" }),
+  incrementBonks: () => set((s) => ({ bonks: s.bonks + 1 })),
+}));

@@ -7,7 +7,9 @@ import { TitleScreen } from "@ui/screens/TitleScreen";
 import { AuthScreen } from "@ui/screens/AuthScreen";
 import { CharacterSelectScreen } from "@ui/screens/CharacterSelectScreen";
 import { CharacterCreatorScreen } from "@ui/screens/CharacterCreatorScreen";
+import { LobbyScreen } from "@ui/screens/LobbyScreen";
 import { HubHud } from "@ui/hud/HubHud";
+import { MatchHud } from "@ui/hud/MatchHud";
 
 interface Props {
   engine: GameEngine;
@@ -19,6 +21,7 @@ export function App({ engine }: Props) {
   const setCurrent = useScene((s) => s.setCurrent);
   const setActiveCharacter = useWorld((s) => s.setActiveCharacter);
   const [showAuth, setShowAuth] = useState(false);
+  const [showLobby, setShowLobby] = useState(false);
 
   useEffect(() => {
     init();
@@ -35,10 +38,12 @@ export function App({ engine }: Props) {
       {current === "title" && (
         <TitleScreen
           onPressStart={() => {
+            // For Bean Royale: skip auth gate, go straight to lobby (we want to
+            // showcase the gameplay; auth is only required for SOL flows).
             if (session) {
-              engine.go("character-select");
+              setShowLobby(true);
             } else {
-              setShowAuth(true);
+              setShowLobby(true); // still show — saving requires auth, playing doesn't
             }
           }}
         />
@@ -55,11 +60,38 @@ export function App({ engine }: Props) {
       )}
       {current === "character-creator" && (
         <CharacterCreatorScreen
-          onBack={() => engine.go("character-select")}
-          onConfirm={() => engine.go("character-select")}
+          onBack={() => {
+            setShowLobby(true);
+            engine.go("title");
+          }}
+          onConfirm={() => {
+            setShowLobby(true);
+            engine.go("title");
+          }}
         />
       )}
       {current === "hub" && <HubHud />}
+      {current === "arena-bonk" && (
+        <MatchHud
+          onExit={() => {
+            engine.go("title");
+            setShowLobby(true);
+          }}
+        />
+      )}
+      {showLobby && current === "title" && (
+        <LobbyScreen
+          onClose={() => setShowLobby(false)}
+          onCustomize={() => {
+            setShowLobby(false);
+            engine.go("character-creator");
+          }}
+          onEnterMatch={() => {
+            setShowLobby(false);
+            engine.go("arena-bonk");
+          }}
+        />
+      )}
       {showAuth && (
         <AuthScreen
           onClose={() => setShowAuth(false)}
