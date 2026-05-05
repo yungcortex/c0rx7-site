@@ -731,22 +731,40 @@ input {
 }
 .lobby-foot { margin-top: 1.4rem; text-align: center; }
 
-/* Tournament featured card */
+/* Tournament featured card — Fall Guys-style bubblegum gradient with shimmer */
 .lobby-mode-tournament {
   grid-column: 1 / -1;
-  border-color: var(--gold) !important;
-  background: linear-gradient(180deg, rgba(201, 168, 90, 0.18), rgba(201, 168, 90, 0.04)) !important;
+  border: 2px solid #ffb347 !important;
+  background: linear-gradient(135deg,
+    rgba(255, 105, 180, 0.22) 0%,
+    rgba(255, 179, 71, 0.18) 50%,
+    rgba(120, 200, 255, 0.22) 100%) !important;
   cursor: pointer;
   transition: all 0.2s ease;
+  animation: tournament-shimmer 3s ease-in-out infinite;
+  box-shadow: 0 0 32px rgba(255, 179, 71, 0.18), inset 0 0 24px rgba(255, 200, 230, 0.08);
 }
 .lobby-mode-tournament:hover {
-  background: linear-gradient(180deg, rgba(201, 168, 90, 0.28), rgba(201, 168, 90, 0.08)) !important;
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(201, 168, 90, 0.25);
+  border-color: #fff685 !important;
+  background: linear-gradient(135deg,
+    rgba(255, 105, 180, 0.32) 0%,
+    rgba(255, 179, 71, 0.28) 50%,
+    rgba(120, 200, 255, 0.32) 100%) !important;
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 16px 48px rgba(255, 179, 71, 0.4), inset 0 0 32px rgba(255, 200, 230, 0.16);
 }
 .lobby-mode-tournament .lobby-mode-title {
-  font-size: 1.7rem !important;
-  letter-spacing: 0.32em !important;
+  font-size: 1.85rem !important;
+  letter-spacing: 0.34em !important;
+  background: linear-gradient(90deg, #ffb6d8, #fff685, #b6e5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 12px rgba(255, 200, 230, 0.4);
+}
+@keyframes tournament-shimmer {
+  0%, 100% { box-shadow: 0 0 32px rgba(255, 179, 71, 0.18), inset 0 0 24px rgba(255, 200, 230, 0.08); }
+  50% { box-shadow: 0 0 48px rgba(255, 105, 180, 0.32), inset 0 0 32px rgba(255, 200, 230, 0.16); }
 }
 
 /* ============== TOURNAMENT BRACKET ============== */
