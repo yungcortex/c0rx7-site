@@ -731,6 +731,126 @@ input {
 }
 .lobby-foot { margin-top: 1.4rem; text-align: center; }
 
+/* Tournament featured card */
+.lobby-mode-tournament {
+  grid-column: 1 / -1;
+  border-color: var(--gold) !important;
+  background: linear-gradient(180deg, rgba(201, 168, 90, 0.18), rgba(201, 168, 90, 0.04)) !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.lobby-mode-tournament:hover {
+  background: linear-gradient(180deg, rgba(201, 168, 90, 0.28), rgba(201, 168, 90, 0.08)) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(201, 168, 90, 0.25);
+}
+.lobby-mode-tournament .lobby-mode-title {
+  font-size: 1.7rem !important;
+  letter-spacing: 0.32em !important;
+}
+
+/* ============== TOURNAMENT BRACKET ============== */
+.bracket-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 4, 13, 0.85);
+  backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+  z-index: 95;
+  pointer-events: auto;
+  animation: fade-in 0.3s ease;
+}
+.bracket-card {
+  width: min(820px, 92vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(26, 18, 38, 0.97), rgba(15, 10, 26, 0.97));
+  border: 1px solid var(--gold);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.bracket-head {
+  text-align: center;
+  padding: 1.6rem 2rem 1rem 2rem;
+  border-bottom: 1px solid rgba(201, 168, 90, 0.18);
+}
+.bracket-round-tag {
+  font-size: 0.7rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+  margin-bottom: 0.6rem;
+}
+.bracket-head h2 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.3em;
+  color: var(--gold-bright);
+  margin: 0;
+}
+.bracket-result {
+  text-align: center;
+  padding: 1.4rem 2rem;
+  border-bottom: 1px solid rgba(201, 168, 90, 0.12);
+}
+.bracket-result h3 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 2.4rem;
+  letter-spacing: 0.32em;
+  margin: 0;
+}
+.bracket-win {
+  color: var(--gold-bright);
+  text-shadow: 0 0 30px rgba(201, 168, 90, 0.5);
+}
+.bracket-lose {
+  color: var(--crimson);
+  text-shadow: 0 0 25px rgba(160, 45, 61, 0.45);
+}
+
+.bracket-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+  padding: 1.2rem 2rem;
+  flex: 1;
+  overflow-y: auto;
+}
+.bracket-col h4 {
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+  margin: 0 0 0.7rem 0;
+}
+.bracket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.bracket-bean {
+  background: rgba(7, 4, 13, 0.5);
+  border-left: 4px solid var(--gold);
+  padding: 0.55rem 0.8rem;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.0rem;
+  color: var(--paper);
+  letter-spacing: 0.04em;
+}
+.bracket-bean.is-player {
+  background: rgba(201, 168, 90, 0.18);
+  font-weight: 600;
+  color: var(--gold-bright);
+}
+
+.bracket-foot {
+  padding: 1.2rem 2rem 1.6rem 2rem;
+  text-align: center;
+  border-top: 1px solid rgba(201, 168, 90, 0.18);
+}
+
 /* ====== MATCH HUD ====== */
 .match-hud-top {
   pointer-events: auto;

@@ -11,7 +11,10 @@ import { LobbyScreen } from "@ui/screens/LobbyScreen";
 import { ShopScreen } from "@ui/screens/ShopScreen";
 import { ProfileScreen } from "@ui/screens/ProfileScreen";
 import { UsernamePrompt } from "@ui/screens/UsernamePrompt";
+import { TournamentBracketScreen } from "@ui/screens/TournamentBracketScreen";
 import { useProfile } from "@state/profile";
+import { useTournament } from "@state/tournament";
+import { useMatch } from "@state/match";
 import { HubHud } from "@ui/hud/HubHud";
 import { MatchHud } from "@ui/hud/MatchHud";
 import { playSfx } from "@game/systems/audio/SoundManager";
@@ -32,6 +35,11 @@ export function App({ engine }: Props) {
   const [showProfile, setShowProfile] = useState(false);
   const [showUsername, setShowUsername] = useState(false);
   const profile = useProfile((s) => s.profile);
+  const tournamentActive = useTournament((s) => s.active);
+  const tournamentShowResult = useTournament((s) => s.showRoundResult);
+  const tournamentRounds = useTournament((s) => s.rounds);
+  const tournamentRoundIdx = useTournament((s) => s.roundIdx);
+  const abortTournament = useTournament((s) => s.abort);
 
   useEffect(() => {
     init();
@@ -88,9 +96,37 @@ export function App({ engine }: Props) {
         />
       )}
       {current === "hub" && <HubHud />}
-      {current === "arena-bonk" && (
+      {current === "arena-bonk" && !tournamentShowResult && (
         <MatchHud
           onExit={() => {
+            if (tournamentActive) {
+              // record fake result + advance via bracket
+              const tState = useTournament.getState();
+              const playerWon = useMatch.getState().phase === "won";
+              // Simple: random qualifyCount survivors including player iff won
+              const qList = tState.beans
+                .filter((b) => b.isPlayer ? playerWon : Math.random() < 0.5)
+                .slice(0, tournamentRounds[tournamentRoundIdx]?.qualifyCount ?? 1);
+              tState.recordRoundResult(qList.map((b) => b.id));
+            } else {
+              engine.go("title");
+              setShowLobby(true);
+            }
+          }}
+        />
+      )}
+      {tournamentShowResult && (
+        <TournamentBracketScreen
+          onContinue={() => {
+            // Set next round's variant + (re-)launch arena
+            const next = tournamentRounds[tournamentRoundIdx + 1];
+            if (next) {
+              useMatch.getState().setVariant(next.variant);
+              engine.go("arena-bonk");
+            }
+          }}
+          onAbort={() => {
+            abortTournament();
             engine.go("title");
             setShowLobby(true);
           }}

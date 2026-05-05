@@ -37,7 +37,14 @@ export interface ArenaSurface {
   dispose: () => void;
 }
 
-export type ArenaVariantId = "bonk-island" | "bean-race" | "king-of-bell" | "hot-bean";
+export type ArenaVariantId =
+  | "bonk-island"
+  | "bean-race"
+  | "king-of-bell"
+  | "hot-bean"
+  | "jump-club"
+  | "hex-a-gone"
+  | "block-party";
 
 // ============== SHARED ATMOS ==============
 
@@ -604,6 +611,7 @@ export function buildHotBean(scene: Scene): ArenaSurface {
 
 // Re-export the race course builder so the switch below picks the new one
 import { buildBeanRaceCourse as _race } from "@game/scenes/arena-bonk/raceCourse";
+import { buildJumpClub, buildHexAGone, buildBlockParty } from "@game/scenes/arena-bonk/funArenas";
 
 export function buildArenaSurface(scene: Scene, variant: ArenaVariantId): ArenaSurface {
   switch (variant) {
@@ -613,6 +621,12 @@ export function buildArenaSurface(scene: Scene, variant: ArenaVariantId): ArenaS
       return buildKingOfBell(scene);
     case "hot-bean":
       return buildHotBean(scene);
+    case "jump-club":
+      return buildJumpClub(scene);
+    case "hex-a-gone":
+      return buildHexAGone(scene);
+    case "block-party":
+      return buildBlockParty(scene);
     case "bonk-island":
     default:
       return buildBonkBowl(scene);
