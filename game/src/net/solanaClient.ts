@@ -42,13 +42,26 @@ export function isSolanaConfigured(): boolean {
 }
 
 /**
- * Lazily import @solana/web3.js so non-paying solo players never download
- * the wallet/RPC packages.
+ * Lazily load @solana/web3.js from a CDN at runtime, so the build doesn't
+ * try to bundle it (and pull in borsh's broken text-encoding-utf-8 dep).
+ * Using esm.sh keeps this client-side only — solo players never download
+ * the package unless they actually open the deposit screen.
  */
+let web3Promise: Promise<any> | null = null;
 async function loadWeb3() {
-  // @ts-ignore -- optional dep, declared in package.json but lazy-loaded
-  const mod = await import("@solana/web3.js" as any).catch(() => null);
-  return mod;
+  if (web3Promise) return web3Promise;
+  web3Promise = (async () => {
+    try {
+      // Use eval so TypeScript / Vite don't try to resolve the URL at build.
+      const url = "https://esm.sh/@solana/web3.js@1.95.0?bundle";
+      const mod = await (0, eval)(`import("${url}")`);
+      return mod;
+    } catch (err) {
+      console.warn("[solana] failed to load web3.js from CDN", err);
+      return null;
+    }
+  })();
+  return web3Promise;
 }
 
 /**
@@ -95,8 +108,6 @@ export async function payEntryFee(
 
 /**
  * Returns lamport balance of `pubkey` on the configured RPC, or null on error.
- * Useful for the lobby to display "you have X SOL" so the player knows if
- * they can afford the entry.
  */
 export async function getBalanceSol(pubkey: string): Promise<number | null> {
   const web3 = await loadWeb3();
@@ -110,4 +121,18 @@ export async function getBalanceSol(pubkey: string): Promise<number | null> {
     console.warn("[solana] getBalance failed", err);
     return null;
   }
+}
+
+/** Network label for UI (devnet / mainnet). */
+export function getNetworkLabel(): string {
+  if (RPC_URL.includes("devnet")) return "devnet";
+  if (RPC_URL.includes("mainnet")) return "mainnet";
+  if (RPC_URL.includes("testnet")) return "testnet";
+  return "custom";
+}
+
+/** Cluster explorer URL for a tx signature. */
+export function explorerUrl(signature: string): string {
+  const cluster = getNetworkLabel();
+  return `https://explorer.solana.com/tx/${signature}?cluster=${cluster}`;
 }

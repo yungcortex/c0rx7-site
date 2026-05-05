@@ -83,15 +83,29 @@ export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Prop
   const startTournament = useTournament((s) => s.start);
   const profile = useProfile((s) => s.profile);
 
-  const onPickTournament = () => {
+  // The actual start (called after the deposit screen confirms)
+  const startActualTournament = () => {
     playSfx("win");
     const playerName = profile?.username ?? "Bean";
     const playerColor = profile?.color ?? "#a3e7c4";
     startTournament(STANDARD_TOURNAMENT, playerName, playerColor);
-    // Set first variant + drop into match
     useMatch.getState().setVariant(STANDARD_TOURNAMENT[0]!.variant);
     onEnterMatch();
   };
+
+  // Lobby clicks the tournament card → opens deposit screen → confirms → starts
+  const onPickTournament = () => {
+    playSfx("click");
+    // Show deposit screen via App.tsx state — we set a flag here that the
+    // parent reads. We pass through onEnterMatch which actually starts.
+    const evt = new CustomEvent("bean-royale:open-deposit");
+    window.dispatchEvent(evt);
+  };
+  // Listen for deposit-confirm event to actually launch
+  if (typeof window !== "undefined" && !((window as unknown) as { _beanRoyaleListenerAttached?: boolean })._beanRoyaleListenerAttached) {
+    window.addEventListener("bean-royale:start-tournament", () => startActualTournament());
+    ((window as unknown) as { _beanRoyaleListenerAttached: boolean })._beanRoyaleListenerAttached = true;
+  }
 
   return (
     <div className="lobby-screen">

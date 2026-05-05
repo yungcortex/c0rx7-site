@@ -1,4 +1,6 @@
 import { useTournament } from "@state/tournament";
+import { useEconomy } from "@state/economy";
+import { explorerUrl } from "@net/solanaClient";
 import { playSfx } from "@game/systems/audio/SoundManager";
 
 interface Props {
@@ -16,6 +18,9 @@ export function TournamentBracketScreen({ onContinue, onAbort }: Props) {
   const round = rounds[roundIdx];
   const playerQualified = qualified.some((b) => b.isPlayer);
   const isFinalDone = roundIdx + 1 >= rounds.length || qualified.length <= 1;
+  const economy = useEconomy((s) => s.entry);
+  const isPaidTournament = economy && economy.potSol > 0;
+  const winnerPayout = economy ? economy.potSol * 0.92 : 0;
 
   return (
     <div className="bracket-screen">
@@ -30,14 +35,40 @@ export function TournamentBracketScreen({ onContinue, onAbort }: Props) {
         <div className="bracket-result">
           {isFinalDone ? (
             playerQualified ? (
-              <h3 className="bracket-win">CROWN ROYALE — YOU WIN</h3>
+              <>
+                <h3 className="bracket-win">CROWN ROYALE — YOU WIN</h3>
+                {isPaidTournament && (
+                  <p className="bracket-payout">
+                    + {winnerPayout.toFixed(3)} SOL paid to your wallet
+                  </p>
+                )}
+              </>
             ) : (
-              <h3 className="bracket-lose">CROWN GOES TO ANOTHER BEAN</h3>
+              <>
+                <h3 className="bracket-lose">CROWN GOES TO ANOTHER BEAN</h3>
+                {isPaidTournament && (
+                  <p className="bracket-payout">
+                    your {economy?.feeSol} SOL deposit went to the winner's pot
+                  </p>
+                )}
+              </>
             )
           ) : (
             <h3 className={playerQualified ? "bracket-win" : "bracket-lose"}>
               {playerQualified ? "QUALIFIED ✓" : "ELIMINATED ✗"}
             </h3>
+          )}
+          {economy?.depositSig && (
+            <p className="hint" style={{ marginTop: 8 }}>
+              <a
+                href={explorerUrl(economy.depositSig)}
+                target="_blank"
+                rel="noreferrer"
+                className="tx-link"
+              >
+                view deposit on explorer ↗
+              </a>
+            </p>
           )}
         </div>
 

@@ -165,14 +165,14 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
       onBonk: (target, attacker) => {
         const dir = target.position.subtract(attacker.root.position).normalize();
         if (target === playerRoot) {
-          // Apply knockback via the BonkController
-          controller.applyKnockback(dir.scale(13), 3);
+          // Toned-down player knockback: 8 was 13, stun 1.5 was 3
+          controller.applyKnockback(dir.scale(8), 1.5);
           spawnBonkBurst(scene, target.position.clone());
-          cameraShake(camera, 0.18, 0.25);
+          cameraShake(camera, 0.12, 0.18);
         } else {
           const targetDummy = dummies.find((d) => d.root === target);
           if (targetDummy) {
-            targetDummy.applyKnockback(dir.scale(11), 2.5);
+            targetDummy.applyKnockback(dir.scale(9), 2);
             spawnBonkBurst(scene, target.position.clone());
           }
         }
