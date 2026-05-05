@@ -153,6 +153,33 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   });
   const dummyCount = dummies.length;
 
+  // Wire AI to ALSO target the player + each other
+  for (const ai of dummies) {
+    ai.setAttackSource({
+      getTargets: () => [
+        { root: playerRoot, alive: true },
+        ...dummies
+          .filter((d) => d !== ai && d.alive)
+          .map((d) => ({ root: d.root, alive: d.alive })),
+      ],
+      onBonk: (target, attacker) => {
+        const dir = target.position.subtract(attacker.root.position).normalize();
+        if (target === playerRoot) {
+          // Apply knockback via the BonkController
+          controller.applyKnockback(dir.scale(13), 3);
+          spawnBonkBurst(scene, target.position.clone());
+          cameraShake(camera, 0.18, 0.25);
+        } else {
+          const targetDummy = dummies.find((d) => d.root === target);
+          if (targetDummy) {
+            targetDummy.applyKnockback(dir.scale(11), 2.5);
+            spawnBonkBurst(scene, target.position.clone());
+          }
+        }
+      },
+    });
+  }
+
   // ---- PLAYER CONTROLLER (movement + bonk)
   const opts: BonkControllerOptions = {
     scene,

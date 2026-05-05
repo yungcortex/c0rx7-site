@@ -155,11 +155,19 @@ export class BeanAnimator {
     this.bean.hatRoot.position.y = this.bean.hatRestY + (bodySquashY - 1) * 0.4 + idleBob * 0.7;
     this.bean.hatRoot.rotation.z = walkPump * 0.04 * footHop;
 
-    // ============== TAIL flick (Vellish only) ==============
+    // ============== TAIL flick (Vellish only, more expressive while running) ==============
     if (this.bean.tail) {
-      const tailFlick = Math.sin(t * 2.3 + this.smoothedSpeed * 0.4) * 0.15;
+      const isRunning = this.smoothedSpeed > 4;
+      const flickRate = 2.3 + (isRunning ? 4 : 0);
+      const flickAmp = 0.15 + (isRunning ? 0.2 : 0);
+      const tailFlick = Math.sin(t * flickRate + this.smoothedSpeed * 0.4) * flickAmp;
       this.bean.tail.rotation.y = tailFlick;
-      this.bean.tail.rotation.x = -0.6 + Math.abs(walkPump) * 0.15 * footHop;
+      this.bean.tail.rotation.x = -0.6 + Math.abs(walkPump) * 0.25 * footHop;
+    }
+
+    // ============== RUN LEAN — extra forward lean when running ==============
+    if (this.smoothedSpeed > 4 && this.state !== "dive" && this.state !== "stunned") {
+      this.bean.body.rotation.x = Math.min(0.45, this.smoothedSpeed * 0.06);
     }
 
     // ============== EARS twitch (Vellish/Sivit) ==============

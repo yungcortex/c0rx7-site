@@ -208,8 +208,13 @@ export function buildBonkBowl(scene: Scene): ArenaSurface {
   };
 }
 
-// ============== 2. BEAN RACE — spiraling staircase with bouncy tiles ==============
-export function buildBeanRace(scene: Scene): ArenaSurface {
+// ============== 2. BEAN RACE — proper Fall Guys-style obstacle course ==============
+// (See raceCourse.ts — buildBeanRaceCourse with spinning bars, swinging
+// hammers, drop-tile gauntlet, moving platforms, bouncepad finish)
+export { buildBeanRaceCourse as buildBeanRace } from "@game/scenes/arena-bonk/raceCourse";
+
+// Legacy spiral race (unused now, kept for reference / future variant)
+function _legacy_buildBeanRaceSpiral(scene: Scene): ArenaSurface {
   const root = new TransformNode("bean-race", scene);
 
   scene.clearColor = new Color4(0.45, 0.55, 0.85, 1);
@@ -330,6 +335,7 @@ export function buildBeanRace(scene: Scene): ArenaSurface {
     dispose: () => root.dispose(),
   };
 }
+void _legacy_buildBeanRaceSpiral;
 
 // ============== 3. KING OF THE BELL — vertical multi-tier arena ==============
 export function buildKingOfBell(scene: Scene): ArenaSurface {
@@ -596,10 +602,13 @@ export function buildHotBean(scene: Scene): ArenaSurface {
   };
 }
 
+// Re-export the race course builder so the switch below picks the new one
+import { buildBeanRaceCourse as _race } from "@game/scenes/arena-bonk/raceCourse";
+
 export function buildArenaSurface(scene: Scene, variant: ArenaVariantId): ArenaSurface {
   switch (variant) {
     case "bean-race":
-      return buildBeanRace(scene);
+      return _race(scene);
     case "king-of-bell":
       return buildKingOfBell(scene);
     case "hot-bean":

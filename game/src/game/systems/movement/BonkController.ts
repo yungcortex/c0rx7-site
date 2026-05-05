@@ -171,10 +171,14 @@ export class BonkController {
       case "Digit2": if (down) this.animator.emote("dance"); break;
       case "Digit3": if (down) this.animator.emote("sleep"); break;
       case "Digit4": if (down) this.animator.emote("taunt"); break;
+      // R or Shift to run
+      case "KeyR":
       case "ShiftLeft":
       case "ShiftRight":
         this.input.bonk = down;
         break;
+      // T or F to tackle / dive-bonk
+      case "KeyT":
       case "KeyF":
       case "KeyE":
         if (down && this.alive && this.state !== "dive" && this.stunTimer <= 0) this.startDive();

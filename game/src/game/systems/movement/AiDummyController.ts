@@ -29,9 +29,23 @@ const FUN_COLORS: [number, number, number][] = [
 ];
 
 /**
- * AI Dummy — a target-practice bean. Walks around aimlessly, can be bonked
- * off the platform. No real combat AI yet; just "wander + react to knockback."
+ * AI Dummy — smarter party-game opponent. Three behaviour modes:
+ *   - chase: pick a target (nearest live bean) and steer toward them
+ *   - dive:  if close enough, lunge forward 0.4s + apply knockback to whoever
+ *            is still in range when dive ends
+ *   - wander: idle drift if no target / between dive cooldowns
+ *
+ * Per-tick AI tick chooses the mode based on distance + cooldowns. Beans
+ * that get hit go into a stun + knockback phase (existing behaviour).
  */
+
+interface AiTargetSource {
+  /** All possible targets the AI can dive at */
+  getTargets: () => { root: TransformNode; alive: boolean }[];
+  /** Hit callback — caller applies knockback */
+  onBonk: (target: TransformNode, attacker: AiDummyController) => void;
+}
+
 export class AiDummyController {
   scene: Scene;
   root: TransformNode;
@@ -41,6 +55,14 @@ export class AiDummyController {
   velocity = new Vector3(0, 0, 0);
   grounded = true;
   stunTimer = 0;
+  diveTimer = 0;
+  diveCooldown = 0;
+
+  /** Wired by the arena scene if it wants AI to attack the player too. */
+  attackSource: AiTargetSource | null = null;
+
+  /** Aggression scale 0..1 — higher = picks targets faster + dives sooner. */
+  aggression = 0.6;
 
   private wanderTimer = 0;
   private wanderDir = new Vector3(1, 0, 0);
@@ -71,42 +93,114 @@ export class AiDummyController {
     this.animator.triggerBonkHit();
   }
 
+  setAttackSource(source: AiTargetSource) {
+    this.attackSource = source;
+  }
+
   private pickWander() {
     const angle = Math.random() * Math.PI * 2;
     this.wanderDir.set(Math.cos(angle), 0, Math.sin(angle));
     this.wanderTimer = 1.5 + Math.random() * 2.5;
   }
 
+  /**
+   * Pick the closest valid target (alive, not self). Returns null if no targets.
+   */
+  private findTarget(): { root: TransformNode; dist: number } | null {
+    if (!this.attackSource) return null;
+    const targets = this.attackSource.getTargets();
+    let best: { root: TransformNode; dist: number } | null = null;
+    for (const t of targets) {
+      if (!t.alive) continue;
+      if (t.root === this.root) continue;
+      const dx = t.root.position.x - this.root.position.x;
+      const dz = t.root.position.z - this.root.position.z;
+      const d = Math.hypot(dx, dz);
+      if (!best || d < best.dist) best = { root: t.root, dist: d };
+    }
+    return best;
+  }
+
+  private startDive(towardX: number, towardZ: number) {
+    const dx = towardX - this.root.position.x;
+    const dz = towardZ - this.root.position.z;
+    const len = Math.hypot(dx, dz) || 1;
+    this.velocity.x = (dx / len) * 8;
+    this.velocity.z = (dz / len) * 8;
+    this.velocity.y = Math.max(this.velocity.y, 1.2);
+    this.diveTimer = 0.45;
+    this.diveCooldown = 1.5 + Math.random() * 1.0;
+    this.animator.triggerDive();
+  }
+
   private tick() {
     if (!this.alive) return;
     const dt = this.scene.getEngine().getDeltaTime() / 1000;
 
-    // Wander steering
-    if (this.stunTimer <= 0 && this.grounded) {
-      this.wanderTimer -= dt;
-      if (this.wanderTimer <= 0) this.pickWander();
+    // Decrement timers
+    if (this.stunTimer > 0) this.stunTimer = Math.max(0, this.stunTimer - dt);
+    if (this.diveTimer > 0) this.diveTimer = Math.max(0, this.diveTimer - dt);
+    if (this.diveCooldown > 0) this.diveCooldown = Math.max(0, this.diveCooldown - dt);
 
-      // Steer back toward center if too close to edge (so dummies don't all walk off)
-      const distFromCenter = Math.hypot(this.root.position.x, this.root.position.z);
-      let dirX = this.wanderDir.x;
-      let dirZ = this.wanderDir.z;
-      if (distFromCenter > 9) {
-        const inwardX = -this.root.position.x / distFromCenter;
-        const inwardZ = -this.root.position.z / distFromCenter;
-        dirX = dirX * 0.3 + inwardX * 0.7;
-        dirZ = dirZ * 0.3 + inwardZ * 0.7;
-        const len = Math.hypot(dirX, dirZ);
-        if (len > 0) { dirX /= len; dirZ /= len; }
+    // === BEHAVIOUR ===
+    if (this.stunTimer <= 0 && this.grounded && this.diveTimer <= 0) {
+      const target = this.findTarget();
+
+      if (target && target.dist < 1.6 && this.diveCooldown <= 0) {
+        // Close enough to dive!
+        this.startDive(target.root.position.x, target.root.position.z);
+      } else if (target && target.dist < 12) {
+        // Chase mode — steer toward target
+        const dx = target.root.position.x - this.root.position.x;
+        const dz = target.root.position.z - this.root.position.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const speed = 2.6 + this.aggression * 1.5;
+        this.velocity.x = (dx / len) * speed;
+        this.velocity.z = (dz / len) * speed;
+      } else {
+        // Wander mode (no target / target far)
+        this.wanderTimer -= dt;
+        if (this.wanderTimer <= 0) this.pickWander();
+
+        const distFromCenter = Math.hypot(this.root.position.x, this.root.position.z);
+        let dirX = this.wanderDir.x;
+        let dirZ = this.wanderDir.z;
+        if (distFromCenter > 9) {
+          const inwardX = -this.root.position.x / distFromCenter;
+          const inwardZ = -this.root.position.z / distFromCenter;
+          dirX = dirX * 0.3 + inwardX * 0.7;
+          dirZ = dirZ * 0.3 + inwardZ * 0.7;
+          const len = Math.hypot(dirX, dirZ);
+          if (len > 0) { dirX /= len; dirZ /= len; }
+        }
+        this.velocity.x = dirX * 1.8;
+        this.velocity.z = dirZ * 1.8;
       }
-      this.velocity.x = dirX * 1.8;
-      this.velocity.z = dirZ * 1.8;
-    } else {
+    } else if (this.stunTimer > 0) {
       // Friction during stun
       this.velocity.x *= Math.pow(0.4, dt);
       this.velocity.z *= Math.pow(0.4, dt);
     }
+    // Diving — keep current velocity, no input
 
-    // Gravity
+    // === DIVE HIT DETECTION ===
+    if (this.diveTimer > 0 && this.attackSource) {
+      const reach = 1.5;
+      for (const t of this.attackSource.getTargets()) {
+        if (!t.alive) continue;
+        if (t.root === this.root) continue;
+        const dx = t.root.position.x - this.root.position.x;
+        const dz = t.root.position.z - this.root.position.z;
+        if (Math.hypot(dx, dz) < reach) {
+          this.attackSource.onBonk(t.root, this);
+          this.animator.triggerBonkHit();
+          this.diveTimer = 0; // one-and-done
+          break;
+        }
+      }
+    }
+
+    // === GRAVITY + INTEGRATION ===
     if (!this.grounded) {
       this.velocity.y += -22 * dt;
     }
@@ -128,19 +222,9 @@ export class AiDummyController {
       }
     }
 
-    // Sync animator state for walking AI
-    const horizSpeed2 = Math.hypot(this.velocity.x, this.velocity.z);
-    this.animator.setState(
-      this.stunTimer > 0 ? "stunned" : horizSpeed2 > 0.3 ? "walk" : "idle",
-    );
-
-    // Stun decay
-    if (this.stunTimer > 0) this.stunTimer = Math.max(0, this.stunTimer - dt);
-
     // Face direction of motion
     const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    void horizSpeed;
-    if (Math.hypot(this.velocity.x, this.velocity.z) > 0.2 && this.stunTimer <= 0) {
+    if (horizSpeed > 0.2 && this.stunTimer <= 0) {
       const yaw = Math.atan2(this.velocity.x, this.velocity.z);
       if (!this.root.rotationQuaternion) {
         this.root.rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, 0, 0);
@@ -154,6 +238,17 @@ export class AiDummyController {
         );
       }
     }
+
+    // Sync animator state
+    this.animator.setState(
+      this.stunTimer > 0
+        ? "stunned"
+        : this.diveTimer > 0
+        ? "dive"
+        : horizSpeed > 0.3
+        ? "walk"
+        : "idle",
+    );
   }
 }
 
@@ -173,5 +268,7 @@ export function spawnAiDummy(scene: Scene, position: Vector3, seed: number): AiD
   root.position = position.clone();
   const bean = buildBean(scene, root, look);
 
-  return new AiDummyController(scene, root, bean);
+  const controller = new AiDummyController(scene, root, bean);
+  controller.aggression = 0.4 + (seed * 0.13) % 0.5; // 0.4-0.9 random per-bean
+  return controller;
 }

@@ -45,9 +45,10 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
       {/* Controls hint (bottom-center) */}
       <div className="match-controls-hint">
         <span><kbd>WASD</kbd> move</span>
-        <span><kbd>SHIFT</kbd> run</span>
+        <span><kbd>R</kbd> run</span>
         <span><kbd>SPACE</kbd> jump</span>
-        <span className="hot"><kbd>F</kbd> dive-bonk</span>
+        <span className="hot"><kbd>T</kbd> tackle</span>
+        <span><kbd>1-4</kbd> emote</span>
       </div>
 
       {/* End screens */}
