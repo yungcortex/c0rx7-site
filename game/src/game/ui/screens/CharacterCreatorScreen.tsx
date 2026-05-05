@@ -463,6 +463,11 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
             {saving ? "binding…" : "bind bean"}
           </button>
         </footer>
+        {(wallet || profile) && (
+          <p className="bind-target-hint">
+            Saves to {wallet ? <code>{wallet.pubkey.slice(0, 4)}…{wallet.pubkey.slice(-4)}</code> : profile?.username}
+          </p>
+        )}
         {error && <div className="creator-error">{error}</div>}
       </aside>
     </div>

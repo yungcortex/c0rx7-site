@@ -198,7 +198,9 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   body.material = bodyMat;
   applyOutline(body, OUTLINE_WIDTH);
 
-  // ---- FACE PLATE (used for mouth + pattern, dynamic texture)
+  // ---- FACE PLATE — DynamicTexture for mouth + pattern. Rendered AFTER body
+  // (renderingGroupId=1) and pushed past the inverted-hull outline so the
+  // pattern + mouth never z-fight with the outline pass.
   const faceTex = new DynamicTexture(
     "bean-face-tex",
     { width: 512, height: 512 },
@@ -208,19 +210,21 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   faceTex.hasAlpha = true;
   const faceMat = new StandardMaterial("bean-face-mat", scene);
   faceMat.diffuseTexture = faceTex;
-  faceMat.opacityTexture = faceTex;
-  faceMat.emissiveColor = new Color3(0.5, 0.5, 0.5);
+  faceMat.useAlphaFromDiffuseTexture = true;
+  faceMat.emissiveColor = new Color3(0.85, 0.85, 0.85);
   faceMat.specularColor = new Color3(0, 0, 0);
-  faceMat.disableLighting = false;
+  faceMat.disableLighting = true;
+  faceMat.backFaceCulling = false;
   const facePlane = MeshBuilder.CreatePlane(
     "bean-face",
-    { width: 0.95 * props.bodyRX, height: 0.95 * props.bodyHeight * props.squash },
+    { width: 1.2 * props.bodyRX, height: 1.3 * props.bodyHeight * props.squash },
     scene,
   );
   facePlane.parent = root;
-  facePlane.position.set(0, 1.05, 0.61 * props.bodyRZ);
+  facePlane.position.set(0, 1.05, 0.6 * props.bodyRZ + 0.12);
   facePlane.material = faceMat;
   facePlane.isPickable = false;
+  facePlane.renderingGroupId = 1;
 
   // ---- EYES (two big white spheres + black pupils)
   const eyeWhite = flatMat(scene, "bean-eye-white", new Color3(1, 1, 1), 0.5);
@@ -356,7 +360,7 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   // default-height capsule (will be recomputed in setProportions).
   const hatRoot = new TransformNode("bean-hat-root", scene);
   hatRoot.parent = root;
-  hatRoot.position.y = 0.85 + 0.85 * props.bodyHeight * props.squash;
+  hatRoot.position.y = 0.85 + 0.72 * props.bodyHeight * props.squash;
 
   const outfitRoot = new TransformNode("bean-outfit-root", scene);
   outfitRoot.parent = root;
@@ -499,27 +503,26 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   bean.eyes.right.outlineWidth = 0.025 * outlineMul;
 
   // ============== POSITION RECOMPUTES ==============
-  // Body pivot is at y=0.85. Capsule of base height 1.4 extends ~0.7 above
-  // pivot at scale 1; we use 0.95 to give the hat a bit of headroom.
-  const bodyTop = 0.85 + 0.95 * restY;
+  // Body pivot at y=0.85. Capsule of height 1.4 + radius 0.6 extends ~0.7
+  // above pivot at scale 1. Hat sits at ~0.72 (right at body top, no float).
+  const bodyTop = 0.85 + 0.72 * restY;
   bean.hatRoot.position.y = bodyTop;
   bean.hatRestY = bodyTop;
 
-  // Face plate hugs the front of the body. Push it slightly OUT so the
-  // pattern/mouth render visibly in front of body geometry without z-fight.
-  bean.facePlane.position.z = (0.6 * restZ) + 0.04;
-  bean.facePlane.position.y = 0.85 + 0.5 * restY;
+  // Face plate pushed 0.12m past body radius — well beyond the outline
+  // (~0.04m) so mouth + pattern never z-fight. renderingGroupId=1 set in
+  // builder so it draws after the outline pass.
+  bean.facePlane.position.z = (0.6 * restZ) + 0.12;
+  bean.facePlane.position.y = 0.85 + 0.45 * restY;
 
-  // Eyes sit just below the face top. Scale the offset with body height
-  // so eyes track up/down with the head.
-  const eyeY = 0.85 + 0.65 * restY;
+  // Eyes at upper-mid body. Was 0.65 (above the head). Now 0.5.
+  const eyeY = 0.85 + 0.5 * restY;
   bean.eyes.left.position.y = eyeY;
   bean.eyes.right.position.y = eyeY;
   bean.eyes.pupilL.position.y = eyeY;
   bean.eyes.pupilR.position.y = eyeY;
-  // Pupils stick OUT slightly further than the eye whites
-  bean.eyes.pupilL.position.z = (0.55 * restZ) + 0.07;
-  bean.eyes.pupilR.position.z = (0.55 * restZ) + 0.07;
+  bean.eyes.pupilL.position.z = (0.55 * restZ) + 0.08;
+  bean.eyes.pupilR.position.z = (0.55 * restZ) + 0.08;
   bean.eyes.left.position.z = 0.55 * restZ;
   bean.eyes.right.position.z = 0.55 * restZ;
 
@@ -567,13 +570,14 @@ function applyBeanLook(
     bean.tail.material.diffuseColor = accent;
     bean.tail.material.emissiveColor = accent.scale(0.06);
   }
-  // Feet — only tint if pattern color provided AND a pattern is active,
-  // otherwise keep them dark for visual grounding.
-  const feetTint = look.pattern && look.pattern !== "none" ? accent : OUTLINE_COLOR.scale(2.0);
+  // Feet stay grounded-dark always. (Was tinted with accent when a pattern
+  // was active, which made the user think the pattern only affected feet.
+  // Feet now decoupled — pattern shows on body, accent tints hands/ears/tail.)
+  const feetColor = OUTLINE_COLOR.scale(2.0);
   for (const f of bean.feet) {
     if (f.material instanceof StandardMaterial) {
-      f.material.diffuseColor = feetTint;
-      f.material.emissiveColor = feetTint.scale(0.05);
+      f.material.diffuseColor = feetColor;
+      f.material.emissiveColor = feetColor.scale(0.05);
     }
   }
 
@@ -639,27 +643,32 @@ function drawFace(tex: DynamicTexture, look: BeanLook, _props: HeritageProportio
 function drawPattern(
   ctx: CanvasRenderingContext2D,
   pattern: BeanPattern,
-  body: Color3,
+  _body: Color3,
   accent: Color3,
   W: number,
   H: number,
 ) {
-  const accentRgb = `rgb(${(accent.r * 255) | 0}, ${(accent.g * 255) | 0}, ${(accent.b * 255) | 0})`;
-  const _bodyRgb = `rgb(${(body.r * 255) | 0}, ${(body.g * 255) | 0}, ${(body.b * 255) | 0})`;
-  void _bodyRgb;
-
+  const r = (accent.r * 255) | 0;
+  const g = (accent.g * 255) | 0;
+  const b = (accent.b * 255) | 0;
+  const accentRgb = `rgb(${r}, ${g}, ${b})`;
   ctx.fillStyle = accentRgb;
+
   if (pattern === "stripes") {
-    for (let i = 0; i < 6; i++) {
-      ctx.fillRect(0, 60 + i * 70, W, 20);
+    // Bigger / thicker stripes that fill more of the chest
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(0, 70 + i * 80, W, 38);
     }
   } else if (pattern === "dots") {
+    // 5×4 grid of fat dots
     ctx.beginPath();
-    for (let i = 0; i < 16; i++) {
-      const x = 40 + (i % 4) * 110;
-      const y = 80 + Math.floor(i / 4) * 110;
-      ctx.moveTo(x + 24, y);
-      ctx.arc(x, y, 24, 0, Math.PI * 2);
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 5; col++) {
+        const x = 60 + col * 100;
+        const y = 90 + row * 100;
+        ctx.moveTo(x + 36, y);
+        ctx.arc(x, y, 36, 0, Math.PI * 2);
+      }
     }
     ctx.fill();
   } else if (pattern === "split") {
@@ -667,6 +676,7 @@ function drawPattern(
   } else if (pattern === "gradient") {
     const grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, "rgba(255,255,255,0)");
+    grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.3)`);
     grad.addColorStop(1, accentRgb);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
@@ -674,52 +684,52 @@ function drawPattern(
 }
 
 function drawMouth(ctx: CanvasRenderingContext2D, style: BeanMouthStyle, W: number, _H: number) {
-  ctx.lineWidth = 18;
+  // Bigger, thicker mouth so it reads from a distance + survives pattern overlay
+  ctx.lineWidth = 26;
   ctx.lineCap = "round";
-  ctx.strokeStyle = "#15091f";
-  ctx.fillStyle = "#15091f";
+  ctx.strokeStyle = "#0a0410";
+  ctx.fillStyle = "#0a0410";
   const cx = W / 2;
-  const cy = 360;
+  const cy = 380;
 
   ctx.beginPath();
   switch (style) {
     case "smile":
-      ctx.arc(cx, cy - 30, 60, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.arc(cx, cy - 30, 80, Math.PI * 0.15, Math.PI * 0.85);
       ctx.stroke();
       break;
     case "grin":
-      ctx.arc(cx, cy - 30, 70, Math.PI * 0.05, Math.PI * 0.95);
+      ctx.arc(cx, cy - 30, 95, Math.PI * 0.05, Math.PI * 0.95);
       ctx.stroke();
-      // teeth
       ctx.fillStyle = "#fff";
-      ctx.fillRect(cx - 56, cy + 5, 112, 18);
-      ctx.fillStyle = "#15091f";
+      ctx.fillRect(cx - 75, cy + 5, 150, 22);
+      ctx.fillStyle = "#0a0410";
       break;
     case "frown":
-      ctx.arc(cx, cy + 50, 60, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.arc(cx, cy + 60, 80, Math.PI * 1.15, Math.PI * 1.85);
       ctx.stroke();
       break;
     case "gasp":
       ctx.beginPath();
-      ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 38, 0, Math.PI * 2);
       ctx.fill();
       break;
     case "smug":
-      ctx.moveTo(cx - 60, cy);
-      ctx.bezierCurveTo(cx - 30, cy + 15, cx + 30, cy - 15, cx + 60, cy);
+      ctx.moveTo(cx - 80, cy);
+      ctx.bezierCurveTo(cx - 40, cy + 22, cx + 40, cy - 22, cx + 80, cy);
       ctx.stroke();
       break;
     case "tongue":
-      ctx.arc(cx, cy - 30, 60, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.arc(cx, cy - 30, 80, Math.PI * 0.1, Math.PI * 0.9);
       ctx.stroke();
       ctx.fillStyle = "#d44a6a";
       ctx.beginPath();
-      ctx.arc(cx + 30, cy + 10, 18, 0, Math.PI * 2);
+      ctx.arc(cx + 40, cy + 18, 26, 0, Math.PI * 2);
       ctx.fill();
       break;
     case "neutral":
-      ctx.moveTo(cx - 40, cy);
-      ctx.lineTo(cx + 40, cy);
+      ctx.moveTo(cx - 60, cy);
+      ctx.lineTo(cx + 60, cy);
       ctx.stroke();
       break;
   }

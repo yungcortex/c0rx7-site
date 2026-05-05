@@ -1502,6 +1502,21 @@ input {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
 }
+.bind-target-hint {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  color: var(--paper-soft);
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid rgba(201, 168, 90, 0.1);
+  margin: 0;
+  font-style: italic;
+}
+.bind-target-hint code {
+  font-family: monospace;
+  color: var(--gold-bright);
+  font-style: normal;
+}
 
 .slot-empty { opacity: 0.5; transition: opacity 0.2s ease; }
 .slot-empty:hover { opacity: 0.85; }
