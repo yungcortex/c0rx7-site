@@ -8,6 +8,7 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
   const bonks = useMatch((s) => s.bonks);
   const startedAt = useMatch((s) => s.startedAt);
   const playableAt = useMatch((s) => s.playableAt);
+  const endedAt = useMatch((s) => s.endedAt);
   const invulnerableUntil = useMatch((s) => s.invulnerableUntil);
   const [now, setNow] = useState(Date.now());
 
@@ -17,7 +18,15 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
     return () => window.clearInterval(id);
   }, [phase]);
 
-  const elapsed = phase === "playing" ? Math.floor((now - playableAt) / 1000) : 0;
+  // Elapsed time tracks from countdown-end to match-end (frozen) or now.
+  const referenceTime =
+    phase === "won" || phase === "lost"
+      ? endedAt
+      : phase === "playing"
+      ? now
+      : playableAt;
+  const elapsedMs = Math.max(0, referenceTime - playableAt);
+  const elapsed = Math.floor(elapsedMs / 1000);
   const mins = Math.floor(elapsed / 60).toString().padStart(2, "0");
   const secs = (elapsed % 60).toString().padStart(2, "0");
 

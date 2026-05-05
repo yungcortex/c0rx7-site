@@ -127,9 +127,11 @@ export class BeanAnimator {
     this.bean.body.scaling.y = rs.y * bodySquashY;
     this.bean.body.scaling.z = rs.z * bodySquashX;
 
-    // Body lean into motion (small forward tilt while moving)
+    // Body lean into motion — slerped, so it doesn't snap on direction change
     if (this.state !== "dive" && this.state !== "stunned") {
-      this.bean.body.rotation.x = -Math.min(0.25, this.smoothedSpeed * 0.045);
+      const targetLean = -Math.min(0.25, this.smoothedSpeed * 0.045);
+      const k = Math.min(1, dt * 8);
+      this.bean.body.rotation.x += (targetLean - this.bean.body.rotation.x) * k;
     }
 
     // ============== FEET pump (alternate up/down on walk) ==============
@@ -165,10 +167,9 @@ export class BeanAnimator {
       this.bean.tail.rotation.x = -0.6 + Math.abs(walkPump) * 0.25 * footHop;
     }
 
-    // ============== RUN LEAN — extra forward lean when running ==============
-    if (this.smoothedSpeed > 4 && this.state !== "dive" && this.state !== "stunned") {
-      this.bean.body.rotation.x = Math.min(0.45, this.smoothedSpeed * 0.06);
-    }
+    // (run-lean removed — body.rotation.x is now slerped above based on
+    // smoothedSpeed, so it gracefully blends from idle → walk → run without
+    // a hard snap)
 
     // ============== EARS twitch (Vellish/Sivit) ==============
     for (const ear of this.bean.ears) {

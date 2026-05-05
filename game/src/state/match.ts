@@ -15,6 +15,8 @@ interface MatchState {
   invulnerableUntil: number;
   /** ms timestamp at which countdown ends and play begins */
   playableAt: number;
+  /** ms timestamp when the match ended (won/lost) — frozen for end-screen display */
+  endedAt: number;
   setVariant: (v: ArenaVariantId) => void;
   reset: (totalBeans: number) => void;
   beginCountdown: (countdownSec: number, invulnSec: number) => void;
@@ -35,6 +37,7 @@ export const useMatch = create<MatchState>((set, get) => ({
   startedAt: 0,
   invulnerableUntil: 0,
   playableAt: 0,
+  endedAt: 0,
   setVariant: (v) => set({ variant: v }),
   reset: (totalBeans) => {
     const now = Date.now();
@@ -44,8 +47,9 @@ export const useMatch = create<MatchState>((set, get) => ({
       beansAlive: totalBeans,
       bonks: 0,
       startedAt: now,
-      playableAt: now + 3500, // 3-2-1-GO
-      invulnerableUntil: now + 5500, // extra 2s grace after countdown
+      playableAt: now + 3500,
+      invulnerableUntil: now + 5500,
+      endedAt: 0,
     });
   },
   beginCountdown: (countdownSec, invulnSec) => {
@@ -63,14 +67,14 @@ export const useMatch = create<MatchState>((set, get) => ({
   registerKO: () => {
     const next = Math.max(0, get().beansAlive - 1);
     if (next <= 1) {
-      set({ beansAlive: next, phase: "won" });
+      set({ beansAlive: next, phase: "won", endedAt: Date.now() });
       playSfx("win");
     } else {
       set({ beansAlive: next });
     }
   },
   setPlayerDead: () => {
-    set({ phase: "lost" });
+    set({ phase: "lost", endedAt: Date.now() });
   },
   incrementBonks: () => set((s) => ({ bonks: s.bonks + 1 })),
 }));

@@ -149,16 +149,37 @@ export class AiDummyController {
     if (this.stunTimer <= 0 && this.grounded && this.diveTimer <= 0 && matchPlayable) {
       const target = this.findTarget();
 
-      if (target && target.dist < 1.6 && this.diveCooldown <= 0) {
+      // Don't dive if we (the attacker) are too close to the edge — high
+      // chance the dive launches us off the platform.
+      const myDist = Math.hypot(this.root.position.x, this.root.position.z);
+      const safeToDive = myDist < 8;
+
+      if (target && target.dist < 1.6 && this.diveCooldown <= 0 && safeToDive) {
         this.startDive(target.root.position.x, target.root.position.z);
       } else if (target && target.dist < 12) {
-        // Chase mode — steer toward target
+        // Chase mode — steer toward target, BUT bias away from edges so AI
+        // doesn't suicide chasing the player off the platform.
         const dx = target.root.position.x - this.root.position.x;
         const dz = target.root.position.z - this.root.position.z;
         const len = Math.hypot(dx, dz) || 1;
+        let chaseX = dx / len;
+        let chaseZ = dz / len;
+
+        const myDistFromCenter = Math.hypot(this.root.position.x, this.root.position.z);
+        if (myDistFromCenter > 7.5) {
+          // Blend in inward steering as we get closer to edge
+          const inwardW = Math.min(1, (myDistFromCenter - 7.5) / 3);
+          const inwardX = -this.root.position.x / Math.max(0.01, myDistFromCenter);
+          const inwardZ = -this.root.position.z / Math.max(0.01, myDistFromCenter);
+          chaseX = chaseX * (1 - inwardW) + inwardX * inwardW;
+          chaseZ = chaseZ * (1 - inwardW) + inwardZ * inwardW;
+          const cl = Math.hypot(chaseX, chaseZ) || 1;
+          chaseX /= cl;
+          chaseZ /= cl;
+        }
         const speed = 2.6 + this.aggression * 1.5;
-        this.velocity.x = (dx / len) * speed;
-        this.velocity.z = (dz / len) * speed;
+        this.velocity.x = chaseX * speed;
+        this.velocity.z = chaseZ * speed;
       } else {
         // Wander mode (no target / target far)
         this.wanderTimer -= dt;
