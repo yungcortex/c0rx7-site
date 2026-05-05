@@ -207,8 +207,17 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   };
   const controller = new BonkController(opts);
 
-  // Match-state init
+  // Match-state init — starts in countdown phase, switches to playing after 3.5s
   useMatch.getState().reset(dummyCount + 1);
+  // Auto-flip to playing once the playable timestamp passes
+  const playabilityChecker = setInterval(() => {
+    const ms = useMatch.getState();
+    if (ms.phase === "countdown" && ms.isPlayable()) {
+      ms.beginPlay();
+      clearInterval(playabilityChecker);
+    }
+  }, 100);
+  scene.onDisposeObservable.add(() => clearInterval(playabilityChecker));
 
   // Camera target lerps toward the player (smooth follow, not snapped)
   const camLook = new Vector3(0, 1.5, 0);

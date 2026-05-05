@@ -980,6 +980,65 @@ input {
   letter-spacing: 0.04em;
 }
 
+/* Countdown overlay (3, 2, 1, GO) */
+.match-countdown {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 70;
+}
+.match-countdown span {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 12rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 60px rgba(232, 200, 120, 0.8), 0 8px 30px rgba(0, 0, 0, 0.6);
+  animation: countdown-pop 0.9s ease-out;
+}
+.match-countdown span.go {
+  color: #95ff85;
+  font-size: 9rem;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 60px rgba(150, 255, 130, 0.85), 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+@keyframes countdown-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  20%  { transform: scale(1.2); opacity: 1; }
+  60%  { transform: scale(1.0); opacity: 1; }
+  100% { transform: scale(1.0); opacity: 1; }
+}
+
+/* Invulnerability indicator */
+.match-invuln {
+  pointer-events: none;
+  position: fixed;
+  bottom: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.2rem;
+  background: rgba(180, 240, 255, 0.18);
+  border: 1px solid rgba(150, 230, 255, 0.6);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(180, 240, 255, 0.95);
+  z-index: 50;
+  font-family: "Cormorant Garamond", serif;
+  animation: invuln-pulse 1.4s ease-in-out infinite;
+}
+@keyframes invuln-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(150, 230, 255, 0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(150, 230, 255, 0); }
+}
+.match-invuln-icon { color: #b6f0ff; }
+
 /* ============== SHOP ============== */
 .shop-screen {
   position: fixed;

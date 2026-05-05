@@ -15,6 +15,7 @@ import {
 } from "@game/systems/character/Bean";
 import type { Heritage } from "@game/systems/character/SliderBlob";
 import { BeanAnimator } from "@game/systems/character/BeanAnimator";
+import { useMatch } from "@state/match";
 
 const HERITAGES: Heritage[] = ["hjari", "sivit", "korr", "vellish"];
 
@@ -143,11 +144,12 @@ export class AiDummyController {
     if (this.diveCooldown > 0) this.diveCooldown = Math.max(0, this.diveCooldown - dt);
 
     // === BEHAVIOUR ===
-    if (this.stunTimer <= 0 && this.grounded && this.diveTimer <= 0) {
+    // No diving / chasing during countdown phase — beans wait politely.
+    const matchPlayable = useMatch.getState().isPlayable();
+    if (this.stunTimer <= 0 && this.grounded && this.diveTimer <= 0 && matchPlayable) {
       const target = this.findTarget();
 
       if (target && target.dist < 1.6 && this.diveCooldown <= 0) {
-        // Close enough to dive!
         this.startDive(target.root.position.x, target.root.position.z);
       } else if (target && target.dist < 12) {
         // Chase mode — steer toward target

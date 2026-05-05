@@ -7,17 +7,35 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
   const totalBeans = useMatch((s) => s.totalBeans);
   const bonks = useMatch((s) => s.bonks);
   const startedAt = useMatch((s) => s.startedAt);
+  const playableAt = useMatch((s) => s.playableAt);
+  const invulnerableUntil = useMatch((s) => s.invulnerableUntil);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (phase !== "playing") return;
+    if (phase !== "playing" && phase !== "countdown") return;
     const id = window.setInterval(() => setNow(Date.now()), 100);
     return () => window.clearInterval(id);
   }, [phase]);
 
-  const elapsed = phase === "playing" ? Math.floor((now - startedAt) / 1000) : 0;
+  const elapsed = phase === "playing" ? Math.floor((now - playableAt) / 1000) : 0;
   const mins = Math.floor(elapsed / 60).toString().padStart(2, "0");
   const secs = (elapsed % 60).toString().padStart(2, "0");
+
+  // Countdown number (3, 2, 1, GO)
+  const countdownMs = playableAt - now;
+  const countdownLabel =
+    phase === "countdown" || countdownMs > 0
+      ? countdownMs > 2500
+        ? "3"
+        : countdownMs > 1500
+        ? "2"
+        : countdownMs > 500
+        ? "1"
+        : "GO!"
+      : null;
+
+  const invulnRemaining = Math.max(0, (invulnerableUntil - now) / 1000);
+  void startedAt;
 
   return (
     <>
@@ -50,6 +68,21 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
         <span className="hot"><kbd>T</kbd> tackle</span>
         <span><kbd>1-4</kbd> emote</span>
       </div>
+
+      {/* Countdown overlay */}
+      {countdownLabel && (
+        <div className="match-countdown">
+          <span className={countdownLabel === "GO!" ? "go" : ""}>{countdownLabel}</span>
+        </div>
+      )}
+
+      {/* Invulnerability indicator */}
+      {phase === "playing" && invulnRemaining > 0 && (
+        <div className="match-invuln">
+          <span className="match-invuln-icon">✦</span>
+          <span>SHIELD {invulnRemaining.toFixed(1)}s</span>
+        </div>
+      )}
 
       {/* End screens */}
       {phase === "won" && (

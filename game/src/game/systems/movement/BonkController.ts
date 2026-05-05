@@ -11,6 +11,7 @@ import {
 import type { Bean } from "@game/systems/character/Bean";
 import { playSfx } from "@game/systems/audio/SoundManager";
 import { BeanAnimator, type BeanState } from "@game/systems/character/BeanAnimator";
+import { useMatch } from "@state/match";
 
 interface InputState {
   forward: boolean;
@@ -129,6 +130,8 @@ export class BonkController {
   }
 
   applyKnockback(impulse: Vector3, stunSeconds = 0) {
+    // Spawn invulnerability — ignore incoming impulses for the first ~5s
+    if (useMatch.getState().isInvulnerable()) return;
     this.velocity.x += impulse.x;
     this.velocity.y = Math.max(this.velocity.y, 0) + impulse.y;
     this.velocity.z += impulse.z;

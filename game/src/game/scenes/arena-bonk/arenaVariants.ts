@@ -86,6 +86,20 @@ function flatMat(scene: Scene, name: string, c: Color3, em = 0.1): StandardMater
   return m;
 }
 
+/**
+ * SPAWN HELPERS — give the player extra distance from AI so they aren't
+ * bonked off in the first second.
+ */
+function ringSpawns(playerR: number, aiR: number, count: number): { player: Vector3; ai: Vector3[] } {
+  const ai: Vector3[] = [];
+  for (let i = 0; i < count; i++) {
+    // AI sit on the FAR side from where the player spawns (player at 0,_,playerR)
+    const ang = Math.PI + (i - count / 2) * 0.6;
+    ai.push(new Vector3(Math.cos(ang) * aiR, 1, Math.sin(ang) * aiR));
+  }
+  return { player: new Vector3(0, 1, playerR), ai };
+}
+
 // ============== 1. BONK BOWL — pink tiered arena with bounce pads ==============
 export function buildBonkBowl(scene: Scene): ArenaSurface {
   const root = new TransformNode("bonk-bowl", scene);
@@ -181,17 +195,14 @@ export function buildBonkBowl(scene: Scene): ArenaSurface {
   // Ambient pink sparkles
   ambientSparkles(scene, "rgba(255, 200, 230, 1)", root, ARENA_R);
 
-  // 5 spawn anchors around the outer ring
-  const aiSpawns: Vector3[] = [];
-  for (let i = 0; i < 5; i++) {
-    const ang = (i / 5) * Math.PI * 2 + 0.4;
-    aiSpawns.push(new Vector3(Math.cos(ang) * (ARENA_R - 1.5), 1, Math.sin(ang) * (ARENA_R - 1.5)));
-  }
+  // Player spawns at one edge; AI spawns clustered on the FAR side so they
+  // don't immediately rush — gives countdown + spawn-invuln buffer time.
+  const { player, ai: aiSpawns } = ringSpawns(ARENA_R - 2, ARENA_R - 2, 5);
 
   return {
     inside: (x, z) => Math.hypot(x, z) <= ARENA_R,
     floorY: (x, z) => (Math.hypot(x, z) > INNER_R ? 0 : -1),
-    playerSpawn: new Vector3(0, 1, ARENA_R - 2),
+    playerSpawn: player,
     aiSpawns,
     hazards,
     tick: () => {
