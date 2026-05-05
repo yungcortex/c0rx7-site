@@ -373,9 +373,10 @@ void _legacy_buildBeanRaceSpiral;
 export function buildKingOfBell(scene: Scene): ArenaSurface {
   const root = new TransformNode("kob", scene);
 
-  scene.clearColor = new Color4(0.18, 0.18, 0.32, 1);
-  scene.fogColor = new Color3(0.28, 0.22, 0.45);
-  scene.fogDensity = 0.018;
+  // Bubblier sky for Final-round drama (twilight pink/purple)
+  scene.clearColor = new Color4(0.55, 0.45, 0.85, 1);
+  scene.fogColor = new Color3(0.7, 0.55, 0.95);
+  scene.fogDensity = 0.01;
 
   const ARENA_R = 11;
 
@@ -464,6 +465,12 @@ export function buildKingOfBell(scene: Scene): ArenaSurface {
   }
 
   ambientSparkles(scene, "rgba(255, 220, 130, 1)", root, ARENA_R, 12);
+  // Final-round bubble juice
+  spawnBalloonCluster(scene, root, new Vector3(-ARENA_R - 1, 8, 0), 7);
+  spawnBalloonCluster(scene, root, new Vector3(ARENA_R + 1, 9, 1), 7);
+  spawnBalloonCluster(scene, root, new Vector3(0, 11, -ARENA_R - 1), 6);
+  spawnBunting(scene, root, new Vector3(-ARENA_R, 7, 0), new Vector3(ARENA_R, 7, 0), 16);
+  spawnAmbientConfetti(scene, root, ARENA_R);
 
   const aiSpawns: Vector3[] = [];
   for (let i = 0; i < 5; i++) {
@@ -485,9 +492,10 @@ export function buildKingOfBell(scene: Scene): ArenaSurface {
 export function buildHotBean(scene: Scene): ArenaSurface {
   const root = new TransformNode("hot-bean", scene);
 
-  scene.clearColor = new Color4(0.32, 0.12, 0.08, 1);
-  scene.fogColor = new Color3(0.55, 0.18, 0.12);
-  scene.fogDensity = 0.02;
+  // Toned-down lava sky so the cute beans + decorations still pop
+  scene.clearColor = new Color4(0.85, 0.32, 0.28, 1);
+  scene.fogColor = new Color3(1.0, 0.45, 0.32);
+  scene.fogDensity = 0.012;
 
   const ARENA_R = 9;
   const INNER_HOLE = 1.8;
@@ -598,6 +606,11 @@ export function buildHotBean(scene: Scene): ArenaSurface {
 
   const hazards: DynamicHazard[] = [];
   hazards.push({ pos: new Vector3(0, 1.5, 0), radius: 1.0, kind: "spike" });
+
+  // Bubbly decorations contrasting the lava ring — gold + sky balloons
+  spawnBalloonCluster(scene, root, new Vector3(-ARENA_R - 2, 7, -1), 5);
+  spawnBalloonCluster(scene, root, new Vector3(ARENA_R + 2, 8, 1), 5);
+  spawnBunting(scene, root, new Vector3(-ARENA_R, 6.5, 0), new Vector3(ARENA_R, 6.5, 0), 12);
 
   const aiSpawns: Vector3[] = [];
   for (let i = 0; i < 5; i++) {

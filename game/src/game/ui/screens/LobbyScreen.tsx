@@ -158,11 +158,11 @@ export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Prop
           >
             <span className="lobby-mode-title">★ TOURNAMENT</span>
             <span className="lobby-mode-desc">
-              4 rounds. 24 beans. Race → Brawl → Survival → Final. One bean takes the crown.
+              3 rounds, 24 beans. Brawl → Hot Bean → King of the Bell. Last bean takes the crown + the SOL pot.
             </span>
             <div className="lobby-mode-meta">
-              <span>Entry: Free Trial</span>
-              <span>Rounds: 4</span>
+              <span>Entry: Free Trial / 0.05 SOL</span>
+              <span>Rounds: 3</span>
             </div>
           </button>
           {MODES.map((m) => (

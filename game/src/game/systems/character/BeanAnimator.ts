@@ -88,12 +88,15 @@ export class BeanAnimator {
     const walkPump = Math.sin(this.walkPhase * Math.PI);
     const walkPumpAlt = Math.sin(this.walkPhase * Math.PI + Math.PI);
 
-    // ============== BODY squash / stretch ==============
-    const idleBob = Math.sin(t * 1.8) * 0.04;
-    const walkBob = Math.abs(walkPump) * 0.07 * Math.min(1, this.smoothedSpeed / 4);
+    // ============== BODY squash / stretch (bubbly Fall Guys idle) ==============
+    // Bigger amplitude + slight counter-squash on X so the bean visibly breathes/bounces
+    const idleBob = Math.sin(t * 2.2) * 0.085;
+    const idleSquashX = -Math.sin(t * 2.2) * 0.05; // counter-squash for cartoon feel
+    const idleSwayY = Math.sin(t * 0.8) * 0.018;
+    const walkBob = Math.abs(walkPump) * 0.11 * Math.min(1, this.smoothedSpeed / 4);
 
-    let bodySquashY = 1.0 + idleBob + walkBob;
-    let bodySquashX = 1.0;
+    let bodySquashY = 1.0 + idleBob + walkBob + idleSwayY;
+    let bodySquashX = 1.0 + idleSquashX * 0.6;
 
     // Pulse decays
     if (this.jumpPulse > 0) {

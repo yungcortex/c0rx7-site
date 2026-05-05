@@ -281,7 +281,7 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
 
   applyCelShade(scene, camera);
 
-  activeArena = {
+  const myArena: BonkArenaContext = {
     scene,
     controller,
     dummies,
@@ -291,13 +291,17 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
       dummies.forEach((d) => d.dispose());
       playerBean.dispose();
       surface.dispose();
-      activeArena = null;
     },
   };
+  activeArena = myArena;
 
+  // Only clear activeArena if it still points at THIS scene's arena.
+  // (When the arena is rebuilt mid-tournament, the new scene mounts its
+  // own myArena into activeArena before the old scene disposes — without
+  // this guard, the old scene's onDispose would tear down the new one.)
   scene.onDisposeObservable.add(() => {
-    if (activeArena) activeArena.dispose();
-    activeArena = null;
+    myArena.dispose();
+    if (activeArena === myArena) activeArena = null;
   });
 
   return scene;
