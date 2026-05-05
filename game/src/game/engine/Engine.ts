@@ -37,8 +37,12 @@ export class GameEngine {
     });
   }
 
-  go(id: SceneId) {
-    this.sceneManager.go(id);
+  go(id: SceneId, force = false) {
+    this.sceneManager.go(id, force);
+  }
+
+  rebuildScene() {
+    this.sceneManager.rebuild();
   }
 
   get activeSceneId() {

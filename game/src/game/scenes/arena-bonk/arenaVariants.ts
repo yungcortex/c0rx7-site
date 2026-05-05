@@ -11,6 +11,7 @@ import {
   ParticleSystem,
   Texture,
 } from "@babylonjs/core";
+import { spawnBalloonCluster, spawnBunting, spawnAmbientConfetti } from "@game/scenes/arena-bonk/decorations";
 
 /**
  * Arena variants — fully built-out themed levels with hazards, verticality,
@@ -108,10 +109,10 @@ function ringSpawns(playerR: number, aiR: number, count: number): { player: Vect
 export function buildBonkBowl(scene: Scene): ArenaSurface {
   const root = new TransformNode("bonk-bowl", scene);
 
-  // Sky gradient
-  scene.clearColor = new Color4(0.65, 0.45, 0.75, 1);
-  scene.fogColor = new Color3(0.85, 0.55, 0.78);
-  scene.fogDensity = 0.014;
+  // Brighter, bubblier sky for Fall Guys feel
+  scene.clearColor = new Color4(1.0, 0.65, 0.85, 1);
+  scene.fogColor = new Color3(1.0, 0.7, 0.88);
+  scene.fogDensity = 0.008;
 
   const ARENA_R = 13;
   const INNER_R = 5;
@@ -196,8 +197,17 @@ export function buildBonkBowl(scene: Scene): ArenaSurface {
   beamRoot.animations.push(beamSpin);
   scene.beginAnimation(beamRoot, 0, 240, true, 0.8);
 
-  // Ambient pink sparkles
+  // Ambient pink sparkles + bubbly Fall Guys decorations
   ambientSparkles(scene, "rgba(255, 200, 230, 1)", root, ARENA_R);
+  // Balloon clusters in the sky around the arena
+  spawnBalloonCluster(scene, root, new Vector3(-ARENA_R - 2, 7, -2), 6);
+  spawnBalloonCluster(scene, root, new Vector3(ARENA_R + 2, 8, 2), 6);
+  spawnBalloonCluster(scene, root, new Vector3(0, 10, -ARENA_R - 3), 5);
+  // Bunting flags strung above
+  spawnBunting(scene, root, new Vector3(-ARENA_R, 6, 0), new Vector3(ARENA_R, 6, 0), 14);
+  spawnBunting(scene, root, new Vector3(0, 6, -ARENA_R), new Vector3(0, 6, ARENA_R), 14);
+  // Ambient falling confetti
+  spawnAmbientConfetti(scene, root, ARENA_R);
 
   // Player spawns at one edge; AI spawns clustered on the FAR side so they
   // don't immediately rush — gives countdown + spawn-invuln buffer time.
