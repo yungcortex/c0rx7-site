@@ -11,6 +11,7 @@ import {
   Vector3,
   Skeleton,
   MeshBuilder,
+  Space,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 
@@ -201,9 +202,10 @@ export async function loadAvatar(
   root.scaling = new Vector3(baseScale, baseScale, baseScale);
 
   // Re-anchor so feet sit at parent.y = 0 (parent in scene supplies the floor)
+  let lastFootOffset = 0;
   if (isFinite(minY)) {
-    const offset = -minY * baseScale;
-    root.position.y += offset;
+    lastFootOffset = -minY * baseScale;
+    root.position.y += lastFootOffset;
   }
 
   console.info(
@@ -317,26 +319,19 @@ export async function loadAvatar(
   );
 
   const applyCelMats = (skinColor: Color3, hairColor: Color3, outfitColor: Color3) => {
-    // Pass 1: paint EVERY mesh with the skin color first (worst case if
-    // classifier missed: at least skin slider drives the whole character).
-    for (const m of meshes) {
-      if (m instanceof Mesh && m.material) {
-        setMaterialColor(m.material, skinColor, 0.45);
-      }
+    // Tint per region. SKIN gets a soft tint (0.18) so face/clothing texture
+    // detail survives. HAIR / OUTFIT get stronger (0.5) so visible. Meshes
+    // that didn't classify into a known region (rare) are left alone — better
+    // to keep their original colour than blast them all skin-toned.
+    for (const m of meshesByRegion.skin) {
+      if (m.material) setMaterialColor(m.material, skinColor, 0.18);
     }
-    // Pass 2: hair-classified meshes get hair color (overrides pass 1).
     for (const m of meshesByRegion.hair) {
-      if (m.material) setMaterialColor(m.material, hairColor, 0.7);
+      if (m.material) setMaterialColor(m.material, hairColor, 0.5);
     }
-    // Pass 3: outfit-classified meshes get outfit color (overrides pass 1).
     for (const m of meshesByRegion.outfit) {
-      if (m.material) setMaterialColor(m.material, outfitColor, 0.6);
+      if (m.material) setMaterialColor(m.material, outfitColor, 0.5);
     }
-    console.info(
-      `[AvatarLoader] tint applied — skin: rgb(${(skinColor.r * 255) | 0}, ${
-        (skinColor.g * 255) | 0
-      }, ${(skinColor.b * 255) | 0})`,
-    );
   };
 
   // Heritage marker meshes — long elf-ears for Sivit, cat ears + tail for
@@ -429,32 +424,30 @@ export async function loadAvatar(
     let heritageZ = 1.0;
     switch (xform.heritage) {
       case "sivit":
-        heritageY = 1.18; // taller
-        heritageX = 0.85; // narrower
-        heritageZ = 0.85;
+        heritageY = 1.06;
+        heritageX = 0.94;
+        heritageZ = 0.94;
         break;
       case "korr":
         if (xform.subBuild === 1) {
-          // Short-Korr — half the height, ~30% wider
-          heritageY = 0.62;
-          heritageX = 1.3;
-          heritageZ = 1.3;
+          heritageY = 0.85;
+          heritageX = 1.12;
+          heritageZ = 1.12;
         } else {
-          // Tall-Korr — bulkier
-          heritageY = 0.88;
-          heritageX = 1.25;
-          heritageZ = 1.25;
+          heritageY = 0.95;
+          heritageX = 1.08;
+          heritageZ = 1.08;
         }
         break;
       case "vellish":
-        heritageY = 1.05;
-        heritageX = 0.92;
-        heritageZ = 0.92;
+        heritageY = 1.0;
+        heritageX = 0.96;
+        heritageZ = 0.96;
         break;
       case "ashen":
         heritageY = 1.02;
-        heritageX = 0.88;
-        heritageZ = 0.88;
+        heritageX = 0.94;
+        heritageZ = 0.94;
         break;
       case "hjari":
       default:
@@ -471,10 +464,13 @@ export async function loadAvatar(
 
     root.scaling.set(finalX, finalY, finalZ);
 
-    // Re-anchor feet to ground after re-scale
+    // Re-anchor feet to ground after re-scale. Add (not overwrite) to the
+    // existing root.position.y so the caller's plinth offset is preserved.
+    // We track this as a separate `footOffset` we add and replace each call.
     if (isFinite(minY)) {
-      const offset = -minY * finalY;
-      root.position.y = offset;
+      const newFoot = -minY * finalY;
+      root.position.y = root.position.y - lastFootOffset + newFoot;
+      lastFootOffset = newFoot;
     }
 
     // Show / hide heritage props based on choice
@@ -500,16 +496,70 @@ export async function loadAvatar(
 }
 
 /**
- * Best-effort idle animation playback (HVGirl ships with a few clips).
+ * Stop animations, lock to bind pose, then ROTATE shoulder bones down so the
+ * character stands relaxed instead of in arms-out T-pose. Character creators
+ * show characters static for sculpting — walking/running clips create the
+ * bent mid-stride poses we were getting; T-pose looks like a crucifix.
+ *
+ * Mixamo / glTF skeletons differ in bone naming. We try the common names
+ * and ignore failures.
  */
-export function playIdle(_loaded: LoadedAvatar, scene: Scene) {
+export function playIdle(loaded: LoadedAvatar, scene: Scene) {
   const groups = scene.animationGroups;
+  for (const g of groups) g.stop();
+
   const idle =
     groups.find((g) => g.name.toLowerCase().includes("idle")) ??
-    groups.find((g) => g.name.toLowerCase().includes("breath")) ??
-    groups[0];
+    groups.find((g) => g.name.toLowerCase().includes("breath"));
+
   if (idle) {
     idle.play(true);
-    idle.speedRatio = 0.7;
+    idle.speedRatio = 0.6;
+    return;
   }
+
+  // No idle clip → pose programmatically: arms-down via shoulder bone rotation
+  poseArmsRelaxed(loaded, scene);
+}
+
+function poseArmsRelaxed(loaded: LoadedAvatar, _scene: Scene) {
+  const skel = loaded.skeletons[0];
+  if (!skel) return;
+
+  const bones = skel.bones;
+  const allNames = bones.map((b) => b.name);
+  console.info("[AvatarLoader] bone names:", allNames.slice(0, 20).join(", "), allNames.length > 20 ? "..." : "");
+
+  const findBone = (...needles: string[]) =>
+    bones.find((b) => {
+      const n = b.name.toLowerCase();
+      return needles.every((needle) => n.includes(needle));
+    });
+
+  const leftArm =
+    findBone("left", "arm") ??
+    findBone("leftarm") ??
+    findBone("upperarm", "l") ??
+    findBone("upper", "arm", "l") ??
+    findBone("shoulder", "l");
+  const rightArm =
+    findBone("right", "arm") ??
+    findBone("rightarm") ??
+    findBone("upperarm", "r") ??
+    findBone("upper", "arm", "r") ??
+    findBone("shoulder", "r");
+
+  // Try multiple rotation axes — different rigs orient bones differently.
+  // We rotate around the Z-axis of the parent (spine), which for an upright
+  // character with T-pose arms in the X direction will swing the arm down.
+  if (leftArm) {
+    leftArm.rotate(new Vector3(0, 0, 1), -1.25, Space.LOCAL);
+  }
+  if (rightArm) {
+    rightArm.rotate(new Vector3(0, 0, 1), 1.25, Space.LOCAL);
+  }
+
+  console.info(
+    `[AvatarLoader] arms-relaxed pose applied (leftArm=${leftArm?.name ?? "NONE"}, rightArm=${rightArm?.name ?? "NONE"})`,
+  );
 }

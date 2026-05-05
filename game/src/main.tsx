@@ -13,6 +13,13 @@ if (!root) throw new Error("root element not found");
 const engine = new GameEngine(canvas);
 engine.start();
 
+// DEBUG: jump straight to character creator if ?debug=creator on URL.
+// Useful for screenshot iteration / dev. Has no effect in production
+// when no query param is present.
+if (typeof window !== "undefined" && window.location.search.includes("debug=creator")) {
+  setTimeout(() => engine.go("character-creator"), 100);
+}
+
 createRoot(root).render(
   <StrictMode>
     <App engine={engine} />

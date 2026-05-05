@@ -52,20 +52,20 @@ export function buildCharacterCreatorScene(
   const camera = new ArcRotateCamera(
     "creator-cam",
     Math.PI / 2,
-    Math.PI / 2.3,
-    4.6,
-    new Vector3(0, 1.0, 0),
+    Math.PI / 2.05,           // nearly horizontal — looks character in the eyes
+    3.6,
+    new Vector3(0, 1.55, 0),  // chest/face height
     scene,
   );
-  camera.lowerRadiusLimit = 1.5;
-  camera.upperRadiusLimit = 12;
-  camera.lowerBetaLimit = 0.15;
-  camera.upperBetaLimit = Math.PI / 1.6;
+  camera.lowerRadiusLimit = 1.2;
+  camera.upperRadiusLimit = 10;
+  camera.lowerBetaLimit = 0.4;
+  camera.upperBetaLimit = Math.PI / 1.7;
   camera.minZ = 0.05;
-  camera.fov = 0.85;
+  camera.fov = 0.82;
   camera.attachControl(_canvas, true);
   camera.panningSensibility = 0;
-  camera.wheelPrecision = 30;
+  camera.wheelPrecision = 35;
   camera.angularSensibilityX = 1200;
   camera.angularSensibilityY = 1200;
   camera.useNaturalPinchZoom = true;
@@ -183,10 +183,9 @@ export function buildCharacterCreatorScene(
 
     if (!la) {
       heritageRoot = new TransformNode(`avatar-root-${heritage}`, scene);
-      heritageRoot.position.y = 0.13;
-      // Each model has different forward axis — start at 0, flip if user
-      // sees the back. (Soldier and Michelle from threejs face +Z; we'll
-      // adjust per-model when we see them in-scene.)
+      // Plinth top is at y=0.19. Place feet there so character stands ON
+      // the plinth, not in it.
+      heritageRoot.position.y = 0.19;
       heritageRoot.rotation.y = 0;
 
       // Plinth-side turntable

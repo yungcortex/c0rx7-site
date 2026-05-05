@@ -11,12 +11,14 @@ import type { Heritage } from "@game/systems/character/SliderBlob";
  * we just swap the URLs here.
  */
 
+const BASE = import.meta.env.BASE_URL ?? "/";
+
 export const characterMeshes: Record<Heritage, string> = {
-  hjari: "/play/assets/models/character/Michelle.glb",        // mature human female
-  sivit: "/play/assets/models/character/Xbot.glb",            // tall stylised humanoid
-  korr: "/play/assets/models/character/Soldier.glb",          // bulky armoured silhouette
-  vellish: "https://assets.babylonjs.com/meshes/HVGirl.glb",  // chibi (kept for variety)
-  ashen: "/play/assets/models/character/CesiumMan.glb",       // angular alien proportions
+  hjari: `${BASE}assets/models/character/Michelle.glb`,
+  sivit: `${BASE}assets/models/character/Xbot.glb`,
+  korr: `${BASE}assets/models/character/Soldier.glb`,
+  vellish: "https://assets.babylonjs.com/meshes/HVGirl.glb",
+  ashen: `${BASE}assets/models/character/CesiumMan.glb`,
 };
 
 export const aspectWeaponMeshes = {

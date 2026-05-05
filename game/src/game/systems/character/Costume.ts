@@ -106,31 +106,31 @@ function buildHjariProps(scene: Scene, root: TransformNode, meshes: Mesh[], part
   const swordMat = makeMat(scene, "hjari-blade", new Color3(0.85, 0.86, 0.95), 0.25);
   const gripMat = makeMat(scene, "hjari-grip", new Color3(0.45, 0.25, 0.15), 0.05);
 
-  // Sheathed greatsword on back — diagonal across the shoulders
-  const blade = MeshBuilder.CreateBox("hjari-blade", { width: 0.08, height: 1.2, depth: 0.04 }, scene);
+  // Sheathed shortsword on back — much smaller, properly proportioned
+  const blade = MeshBuilder.CreateBox("hjari-blade", { width: 0.05, height: 0.7, depth: 0.025 }, scene);
   blade.parent = root;
-  blade.position.set(0.18, 1.5, -0.15);
-  blade.rotation.z = 0.45;
+  blade.position.set(0.12, 1.55, -0.18);
+  blade.rotation.z = 0.4;
   blade.material = swordMat;
   meshes.push(blade);
 
-  const guard = MeshBuilder.CreateBox("hjari-guard", { width: 0.28, height: 0.04, depth: 0.06 }, scene);
+  const guard = MeshBuilder.CreateBox("hjari-guard", { width: 0.16, height: 0.025, depth: 0.04 }, scene);
   guard.parent = root;
-  guard.position.set(0.06, 0.95, -0.15);
-  guard.rotation.z = 0.45;
+  guard.position.set(0.02, 1.2, -0.18);
+  guard.rotation.z = 0.4;
   guard.material = goldMat;
   meshes.push(guard);
 
-  const grip = MeshBuilder.CreateCylinder("hjari-grip", { diameter: 0.05, height: 0.16, tessellation: 8 }, scene);
+  const grip = MeshBuilder.CreateCylinder("hjari-grip", { diameter: 0.032, height: 0.1, tessellation: 8 }, scene);
   grip.parent = root;
-  grip.position.set(-0.02, 0.85, -0.15);
-  grip.rotation.z = 0.45;
+  grip.position.set(-0.02, 1.13, -0.18);
+  grip.rotation.z = 0.4;
   grip.material = gripMat;
   meshes.push(grip);
 
-  const pommel = MeshBuilder.CreateSphere("hjari-pommel", { diameter: 0.07, segments: 12 }, scene);
+  const pommel = MeshBuilder.CreateSphere("hjari-pommel", { diameter: 0.04, segments: 12 }, scene);
   pommel.parent = root;
-  pommel.position.set(-0.06, 0.78, -0.15);
+  pommel.position.set(-0.05, 1.08, -0.18);
   pommel.material = goldMat;
   meshes.push(pommel);
 
@@ -146,19 +146,19 @@ function buildSivitProps(scene: Scene, root: TransformNode, meshes: Mesh[], part
   // Floating staff held just outside the character's right side
   const staff = MeshBuilder.CreateCylinder(
     "sivit-staff",
-    { diameterTop: 0.04, diameterBottom: 0.05, height: 1.7, tessellation: 8 },
+    { diameterTop: 0.025, diameterBottom: 0.035, height: 1.4, tessellation: 8 },
     scene,
   );
   staff.parent = root;
-  staff.position.set(0.42, 1.0, 0.05);
+  staff.position.set(0.4, 1.0, 0.05);
   staff.rotation.z = -0.04;
   staff.material = staffMat;
   meshes.push(staff);
 
-  // Crystal head — octahedron
-  const crystal = MeshBuilder.CreatePolyhedron("sivit-crystal", { type: 1, size: 0.13 }, scene);
+  // Crystal head — small octahedron
+  const crystal = MeshBuilder.CreatePolyhedron("sivit-crystal", { type: 1, size: 0.085 }, scene);
   crystal.parent = root;
-  crystal.position.set(0.42, 1.95, 0.05);
+  crystal.position.set(0.4, 1.75, 0.05);
   crystal.material = crystalMat;
   meshes.push(crystal);
 
@@ -173,13 +173,13 @@ function buildSivitProps(scene: Scene, root: TransformNode, meshes: Mesh[], part
   crystal.animations.push(spin);
   scene.beginAnimation(crystal, 0, 240, true, 0.7);
 
-  // Three small orbiting orbs
+  // Three small orbiting orbs around the head
   for (let i = 0; i < 3; i++) {
-    const orb = MeshBuilder.CreateSphere(`sivit-orb-${i}`, { diameter: 0.05, segments: 10 }, scene);
+    const orb = MeshBuilder.CreateSphere(`sivit-orb-${i}`, { diameter: 0.035, segments: 10 }, scene);
     orb.parent = root;
     const baseAngle = (i / 3) * Math.PI * 2;
-    const radius = 0.4;
-    orb.position.set(Math.cos(baseAngle) * radius, 1.5 + i * 0.05, Math.sin(baseAngle) * radius);
+    const radius = 0.32;
+    orb.position.set(Math.cos(baseAngle) * radius, 1.85 + i * 0.04, Math.sin(baseAngle) * radius);
     orb.material = orbMat;
     meshes.push(orb);
 
@@ -204,29 +204,29 @@ function buildKorrProps(scene: Scene, root: TransformNode, meshes: Mesh[], parti
   const haftMat = makeMat(scene, "korr-haft", new Color3(0.32, 0.18, 0.08), 0.06);
   const trimMat = makeMat(scene, "korr-trim", ASPECT_GOLD, 0.35);
 
-  // Warhammer slung diagonally across the back
+  // Warhammer slung diagonally across the back — proportionally smaller
   const haft = MeshBuilder.CreateCylinder(
     "korr-haft",
-    { diameter: 0.06, height: 1.25, tessellation: 8 },
+    { diameter: 0.04, height: 0.85, tessellation: 8 },
     scene,
   );
   haft.parent = root;
-  haft.position.set(0, 1.45, -0.15);
+  haft.position.set(0, 1.45, -0.18);
   haft.rotation.z = 0.45;
   haft.material = haftMat;
   meshes.push(haft);
 
-  const head = MeshBuilder.CreateBox("korr-hammer-head", { width: 0.26, height: 0.26, depth: 0.32 }, scene);
+  const head = MeshBuilder.CreateBox("korr-hammer-head", { width: 0.18, height: 0.18, depth: 0.22 }, scene);
   head.parent = root;
-  head.position.set(0.28, 1.95, -0.15);
+  head.position.set(0.18, 1.78, -0.18);
   head.rotation.z = 0.45;
   head.material = hammerMat;
   meshes.push(head);
 
   // Hammer trim ring
-  const trim = MeshBuilder.CreateTorus("korr-hammer-trim", { diameter: 0.36, thickness: 0.022, tessellation: 16 }, scene);
+  const trim = MeshBuilder.CreateTorus("korr-hammer-trim", { diameter: 0.24, thickness: 0.016, tessellation: 16 }, scene);
   trim.parent = root;
-  trim.position.set(0.28, 1.95, -0.15);
+  trim.position.set(0.18, 1.78, -0.18);
   trim.rotation.x = 0;
   trim.rotation.z = 0.45;
   trim.material = trimMat;
