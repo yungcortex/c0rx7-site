@@ -204,6 +204,14 @@ export class BonkController {
 
   // squashAnim removed — replaced by BeanAnimator pulse triggers
 
+  private smoothedInputMag(): number {
+    // Approx: how much actual input is the player feeding (0..1)
+    const i = this.input;
+    const dx = (i.right ? 1 : 0) - (i.left ? 1 : 0);
+    const dz = (i.forward ? 1 : 0) - (i.back ? 1 : 0);
+    return Math.min(1, Math.hypot(dx, dz));
+  }
+
   private getYaw(): number {
     const rq = this.root.rotationQuaternion;
     if (rq) {
@@ -251,10 +259,19 @@ export class BonkController {
     this.root.position.y += this.velocity.y * dt;
     this.root.position.z += this.velocity.z * dt;
 
-    // Friction (when stunned/dive, lose horizontal velocity over time once grounded)
-    if ((this.state === "stunned" || this.state === "dive") && this.grounded) {
-      this.velocity.x *= Math.pow(0.05, dt);
-      this.velocity.z *= Math.pow(0.05, dt);
+    // Friction — always-on light braking when grounded (so beans stop quickly
+    // instead of sliding forever) plus heavy braking during stun/dive
+    if (this.grounded) {
+      const friction =
+        this.state === "stunned" || this.state === "dive"
+          ? 0.05
+          : this.smoothedInputMag() < 0.1
+          ? 0.0001
+          : 1; // moving = let velocity fully follow input
+      if (friction < 1) {
+        this.velocity.x *= Math.pow(friction, dt);
+        this.velocity.z *= Math.pow(friction, dt);
+      }
     }
 
     // Ground plane (assume y=0 = arena top)

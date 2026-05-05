@@ -77,6 +77,38 @@ const MODES: ModeCard[] = [
     pot: "—",
     available: true,
   },
+  {
+    id: "slime-climb",
+    title: "Slime Climb",
+    desc: "Race up a ramp staircase. Rising green slime kills below — keep moving.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
+  },
+  {
+    id: "roll-out",
+    title: "Roll Out",
+    desc: "5 rotating cylinders. Stay on top. Counter-rotation makes it harder.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
+  },
+  {
+    id: "door-dash",
+    title: "Door Dash",
+    desc: "3 rows of doors. ~60% are real (pass-through), ~40% solid. Pick wrong = bounced back.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
+  },
+  {
+    id: "tail-tag",
+    title: "Tail Tag",
+    desc: "Snatch tails from other beans. Last bean with tails standing wins.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
+  },
 ];
 
 export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Props) {

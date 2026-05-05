@@ -222,9 +222,39 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   // Camera target lerps toward the player (smooth follow, not snapped)
   const camLook = new Vector3(0, 1.5, 0);
 
-  // Per-tick: check elimination, update HUD
+  // Per-tick: check elimination, update HUD, run hazard checks
   scene.onBeforeRenderObservable.add(() => {
     const dt = engine.getDeltaTime() / 1000;
+
+    // Run arena's own per-tick (animates moving hazards, drop tiles, etc.)
+    if (surface.tick) surface.tick(dt);
+
+    // Hazard collision check vs player + dummies (arena's hazards array
+    // is rebuilt each tick by surface.tick so it's always fresh)
+    if (useMatch.getState().isPlayable() && !useMatch.getState().isInvulnerable()) {
+      for (const hz of surface.hazards) {
+        const dx = playerRoot.position.x - hz.pos.x;
+        const dy = playerRoot.position.y - hz.pos.y;
+        const dz = playerRoot.position.z - hz.pos.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < hz.radius * hz.radius) {
+          const len = Math.sqrt(d2) || 1;
+          if (hz.kind === "spike") {
+            // Spikes knock the bean UP and away (don't punt directly off edge)
+            controller.applyKnockback(
+              new Vector3((dx / len) * 6, 7, (dz / len) * 6),
+              1.0,
+            );
+            spawnBonkBurst(scene, playerRoot.position.clone());
+            cameraShake(camera, 0.12, 0.2);
+          } else if (hz.kind === "bouncepad") {
+            // Always launch UP, regardless of invuln
+            controller.applyKnockback(new Vector3(0, 14, 0), 0);
+          }
+          break;
+        }
+      }
+    }
 
     // Check dummies fallen
     for (const d of dummies) {

@@ -44,7 +44,11 @@ export type ArenaVariantId =
   | "hot-bean"
   | "jump-club"
   | "hex-a-gone"
-  | "block-party";
+  | "block-party"
+  | "slime-climb"
+  | "roll-out"
+  | "door-dash"
+  | "tail-tag";
 
 // ============== SHARED ATMOS ==============
 
@@ -623,6 +627,7 @@ export function buildHotBean(scene: Scene): ArenaSurface {
 // Re-export the race course builder so the switch below picks the new one
 import { buildBeanRaceCourse as _race } from "@game/scenes/arena-bonk/raceCourse";
 import { buildJumpClub, buildHexAGone, buildBlockParty } from "@game/scenes/arena-bonk/funArenas";
+import { buildSlimeClimb, buildRollOut, buildDoorDash, buildTailTag } from "@game/scenes/arena-bonk/moreFunArenas";
 
 export function buildArenaSurface(scene: Scene, variant: ArenaVariantId): ArenaSurface {
   switch (variant) {
@@ -638,6 +643,14 @@ export function buildArenaSurface(scene: Scene, variant: ArenaVariantId): ArenaS
       return buildHexAGone(scene);
     case "block-party":
       return buildBlockParty(scene);
+    case "slime-climb":
+      return buildSlimeClimb(scene);
+    case "roll-out":
+      return buildRollOut(scene);
+    case "door-dash":
+      return buildDoorDash(scene);
+    case "tail-tag":
+      return buildTailTag(scene);
     case "bonk-island":
     default:
       return buildBonkBowl(scene);
