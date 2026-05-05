@@ -104,13 +104,16 @@ export interface Bean {
   hatRoot: TransformNode;
   outfitRoot: TransformNode;
   accessoryRoot: TransformNode;
-  /** Materials of secondary parts (hands, feet, ears, tail) so we can tint them */
   secondaryMats: StandardMaterial[];
-  /** Current proportional eye-size multiplier (driven by Eye Size slider).
-   *  Eye style picker multiplies on top of this for shape variations. */
   eyeSizeMul: number;
-  /** Heritage proportions, kept around so updates can re-anchor hat etc. */
   hp: HeritageProportions;
+  /** Animator reads these each tick to compute squash/stretch. Updated by
+   *  applyProportions whenever sliders change so animation never clobbers
+   *  the user's chosen body shape. */
+  bodyRestScale: Vector3;
+  feetRestY: number[];
+  handsRestY: number[];
+  hatRestY: number;
   setLook: (look: BeanLook) => void;
   setProportions: (p: BeanProportions) => void;
   dispose: () => void;
@@ -421,6 +424,10 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     secondaryMats: [feetMat, handsMat, earsMat, tailMat],
     eyeSizeMul: 1,
     hp: props,
+    bodyRestScale: new Vector3(props.bodyRX, props.bodyHeight * props.squash, props.bodyRZ),
+    feetRestY: feet.map((f) => f.position.y),
+    handsRestY: hands.map((h) => h.position.y),
+    hatRestY: 0.85 + 0.85 * props.bodyHeight * props.squash,
     setLook: (newLook: BeanLook) => applyBeanLook(scene, bean, newLook, props),
     setProportions: (p: BeanProportions) => applyProportions(bean, p, props),
     dispose: () => {
@@ -446,24 +453,25 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
  * pupils, but the Eye Style picker can re-shape them per style.
  */
 function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportions) {
-  // Body scale (with heritage as baseline)
-  const widthMul = mix(p.width, 0.7, 1.4);
-  const heightMul = mix(p.height, 0.7, 1.4);
-  bean.body.scaling.x = hp.bodyRX * widthMul;
-  bean.body.scaling.z = hp.bodyRZ * widthMul;
-  const finalBodyY = hp.bodyHeight * hp.squash * heightMul;
-  bean.body.scaling.y = finalBodyY;
+  const widthMul = mix(p.width, 0.7, 1.5);
+  const heightMul = mix(p.height, 0.65, 1.55);
+  const restX = hp.bodyRX * widthMul;
+  const restY = hp.bodyHeight * hp.squash * heightMul;
+  const restZ = hp.bodyRZ * widthMul;
 
-  // Head / face plate size
-  const headMul = mix(p.headSize, 0.75, 1.3);
+  bean.body.scaling.set(restX, restY, restZ);
+  bean.bodyRestScale.set(restX, restY, restZ);
+
+  // HEAD SIZE — scales face plane AND eye whites + pupils together so the
+  // whole "face area" visibly grows / shrinks. 0.6..1.5 range for impact.
+  const headMul = mix(p.headSize, 0.6, 1.5);
   bean.facePlane.scaling.x = headMul;
   bean.facePlane.scaling.y = headMul;
 
-  // Eye size + spacing — affects eye whites; pupils get the multiplier
-  // saved on bean for paintEyeStyle to use.
-  const eyeMul = mix(p.eyeSize, 0.7, 1.4);
-  const eyeSpread = mix(p.eyeSpacing, 0.6, 1.3);
-  const baseSpread = 0.22 * hp.bodyRX;
+  // EYE SIZE (independent of head) + spacing
+  const eyeMul = mix(p.eyeSize, 0.6, 1.6) * headMul;
+  const eyeSpread = mix(p.eyeSpacing, 0.55, 1.4);
+  const baseSpread = 0.22 * hp.bodyRX * widthMul;
   bean.eyes.left.scaling.set(eyeMul, eyeMul * 1.1, eyeMul * 0.6);
   bean.eyes.right.scaling.set(eyeMul, eyeMul * 1.1, eyeMul * 0.6);
   bean.eyes.left.position.x = -baseSpread * eyeSpread;
@@ -472,16 +480,16 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   bean.eyes.pupilR.position.x = baseSpread * eyeSpread;
   bean.eyeSizeMul = eyeMul;
 
-  // Hand size
-  const handMul = mix(p.handSize, 0.6, 1.5);
-  for (const h of bean.hands) h.scaling.set(handMul, handMul, handMul);
+  const handMul = mix(p.handSize, 0.5, 1.7);
+  bean.hands.forEach((h, i) => {
+    h.scaling.set(handMul, handMul, handMul);
+    h.position.x = (i === 0 ? -1 : 1) * 0.55 * restX;
+  });
 
-  // Foot size
-  const footMul = mix(p.footSize, 0.6, 1.5);
+  const footMul = mix(p.footSize, 0.5, 1.7);
   for (const f of bean.feet) f.scaling.set(1.2 * footMul, 0.7 * footMul, 1.5 * footMul);
 
-  // Outline thickness
-  const outlineMul = mix(p.outline, 0.4, 1.6);
+  const outlineMul = mix(p.outline, 0.3, 1.8);
   bean.body.outlineWidth = OUTLINE_WIDTH * outlineMul;
   for (const f of bean.feet) f.outlineWidth = 0.02 * outlineMul;
   for (const h of bean.hands) h.outlineWidth = 0.02 * outlineMul;
@@ -490,22 +498,43 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
   bean.eyes.left.outlineWidth = 0.025 * outlineMul;
   bean.eyes.right.outlineWidth = 0.025 * outlineMul;
 
-  // Hat sits on top of body — recompute Y based on current scaled body height.
-  // Body pivot is at y=0.85, capsule extends ~0.7 above pivot at scale 1.
-  const bodyTop = 0.85 + 0.85 * finalBodyY;
+  // ============== POSITION RECOMPUTES ==============
+  // Body pivot is at y=0.85. Capsule of base height 1.4 extends ~0.7 above
+  // pivot at scale 1; we use 0.95 to give the hat a bit of headroom.
+  const bodyTop = 0.85 + 0.95 * restY;
   bean.hatRoot.position.y = bodyTop;
+  bean.hatRestY = bodyTop;
 
-  // Face plane sits on the front of the body — recompute Z so it doesn't
-  // float when width slider changes.
-  bean.facePlane.position.z = 0.61 * hp.bodyRZ * widthMul;
-  bean.facePlane.position.y = 0.85 + 0.45 * finalBodyY;
+  // Face plate hugs the front of the body. Push it slightly OUT so the
+  // pattern/mouth render visibly in front of body geometry without z-fight.
+  bean.facePlane.position.z = (0.6 * restZ) + 0.04;
+  bean.facePlane.position.y = 0.85 + 0.5 * restY;
 
-  // Eyes also need to track body height (they sit just below face top)
-  const eyeY = 0.85 + 0.55 * finalBodyY;
+  // Eyes sit just below the face top. Scale the offset with body height
+  // so eyes track up/down with the head.
+  const eyeY = 0.85 + 0.65 * restY;
   bean.eyes.left.position.y = eyeY;
   bean.eyes.right.position.y = eyeY;
   bean.eyes.pupilL.position.y = eyeY;
   bean.eyes.pupilR.position.y = eyeY;
+  // Pupils stick OUT slightly further than the eye whites
+  bean.eyes.pupilL.position.z = (0.55 * restZ) + 0.07;
+  bean.eyes.pupilR.position.z = (0.55 * restZ) + 0.07;
+  bean.eyes.left.position.z = 0.55 * restZ;
+  bean.eyes.right.position.z = 0.55 * restZ;
+
+  // Hands hover at chest height — track to body height
+  const handY = 0.85 * restY;
+  bean.hands.forEach((h, i) => {
+    h.position.y = handY;
+    bean.handsRestY[i] = handY;
+  });
+
+  // Feet plant at body bottom — height-aware
+  bean.feet.forEach((f, i) => {
+    f.position.y = 0.18;
+    bean.feetRestY[i] = 0.18;
+  });
 }
 
 function applyBeanLook(

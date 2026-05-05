@@ -42,24 +42,9 @@ export class BeanAnimator {
   state: BeanState = "idle";
   enabled = true;
 
-  // Cached base scales / positions so we modulate from a known starting point
-  private baseBodyScaleX: number;
-  private baseBodyScaleY: number;
-  private baseBodyScaleZ: number;
-  private baseFootY: number[];
-  private baseHandY: number[];
-  private baseHatY = 0;
-
   constructor(opts: BeanAnimatorOpts) {
     this.bean = opts.bean;
     this.scene = opts.bean.body.getScene();
-
-    this.baseBodyScaleX = this.bean.body.scaling.x;
-    this.baseBodyScaleY = this.bean.body.scaling.y;
-    this.baseBodyScaleZ = this.bean.body.scaling.z;
-    this.baseFootY = this.bean.feet.map((f) => f.position.y);
-    this.baseHandY = this.bean.hands.map((h) => h.position.y);
-    this.baseHatY = this.bean.hatRoot.position.y;
 
     // Stop the static idle-bob animation that was on body — we drive scaling now
     this.scene.stopAnimation(this.bean.body);
@@ -135,9 +120,12 @@ export class BeanAnimator {
       this.bonkPulse = Math.max(0, this.bonkPulse - dt * 5);
     }
 
-    this.bean.body.scaling.x = this.baseBodyScaleX * bodySquashX;
-    this.bean.body.scaling.y = this.baseBodyScaleY * bodySquashY;
-    this.bean.body.scaling.z = this.baseBodyScaleZ * bodySquashX;
+    // Read live rest-scale from bean (updated by setProportions on every
+    // slider change) so animation never clobbers the user's chosen body shape.
+    const rs = this.bean.bodyRestScale;
+    this.bean.body.scaling.x = rs.x * bodySquashX;
+    this.bean.body.scaling.y = rs.y * bodySquashY;
+    this.bean.body.scaling.z = rs.z * bodySquashX;
 
     // Body lean into motion (small forward tilt while moving)
     if (this.state !== "dive" && this.state !== "stunned") {
@@ -147,24 +135,24 @@ export class BeanAnimator {
     // ============== FEET pump (alternate up/down on walk) ==============
     const footHop = Math.min(1, this.smoothedSpeed / 3.5);
     if (this.bean.feet[0]) {
-      this.bean.feet[0].position.y = this.baseFootY[0]! + walkPump * 0.12 * footHop + idleBob * 0.5;
+      this.bean.feet[0].position.y = this.bean.feetRestY[0]! + walkPump * 0.12 * footHop + idleBob * 0.5;
     }
     if (this.bean.feet[1]) {
-      this.bean.feet[1].position.y = this.baseFootY[1]! + walkPumpAlt * 0.12 * footHop + idleBob * 0.5;
+      this.bean.feet[1].position.y = this.bean.feetRestY[1]! + walkPumpAlt * 0.12 * footHop + idleBob * 0.5;
     }
 
     // ============== HANDS swing (counter to feet) ==============
     if (this.bean.hands[0]) {
-      this.bean.hands[0].position.y = this.baseHandY[0]! + walkPumpAlt * 0.08 * footHop;
+      this.bean.hands[0].position.y = this.bean.handsRestY[0]! + walkPumpAlt * 0.08 * footHop;
       this.bean.hands[0].rotation.x = walkPumpAlt * 0.4 * footHop;
     }
     if (this.bean.hands[1]) {
-      this.bean.hands[1].position.y = this.baseHandY[1]! + walkPump * 0.08 * footHop;
+      this.bean.hands[1].position.y = this.bean.handsRestY[1]! + walkPump * 0.08 * footHop;
       this.bean.hands[1].rotation.x = walkPump * 0.4 * footHop;
     }
 
     // ============== HAT bob (tracks body squash but lower amplitude) ==============
-    this.bean.hatRoot.position.y = this.baseHatY + (bodySquashY - 1) * 0.4 + idleBob * 0.7;
+    this.bean.hatRoot.position.y = this.bean.hatRestY + (bodySquashY - 1) * 0.4 + idleBob * 0.7;
     this.bean.hatRoot.rotation.z = walkPump * 0.04 * footHop;
 
     // ============== TAIL flick (Vellish only) ==============
@@ -182,19 +170,22 @@ export class BeanAnimator {
     }
 
     // ============== EYES track motion ==============
-    // Pupils nudge in the direction of velocity
+    // Pupils nudge in the direction of velocity (additive offset on top of
+    // the rest position set by applyProportions).
     const yaw = this.getYaw();
     const local = this.worldVelToLocal(vx, vz, yaw);
     const lookX = Math.max(-0.04, Math.min(0.04, local.right * 0.012));
     const lookZ = Math.max(-0.025, Math.min(0.025, local.forward * 0.008));
+    // We don't snapshot pupil rest positions here — they're recomputed in
+    // applyProportions. Use the eye-white position as the anchor so the
+    // pupil offset is small (~0.04m) and doesn't fight slider changes.
     if (this.bean.eyes.pupilL) {
-      this.bean.eyes.pupilL.position.x = -0.075 + lookX;
-      this.bean.eyes.pupilL.position.z = 0.205 + lookZ;
+      this.bean.eyes.pupilL.position.x = this.bean.eyes.left.position.x + lookX;
     }
     if (this.bean.eyes.pupilR) {
-      this.bean.eyes.pupilR.position.x = 0.075 + lookX;
-      this.bean.eyes.pupilR.position.z = 0.205 + lookZ;
+      this.bean.eyes.pupilR.position.x = this.bean.eyes.right.position.x + lookX;
     }
+    void lookZ;
 
     // ============== EMOTES override the above ==============
     if (this.emoteTimer > 0 && this.emoteId) {
@@ -213,21 +204,19 @@ export class BeanAnimator {
     const handR = this.bean.hands[1];
     switch (id) {
       case "wave": {
-        // Right hand high + waves
         if (handR) {
-          handR.position.y = this.baseHandY[1]! + 0.55;
+          handR.position.y = this.bean.handsRestY[1]! + 0.55;
           handR.rotation.z = -0.6 + Math.sin(t * 8) * 0.4;
         }
         break;
       }
       case "dance": {
-        // Both hands up, body tilts side to side
         if (handL) {
-          handL.position.y = this.baseHandY[0]! + 0.5;
+          handL.position.y = this.bean.handsRestY[0]! + 0.5;
           handL.rotation.z = 0.7 + Math.sin(t * 6) * 0.3;
         }
         if (handR) {
-          handR.position.y = this.baseHandY[1]! + 0.5;
+          handR.position.y = this.bean.handsRestY[1]! + 0.5;
           handR.rotation.z = -0.7 - Math.sin(t * 6) * 0.3;
         }
         this.bean.body.rotation.z = Math.sin(t * 6) * 0.18;
@@ -241,13 +230,13 @@ export class BeanAnimator {
         break;
       }
       case "taunt": {
-        // Hands on hips, slight bob
+        const sx = this.bean.bodyRestScale.x;
         if (handL) {
-          handL.position.set(-0.55 * this.baseBodyScaleX, this.baseHandY[0]! + 0.05, 0);
+          handL.position.set(-0.55 * sx, this.bean.handsRestY[0]! + 0.05, 0);
           handL.rotation.z = 0.4;
         }
         if (handR) {
-          handR.position.set(0.55 * this.baseBodyScaleX, this.baseHandY[1]! + 0.05, 0);
+          handR.position.set(0.55 * sx, this.bean.handsRestY[1]! + 0.05, 0);
           handR.rotation.z = -0.4;
         }
         this.bean.body.scaling.y *= 1 + Math.sin(t * 4) * 0.04;
