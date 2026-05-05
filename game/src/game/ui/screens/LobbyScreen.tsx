@@ -1,4 +1,6 @@
 import { playSfx } from "@game/systems/audio/SoundManager";
+import { useMatch } from "@state/match";
+import type { ArenaVariantId } from "@game/scenes/arena-bonk/arenaVariants";
 
 interface Props {
   onClose: () => void;
@@ -7,11 +9,20 @@ interface Props {
   onShop: () => void;
 }
 
-const MODES = [
+interface ModeCard {
+  id: ArenaVariantId;
+  title: string;
+  desc: string;
+  entry: string;
+  pot: string;
+  available: boolean;
+}
+
+const MODES: ModeCard[] = [
   {
-    id: "bonk-brawl",
+    id: "bonk-island",
     title: "Bonk Brawl",
-    desc: "Last bean standing. 6-bot solo for now.",
+    desc: "Last bean standing on the floating island. Bonk all 5 dummies.",
     entry: "Free Trial",
     pot: "—",
     available: true,
@@ -19,26 +30,26 @@ const MODES = [
   {
     id: "bean-race",
     title: "Bean Race",
-    desc: "Obstacle course. First to the bell wins.",
-    entry: "0.05 SOL",
-    pot: "0.45 SOL",
-    available: false,
+    desc: "Linear platform path. Reach the goal bell at the end.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
   },
   {
     id: "king-of-bell",
     title: "King of the Bell",
-    desc: "Hold the central area for cumulative time.",
-    entry: "0.05 SOL",
-    pot: "0.40 SOL",
-    available: false,
+    desc: "Hold the central golden zone under the floating bell.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
   },
   {
-    id: "aspect-trial",
-    title: "Aspect Trial",
-    desc: "Solo PvE story. No entry fee. Free cosmetics.",
-    entry: "Free",
-    pot: "Cosmetics",
-    available: false,
+    id: "hot-bean",
+    title: "Hot Bean",
+    desc: "Ring arena with a pulsating danger pillar. Don't get cornered.",
+    entry: "Free Trial",
+    pot: "—",
+    available: true,
   },
 ];
 
@@ -61,7 +72,11 @@ export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Prop
               key={m.id}
               className={`lobby-mode ${m.available ? "" : "is-locked"}`}
               disabled={!m.available}
-              onClick={m.available ? () => { playSfx("click"); onEnterMatch(); } : undefined}
+              onClick={m.available ? () => {
+                playSfx("click");
+                useMatch.getState().setVariant(m.id);
+                onEnterMatch();
+              } : undefined}
             >
               <span className="lobby-mode-title">{m.title}</span>
               <span className="lobby-mode-desc">{m.desc}</span>
@@ -76,7 +91,7 @@ export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Prop
 
         <footer className="lobby-foot">
           <p className="hint">
-            Solo bonk-brawl with 5 AI dummies is live. Multiplayer + real SOL pots land in Phase 2-3.
+            All four solo modes are playable against AI. Multiplayer + real SOL pots land in Phase 2-3.
           </p>
         </footer>
       </div>

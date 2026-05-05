@@ -1060,6 +1060,181 @@ input {
 }
 .shop-confirm-price span { font-size: 1rem; opacity: 0.7; margin-left: 0.4rem; letter-spacing: 0.16em; }
 
+/* ============== PROFILE ============== */
+.title-corner {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 0.5rem;
+}
+.wallet-pill.is-profile {
+  border-color: rgba(232, 200, 120, 0.5);
+  color: var(--gold-bright);
+}
+.wallet-pill.is-profile:hover {
+  background: rgba(201, 168, 90, 0.12);
+  border-color: var(--gold);
+}
+
+.profile-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 4, 13, 0.78);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 80;
+  pointer-events: auto;
+  animation: fade-in 0.25s ease;
+}
+.profile-card {
+  width: min(800px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(26, 18, 38, 0.96), rgba(15, 10, 26, 0.96));
+  border: 1px solid rgba(201, 168, 90, 0.3);
+}
+.profile-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 2rem;
+  border-bottom: 1px solid rgba(201, 168, 90, 0.18);
+}
+.profile-head h2 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  color: var(--gold-bright);
+  margin: 0;
+}
+
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 1.6rem 2rem;
+  border-bottom: 1px solid rgba(201, 168, 90, 0.12);
+}
+.profile-hero-bean {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #a3e7c4 0%, #5fa886 70%);
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 18px rgba(232, 200, 120, 0.4);
+  flex-shrink: 0;
+}
+.profile-hero-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.profile-hero-text h3 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.1em;
+  color: var(--paper);
+  margin: 0;
+}
+.profile-hero-id {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+  font-family: monospace;
+}
+.profile-hero-since {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--paper-soft);
+  font-style: italic;
+}
+.profile-coins {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.profile-coins-icon {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.3rem;
+  color: var(--gold-bright);
+}
+.profile-coins-value {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 2.0rem;
+  color: var(--gold-bright);
+}
+.profile-coins-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 1.2rem 2rem;
+}
+.profile-stat {
+  background: rgba(7, 4, 13, 0.5);
+  border: 1px solid rgba(201, 168, 90, 0.18);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.profile-stat-value {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.6rem;
+  color: var(--gold-bright);
+}
+.profile-stat-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+}
+
+.profile-recent {
+  padding: 0.4rem 2rem 1.6rem 2rem;
+}
+.profile-recent h4 {
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+  margin: 0 0 0.6rem 0;
+}
+.profile-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+.profile-recent-item {
+  background: rgba(7, 4, 13, 0.5);
+  border: 1px solid rgba(201, 168, 90, 0.15);
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.profile-recent-slot {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-soft);
+}
+.profile-recent-id {
+  font-family: "Cormorant Garamond", serif;
+  color: var(--gold-bright);
+  font-size: 1rem;
+}
+
 .voice-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

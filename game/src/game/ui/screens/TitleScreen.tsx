@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { WalletPill } from "@ui/components/WalletPill";
+import { useProfile } from "@state/profile";
 
 interface Props {
   onPressStart: () => void;
+  onProfile?: () => void;
 }
 
-export function TitleScreen({ onPressStart }: Props) {
+export function TitleScreen({ onPressStart, onProfile }: Props) {
   const [revealed, setRevealed] = useState(false);
+  const profile = useProfile((s) => s.profile);
 
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 700);
@@ -23,6 +26,12 @@ export function TitleScreen({ onPressStart }: Props) {
   return (
     <div className={`title-screen ${revealed ? "is-revealed" : ""}`}>
       <div className="title-corner">
+        {profile && onProfile && (
+          <button className="wallet-pill is-profile" onClick={onProfile}>
+            <span className="wallet-icon">◉</span>
+            <span className="wallet-label">{profile.username}</span>
+          </button>
+        )}
         <WalletPill />
       </div>
       <div className="title-mark">

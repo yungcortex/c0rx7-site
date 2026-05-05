@@ -9,22 +9,29 @@ import { CharacterSelectScreen } from "@ui/screens/CharacterSelectScreen";
 import { CharacterCreatorScreen } from "@ui/screens/CharacterCreatorScreen";
 import { LobbyScreen } from "@ui/screens/LobbyScreen";
 import { ShopScreen } from "@ui/screens/ShopScreen";
+import { ProfileScreen } from "@ui/screens/ProfileScreen";
+import { UsernamePrompt } from "@ui/screens/UsernamePrompt";
+import { useProfile } from "@state/profile";
 import { HubHud } from "@ui/hud/HubHud";
 import { MatchHud } from "@ui/hud/MatchHud";
 import { playSfx } from "@game/systems/audio/SoundManager";
+import { music } from "@game/systems/audio/MusicManager";
 
 interface Props {
   engine: GameEngine;
 }
 
 export function App({ engine }: Props) {
-  const { init, loading, session } = useAuth();
+  const { init, loading } = useAuth();
   const current = useScene((s) => s.current);
   const setCurrent = useScene((s) => s.setCurrent);
   const setActiveCharacter = useWorld((s) => s.setActiveCharacter);
   const [showAuth, setShowAuth] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showUsername, setShowUsername] = useState(false);
+  const profile = useProfile((s) => s.profile);
 
   useEffect(() => {
     init();
@@ -34,6 +41,14 @@ export function App({ engine }: Props) {
     return engine.sceneManager.onChange((id) => setCurrent(id));
   }, [engine, setCurrent]);
 
+  // Music routing — fade between loops as scenes change
+  useEffect(() => {
+    if (current === "title") music.play(showLobby ? "lobby" : "title");
+    else if (current === "character-creator" || current === "character-select") music.play("lobby");
+    else if (current === "arena-bonk") music.play("match");
+    else if (current === "hub") music.play("lobby");
+  }, [current, showLobby]);
+
   if (loading) return null;
 
   return (
@@ -41,14 +56,13 @@ export function App({ engine }: Props) {
       {current === "title" && (
         <TitleScreen
           onPressStart={() => {
-            // For Bean Royale: skip auth gate, go straight to lobby (we want to
-            // showcase the gameplay; auth is only required for SOL flows).
-            if (session) {
-              setShowLobby(true);
+            if (!profile) {
+              setShowUsername(true);
             } else {
-              setShowLobby(true); // still show — saving requires auth, playing doesn't
+              setShowLobby(true);
             }
           }}
+          onProfile={profile ? () => setShowProfile(true) : undefined}
         />
       )}
       {current === "character-select" && (
@@ -99,6 +113,20 @@ export function App({ engine }: Props) {
       )}
       {showShop && (
         <ShopScreen onClose={() => setShowShop(false)} />
+      )}
+      {showProfile && (
+        <ProfileScreen
+          onClose={() => setShowProfile(false)}
+          onLogout={() => setShowProfile(false)}
+        />
+      )}
+      {showUsername && (
+        <UsernamePrompt
+          onClose={() => {
+            setShowUsername(false);
+            setShowLobby(true);
+          }}
+        />
       )}
       {showAuth && (
         <AuthScreen

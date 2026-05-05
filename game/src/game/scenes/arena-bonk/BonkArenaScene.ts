@@ -22,11 +22,13 @@ import { useMatch } from "@state/match";
 import { hsvToRgbColor, paletteIndexToColor } from "@game/systems/character/colorMap";
 import { BonkController, type BonkControllerOptions } from "@game/systems/movement/BonkController";
 import { spawnAiDummy, AiDummyController } from "@game/systems/movement/AiDummyController";
+import { buildArenaSurface, type ArenaSurface } from "@game/scenes/arena-bonk/arenaVariants";
 
 export interface BonkArenaContext {
   scene: Scene;
   controller: BonkController | null;
   dummies: AiDummyController[];
+  surface: ArenaSurface;
   dispose: () => void;
 }
 
@@ -36,7 +38,6 @@ export function getArenaContext(): BonkArenaContext | null {
   return activeArena;
 }
 
-const ARENA_RADIUS = 12;
 const KILL_FLOOR_Y = -8;
 
 export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): Scene {
@@ -77,67 +78,15 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   rim.intensity = 0.55;
   rim.diffuse = new Color3(0.55, 0.85, 1.0);
 
-  // ---- Floating island platform
-  const platform = MeshBuilder.CreateCylinder(
-    "arena-platform",
-    {
-      diameterTop: ARENA_RADIUS * 2 - 0.5,
-      diameterBottom: ARENA_RADIUS * 2 + 1.0,
-      height: 1.4,
-      tessellation: 48,
-    },
-    scene,
-  );
-  platform.position.y = -0.7;
-  const platformMat = new StandardMaterial("plat-mat", scene);
-  platformMat.diffuseColor = new Color3(0.65, 0.45, 0.7);
-  platformMat.specularColor = new Color3(0.12, 0.1, 0.2);
-  platform.material = platformMat;
-
-  // Hex tile decoration ring (visual interest)
-  for (let i = 0; i < 18; i++) {
-    const angle = (i / 18) * Math.PI * 2;
-    const r = ARENA_RADIUS - 1.6;
-    const tile = MeshBuilder.CreateCylinder(
-      `tile-${i}`,
-      { diameter: 1.4, height: 0.06, tessellation: 6 },
-      scene,
-    );
-    tile.position.set(Math.cos(angle) * r, 0.03, Math.sin(angle) * r);
-    const m = new StandardMaterial(`tile-mat-${i}`, scene);
-    m.diffuseColor = new Color3(0.85, 0.55, 0.78);
-    m.emissiveColor = new Color3(0.15, 0.08, 0.12);
-    tile.material = m;
-  }
-
-  // Edge gold ring
-  const edgeRing = MeshBuilder.CreateTorus(
-    "arena-ring",
-    { diameter: ARENA_RADIUS * 2 - 0.4, thickness: 0.18, tessellation: 64 },
-    scene,
-  );
-  edgeRing.position.y = 0.04;
-  const ringMat = new StandardMaterial("ring-mat", scene);
-  ringMat.diffuseColor = new Color3(1, 0.85, 0.42);
-  ringMat.emissiveColor = new Color3(0.85, 0.6, 0.22);
-  edgeRing.material = ringMat;
-
-  // Center plate (slightly raised, decorative)
-  const plate = MeshBuilder.CreateCylinder(
-    "center-plate",
-    { diameter: 4, height: 0.18, tessellation: 32 },
-    scene,
-  );
-  plate.position.y = 0.12;
-  const plateMat = new StandardMaterial("plate-mat", scene);
-  plateMat.diffuseColor = new Color3(0.95, 0.78, 0.32);
-  plateMat.emissiveColor = new Color3(0.25, 0.18, 0.05);
-  plate.material = plateMat;
+  // ---- ARENA SURFACE (variant-driven)
+  const variant = useMatch.getState().variant;
+  const surface = buildArenaSurface(scene, variant);
+  const arenaRadius = 14; // generous bound; surface.inside() does the real check
 
   // ---- Below-arena floating debris (depth + scale signal)
   for (let i = 0; i < 8; i++) {
     const ang = (i / 8) * Math.PI * 2;
-    const r = ARENA_RADIUS + 6 + (i % 3) * 2;
+    const r = 18 + (i % 3) * 2;
     const debris = MeshBuilder.CreatePolyhedron(
       `debris-${i}`,
       { type: 0, size: 0.6 + (i % 4) * 0.3 },
@@ -159,8 +108,8 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   const motesTex = createDot(scene, "rgba(255, 220, 180, 1)");
   motes.particleTexture = motesTex;
   motes.emitter = new Vector3(0, 4, 0);
-  motes.minEmitBox = new Vector3(-ARENA_RADIUS, 0, -ARENA_RADIUS);
-  motes.maxEmitBox = new Vector3(ARENA_RADIUS, 12, ARENA_RADIUS);
+  motes.minEmitBox = new Vector3(-arenaRadius, 0, -arenaRadius);
+  motes.maxEmitBox = new Vector3(arenaRadius, 12, arenaRadius);
   motes.color1 = new Color4(1, 0.85, 0.55, 0.5);
   motes.color2 = new Color4(0.78, 0.55, 1, 0.45);
   motes.colorDead = new Color4(0.4, 0.3, 0.5, 0);
@@ -176,7 +125,7 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
 
   // ---- PLAYER BEAN
   const playerRoot = new TransformNode("arena-player-root", scene);
-  playerRoot.position = new Vector3(0, 1.0, 6);
+  playerRoot.position = surface.playerSpawn.clone();
 
   const sliders = useCreator.getState().sliders;
   const cosmetic = useCreator.getState().cosmetic;
@@ -196,16 +145,13 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   };
   const playerBean = buildBean(scene, playerRoot, playerLook);
 
-  // ---- AI DUMMIES (3-7 of them, randomly coloured / hatted)
+  // ---- AI DUMMIES (one per arena's spawn anchors)
   const dummies: AiDummyController[] = [];
-  const dummyCount = 5;
-  for (let i = 0; i < dummyCount; i++) {
-    const ang = (i / dummyCount) * Math.PI * 2 + 0.4;
-    const r = 7;
-    const pos = new Vector3(Math.cos(ang) * r, 1.0, Math.sin(ang) * r);
+  surface.aiSpawns.forEach((pos, i) => {
     const dummy = spawnAiDummy(scene, pos, i);
     dummies.push(dummy);
-  }
+  });
+  const dummyCount = dummies.length;
 
   // ---- PLAYER CONTROLLER (movement + bonk)
   const opts: BonkControllerOptions = {
@@ -213,7 +159,8 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
     root: playerRoot,
     bean: playerBean,
     camera,
-    arenaRadius: ARENA_RADIUS,
+    arenaRadius,
+    isOnSurface: (x, z) => surface.inside(x, z),
     killFloorY: KILL_FLOOR_Y,
     targets: dummies.map((d) => d.root),
     onDeath: () => {
@@ -270,10 +217,12 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
     scene,
     controller,
     dummies,
+    surface,
     dispose: () => {
       controller.dispose();
       dummies.forEach((d) => d.dispose());
       playerBean.dispose();
+      surface.dispose();
       activeArena = null;
     },
   };

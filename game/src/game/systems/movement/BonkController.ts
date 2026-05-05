@@ -29,6 +29,8 @@ export interface BonkControllerOptions {
   bean: Bean;
   camera: ArcRotateCamera;
   arenaRadius: number;
+  /** Per-arena predicate: is (x, z) on a valid standing surface? */
+  isOnSurface?: (x: number, z: number) => boolean;
   killFloorY: number;
   targets: TransformNode[];
   onDeath?: () => void;
@@ -56,6 +58,7 @@ export class BonkController {
   bean: Bean;
   camera: ArcRotateCamera;
   arenaRadius: number;
+  isOnSurface?: (x: number, z: number) => boolean;
   killFloorY: number;
   targets: TransformNode[];
   onDeath?: () => void;
@@ -93,6 +96,7 @@ export class BonkController {
     this.bean = opts.bean;
     this.camera = opts.camera;
     this.arenaRadius = opts.arenaRadius;
+    this.isOnSurface = opts.isOnSurface;
     this.killFloorY = opts.killFloorY;
     this.targets = opts.targets;
     this.onDeath = opts.onDeath;
@@ -316,9 +320,10 @@ export class BonkController {
   }
 
   private onPlatform(): boolean {
-    const dx = this.root.position.x;
-    const dz = this.root.position.z;
-    return Math.hypot(dx, dz) <= this.arenaRadius;
+    const x = this.root.position.x;
+    const z = this.root.position.z;
+    if (this.isOnSurface) return this.isOnSurface(x, z);
+    return Math.hypot(x, z) <= this.arenaRadius;
   }
 
   private checkBonks() {
