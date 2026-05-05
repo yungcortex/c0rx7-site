@@ -13,6 +13,7 @@ import {
   GlowLayer,
   ParticleSystem,
   Texture,
+  Animation,
 } from "@babylonjs/core";
 import { applyCelShade } from "@game/shaders/celShade";
 import { buildBean, type BeanLook } from "@game/systems/character/Bean";
@@ -219,12 +220,14 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
       useMatch.getState().setPlayerDead();
     },
     onBonk: (target) => {
-      // Find the dummy + apply impulse via its controller
       const d = dummies.find((d) => d.root === target);
       if (d) {
         const dir = target.position.subtract(playerRoot.position).normalize();
         d.applyKnockback(dir.scale(14), 4);
         useMatch.getState().incrementBonks();
+        spawnBonkBurst(scene, target.position.clone());
+        // Camera shake
+        cameraShake(camera, 0.18, 0.25);
       }
     },
   };
@@ -233,8 +236,13 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   // Match-state init
   useMatch.getState().reset(dummyCount + 1);
 
+  // Camera target lerps toward the player (smooth follow, not snapped)
+  const camLook = new Vector3(0, 1.5, 0);
+
   // Per-tick: check elimination, update HUD
   scene.onBeforeRenderObservable.add(() => {
+    const dt = engine.getDeltaTime() / 1000;
+
     // Check dummies fallen
     for (const d of dummies) {
       if (d.alive && d.root.position.y < KILL_FLOOR_Y) {
@@ -243,8 +251,14 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
         useMatch.getState().registerKO();
       }
     }
-    // Camera follow player loosely
-    camera.target = playerRoot.position;
+
+    // Smooth camera lerp toward player position (face-height target)
+    const target = playerRoot.position;
+    const k = Math.min(1, dt * 5);
+    camLook.x += (target.x - camLook.x) * k;
+    camLook.y += (target.y + 1.0 - camLook.y) * k;
+    camLook.z += (target.z - camLook.z) * k;
+    camera.target = camLook;
   });
 
   const glow = new GlowLayer("arena-glow", scene);
@@ -288,3 +302,54 @@ function createDot(scene: Scene, color: string): Texture {
   tex.hasAlpha = true;
   return tex;
 }
+
+/** Bonk impact burst — short-lived stars/sparkles particle system. */
+function spawnBonkBurst(scene: Scene, position: Vector3) {
+  const burst = new ParticleSystem("bonk-burst", 80, scene);
+  burst.particleTexture = createDot(scene, "rgba(255, 230, 140, 1)");
+  burst.emitter = position;
+  burst.minEmitBox = new Vector3(-0.1, -0.1, -0.1);
+  burst.maxEmitBox = new Vector3(0.1, 0.1, 0.1);
+  burst.color1 = new Color4(1, 0.85, 0.45, 1);
+  burst.color2 = new Color4(1, 0.5, 0.65, 1);
+  burst.colorDead = new Color4(0.4, 0.3, 0.2, 0);
+  burst.minSize = 0.12;
+  burst.maxSize = 0.32;
+  burst.minLifeTime = 0.3;
+  burst.maxLifeTime = 0.7;
+  burst.emitRate = 0; // we'll manualEmitCount + start
+  burst.manualEmitCount = 60;
+  burst.minEmitPower = 6;
+  burst.maxEmitPower = 12;
+  burst.gravity = new Vector3(0, -8, 0);
+  burst.direction1 = new Vector3(-1, 1, -1);
+  burst.direction2 = new Vector3(1, 1.5, 1);
+  burst.start();
+  // Auto-dispose after lifetime
+  setTimeout(() => burst.dispose(), 1200);
+}
+
+/**
+ * Quick decaying noise-shake on the ArcRotateCamera by jittering its
+ * targetScreenOffset for `duration` seconds. Returns to zero on its own.
+ */
+function cameraShake(camera: ArcRotateCamera, magnitude: number, duration: number) {
+  const start = performance.now();
+  const initial = camera.targetScreenOffset.clone();
+  const interval = setInterval(() => {
+    const t = (performance.now() - start) / 1000;
+    if (t >= duration) {
+      camera.targetScreenOffset.copyFrom(initial);
+      clearInterval(interval);
+      return;
+    }
+    const decay = 1 - t / duration;
+    const dx = (Math.random() - 0.5) * 2 * magnitude * decay;
+    const dy = (Math.random() - 0.5) * 2 * magnitude * decay;
+    camera.targetScreenOffset.set(initial.x + dx, initial.y + dy);
+  }, 16);
+}
+
+/** Lightweight unused — kept for future sound + animation hooks. */
+const _animUnused: typeof Animation = Animation;
+void _animUnused;
