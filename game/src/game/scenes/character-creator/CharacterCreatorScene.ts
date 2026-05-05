@@ -147,20 +147,30 @@ export function buildCharacterCreatorScene(
     const hairStop = sliders.hair.gradient[0] ?? { h: 30, s: 80, v: 32 };
     const hair = hsvToRgbColor(hairStop.h, hairStop.s, hairStop.v);
     const eyeStop = sliders.eyes.leftHsv;
-    const _eyeColor = hsvToRgbColor(eyeStop.h, eyeStop.s, eyeStop.v);
-    void _eyeColor;
+    const eyeColor = hsvToRgbColor(eyeStop.h, eyeStop.s, eyeStop.v);
 
     const cosmetic = s.cosmetic;
     const look: BeanLook = {
       heritage: sliders.heritage,
       bodyColor: skin,
       patternColor: hair,
+      eyeColor,
       pattern: cosmetic?.pattern ?? "none",
       eyeStyle: cosmetic?.eyeStyle ?? "round",
       mouthStyle: cosmetic?.mouthStyle ?? "smile",
       hat: cosmetic?.hat ?? "none",
       outfit: cosmetic?.outfit ?? "none",
       accessory: cosmetic?.accessory ?? "none",
+      proportions: {
+        width: sliders.buildWeight / 255,
+        height: sliders.height / 255,
+        headSize: (sliders.faceBlendshapes[8] ?? 128) / 255,    // re-purpose face slider 8 as head size
+        eyeSize: (sliders.faceBlendshapes[4] ?? 128) / 255,     // face slider 4 as eye size
+        eyeSpacing: (sliders.faceBlendshapes[2] ?? 128) / 255,  // face slider 2 as eye spacing
+        handSize: (sliders.bodyBlendshapes[3] ?? 128) / 255,    // body slider 3 as hand size
+        footSize: (sliders.bodyBlendshapes[7] ?? 128) / 255,    // body slider 7 as foot size (calf)
+        outline: sliders.muscle / 255,                          // muscle as outline thickness
+      },
     };
 
     if (!bean) {
@@ -173,6 +183,7 @@ export function buildCharacterCreatorScene(
         bean = buildBean(scene, beanRoot, look);
       } else {
         bean.setLook(look);
+        if (look.proportions) bean.setProportions(look.proportions);
       }
     }
     if (bean) bean.root.metadata = { heritage: look.heritage };

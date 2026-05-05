@@ -33,7 +33,8 @@ import type { Heritage } from "@game/systems/character/SliderBlob";
 export interface BeanLook {
   heritage: Heritage;
   bodyColor: Color3;          // primary
-  patternColor?: Color3;      // accent for stripes/spots if pattern set
+  patternColor?: Color3;      // accent for stripes/spots/hands/feet
+  eyeColor?: Color3;          // overrides default iris colour
   pattern?: BeanPattern;
   eyeStyle: BeanEyeStyle;
   mouthStyle: BeanMouthStyle;
@@ -41,6 +42,36 @@ export interface BeanLook {
   outfit?: BeanOutfitId;
   accessory?: BeanAccessoryId;
   trailColor?: Color3;
+  /** physical proportion sliders, all 0..1, default 0.5 = neutral */
+  proportions?: BeanProportions;
+}
+
+export interface BeanProportions {
+  /** body width (X / Z scale), 0..1 ↔ 0.7..1.4 */
+  width: number;
+  /** body height (Y scale), 0..1 ↔ 0.7..1.4 */
+  height: number;
+  /** head/face plate size, 0..1 ↔ 0.75..1.3 */
+  headSize: number;
+  /** eye size, 0..1 ↔ 0.7..1.4 */
+  eyeSize: number;
+  /** eye spacing, 0..1 ↔ 0.6..1.3 */
+  eyeSpacing: number;
+  /** hand size, 0..1 ↔ 0.6..1.5 */
+  handSize: number;
+  /** foot size, 0..1 ↔ 0.6..1.5 */
+  footSize: number;
+  /** outline thickness scale, 0..1 ↔ 0.4..1.6 */
+  outline: number;
+}
+
+export const DEFAULT_PROPORTIONS: BeanProportions = {
+  width: 0.5, height: 0.5, headSize: 0.5, eyeSize: 0.5,
+  eyeSpacing: 0.5, handSize: 0.5, footSize: 0.5, outline: 0.5,
+};
+
+function mix(t: number, a: number, b: number): number {
+  return a + Math.max(0, Math.min(1, t)) * (b - a);
 }
 
 export type BeanPattern = "none" | "stripes" | "dots" | "split" | "gradient";
@@ -73,7 +104,10 @@ export interface Bean {
   hatRoot: TransformNode;
   outfitRoot: TransformNode;
   accessoryRoot: TransformNode;
+  /** Materials of secondary parts (hands, feet, ears, tail) so we can tint them */
+  secondaryMats: StandardMaterial[];
   setLook: (look: BeanLook) => void;
+  setProportions: (p: BeanProportions) => void;
   dispose: () => void;
 }
 
@@ -228,7 +262,8 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   pupilR.position.set(eyeOffsetX, eyeOffsetY, eyeOffsetZ + 0.07);
   pupilR.material = pupilMat;
 
-  // ---- FEET (two small spheres at the bottom)
+  // ---- FEET (own material so they tint with patternColor)
+  const feetMat = flatMat(scene, "bean-feet-mat", OUTLINE_COLOR.scale(2.0), 0.0);
   const feet: Mesh[] = [];
   for (const side of [-1, 1] as const) {
     const foot = MeshBuilder.CreateSphere(
@@ -239,12 +274,13 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     foot.parent = root;
     foot.position.set(side * 0.22 * props.bodyRX, 0.18, 0.05);
     foot.scaling.set(1.2, 0.7, 1.5);
-    foot.material = flatMat(scene, `bean-foot-mat-${side}`, OUTLINE_COLOR.scale(2.0), 0.0);
+    foot.material = feetMat;
     applyOutline(foot, 0.02);
     feet.push(foot);
   }
 
-  // ---- HANDS (small mitten spheres at sides)
+  // ---- HANDS (own material so they tint with patternColor)
+  const handsMat = flatMat(scene, "bean-hands-mat", new Color3(1, 1, 1), 0.0);
   const hands: Mesh[] = [];
   for (const side of [-1, 1] as const) {
     const hand = MeshBuilder.CreateSphere(
@@ -254,15 +290,16 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     );
     hand.parent = root;
     hand.position.set(side * (0.55 * props.bodyRX), 0.85, 0);
-    hand.material = bodyMat;
+    hand.material = handsMat;
     applyOutline(hand, 0.02);
     hands.push(hand);
   }
 
-  // ---- HERITAGE EARS / TAIL
+  // ---- HERITAGE EARS / TAIL — own material so they accent
+  const earsMat = flatMat(scene, "bean-ears-mat", new Color3(1, 1, 1), 0.0);
+  const tailMat = flatMat(scene, "bean-tail-mat", new Color3(1, 1, 1), 0.0);
   const ears: Mesh[] = [];
   if (props.hasEars && props.earStyle === "long") {
-    // Long Sivit elf-bunny-ears
     for (const side of [-1, 1] as const) {
       const ear = MeshBuilder.CreateCapsule(
         `bean-ear-${side}`,
@@ -272,12 +309,11 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
       ear.parent = root;
       ear.position.set(side * 0.18, 1.85 * props.squash, 0);
       ear.rotation.z = side * 0.15;
-      ear.material = bodyMat;
+      ear.material = earsMat;
       applyOutline(ear, 0.025);
       ears.push(ear);
     }
   } else if (props.hasEars && props.earStyle === "fluffy") {
-    // Vellish triangular cat-ears
     for (const side of [-1, 1] as const) {
       const ear = MeshBuilder.CreateCylinder(
         `bean-ear-${side}`,
@@ -287,7 +323,7 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
       ear.parent = root;
       ear.position.set(side * 0.22, 1.65 * props.squash, 0);
       ear.rotation.z = side * 0.12;
-      ear.material = bodyMat;
+      ear.material = earsMat;
       applyOutline(ear, 0.025);
       ears.push(ear);
     }
@@ -303,7 +339,7 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     tail.parent = root;
     tail.position.set(0, 0.6, -0.55 * props.bodyRZ);
     tail.rotation.x = -0.6;
-    tail.material = bodyMat;
+    tail.material = tailMat;
     applyOutline(tail, 0.022);
   }
 
@@ -375,7 +411,9 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     hatRoot,
     outfitRoot,
     accessoryRoot,
+    secondaryMats: [feetMat, handsMat, earsMat, tailMat],
     setLook: (newLook: BeanLook) => applyBeanLook(scene, bean, newLook, props),
+    setProportions: (p: BeanProportions) => applyProportions(bean, p, props),
     dispose: () => {
       faceTex.dispose();
       root.dispose();
@@ -383,7 +421,58 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
   };
 
   applyBeanLook(scene, bean, look, props);
+  if (look.proportions) applyProportions(bean, look.proportions, props);
   return bean;
+}
+
+/**
+ * Apply per-slider physical proportions to the bean. All sliders are 0..1.
+ * Heritage proportions still drive the base silhouette; this is a multiplier
+ * on top so a tall Sivit slider goes BOTH heritage-tall AND extra-tall.
+ */
+function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportions) {
+  // Body scale (with heritage as baseline)
+  const widthMul = mix(p.width, 0.7, 1.4);
+  const heightMul = mix(p.height, 0.7, 1.4);
+  bean.body.scaling.x = hp.bodyRX * widthMul;
+  bean.body.scaling.z = hp.bodyRZ * widthMul;
+  bean.body.scaling.y = hp.bodyHeight * hp.squash * heightMul;
+
+  // Head / face plate size — affects facePlane width/height + ear/tail offsets
+  const headMul = mix(p.headSize, 0.75, 1.3);
+  bean.facePlane.scaling.x = headMul;
+  bean.facePlane.scaling.y = headMul;
+
+  // Eye size + spacing
+  const eyeMul = mix(p.eyeSize, 0.7, 1.4);
+  const eyeSpread = mix(p.eyeSpacing, 0.6, 1.3);
+  const baseSpread = 0.22 * hp.bodyRX;
+  bean.eyes.left.scaling.set(eyeMul, eyeMul * 1.1, eyeMul * 0.6);
+  bean.eyes.right.scaling.set(eyeMul, eyeMul * 1.1, eyeMul * 0.6);
+  bean.eyes.left.position.x = -baseSpread * eyeSpread;
+  bean.eyes.right.position.x = baseSpread * eyeSpread;
+  bean.eyes.pupilL.position.x = -baseSpread * eyeSpread;
+  bean.eyes.pupilR.position.x = baseSpread * eyeSpread;
+  bean.eyes.pupilL.scaling.set(eyeMul, eyeMul, eyeMul);
+  bean.eyes.pupilR.scaling.set(eyeMul, eyeMul, eyeMul);
+
+  // Hand size
+  const handMul = mix(p.handSize, 0.6, 1.5);
+  for (const h of bean.hands) h.scaling.set(handMul, handMul, handMul);
+
+  // Foot size
+  const footMul = mix(p.footSize, 0.6, 1.5);
+  for (const f of bean.feet) f.scaling.set(1.2 * footMul, 0.7 * footMul, 1.5 * footMul);
+
+  // Outline thickness
+  const outlineMul = mix(p.outline, 0.4, 1.6);
+  bean.body.outlineWidth = OUTLINE_WIDTH * outlineMul;
+  for (const f of bean.feet) f.outlineWidth = 0.02 * outlineMul;
+  for (const h of bean.hands) h.outlineWidth = 0.02 * outlineMul;
+  for (const e of bean.ears) e.outlineWidth = 0.025 * outlineMul;
+  if (bean.tail) bean.tail.outlineWidth = 0.022 * outlineMul;
+  bean.eyes.left.outlineWidth = 0.025 * outlineMul;
+  bean.eyes.right.outlineWidth = 0.025 * outlineMul;
 }
 
 function applyBeanLook(
@@ -396,23 +485,46 @@ function applyBeanLook(
   bean.bodyMat.diffuseColor = look.bodyColor;
   bean.bodyMat.emissiveColor = look.bodyColor.scale(0.05);
 
-  // Hands inherit body color
+  // Secondary tint — hands / ears / tail use patternColor if set, else body.
+  // Feet stay dark by default (boot-like), tinted patternColor if user picks
+  // a pattern (so the accent slider always has SOMEWHERE visible to land).
+  const accent = look.patternColor ?? look.bodyColor;
   for (const h of bean.hands) {
     if (h.material instanceof StandardMaterial) {
-      h.material.diffuseColor = look.bodyColor;
-      h.material.emissiveColor = look.bodyColor.scale(0.05);
+      h.material.diffuseColor = accent;
+      h.material.emissiveColor = accent.scale(0.06);
     }
   }
-  // Ears + tail inherit body color
   for (const e of bean.ears) {
     if (e.material instanceof StandardMaterial) {
-      e.material.diffuseColor = look.bodyColor;
-      e.material.emissiveColor = look.bodyColor.scale(0.05);
+      e.material.diffuseColor = accent;
+      e.material.emissiveColor = accent.scale(0.06);
     }
   }
   if (bean.tail?.material instanceof StandardMaterial) {
-    bean.tail.material.diffuseColor = look.bodyColor;
-    bean.tail.material.emissiveColor = look.bodyColor.scale(0.05);
+    bean.tail.material.diffuseColor = accent;
+    bean.tail.material.emissiveColor = accent.scale(0.06);
+  }
+  // Feet — only tint if pattern color provided AND a pattern is active,
+  // otherwise keep them dark for visual grounding.
+  const feetTint = look.pattern && look.pattern !== "none" ? accent : OUTLINE_COLOR.scale(2.0);
+  for (const f of bean.feet) {
+    if (f.material instanceof StandardMaterial) {
+      f.material.diffuseColor = feetTint;
+      f.material.emissiveColor = feetTint.scale(0.05);
+    }
+  }
+
+  // ---- EYE COLOR override
+  if (look.eyeColor) {
+    if (bean.eyes.pupilL.material instanceof StandardMaterial) {
+      bean.eyes.pupilL.material.diffuseColor = look.eyeColor;
+      bean.eyes.pupilL.material.emissiveColor = look.eyeColor.scale(0.2);
+    }
+    if (bean.eyes.pupilR.material instanceof StandardMaterial) {
+      bean.eyes.pupilR.material.diffuseColor = look.eyeColor;
+      bean.eyes.pupilR.material.emissiveColor = look.eyeColor.scale(0.2);
+    }
   }
 
   // ---- FACE TEXTURE (mouth + pattern)
@@ -989,5 +1101,6 @@ export function defaultBeanLook(heritage: Heritage): BeanLook {
     hat: "none",
     outfit: "none",
     accessory: "none",
+    proportions: { ...DEFAULT_PROPORTIONS },
   };
 }

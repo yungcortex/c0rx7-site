@@ -26,6 +26,7 @@ interface Props {
 
 type Tab =
   | "heritage"
+  | "body"
   | "color"
   | "eyes"
   | "mouth"
@@ -36,6 +37,7 @@ type Tab =
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "heritage", label: "Shape" },
+  { id: "body", label: "Body" },
   { id: "color", label: "Color" },
   { id: "eyes", label: "Eyes" },
   { id: "mouth", label: "Mouth" },
@@ -129,6 +131,8 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
   const setName = useCreator((s) => s.setName);
   const setHeritage = useCreator((s) => s.setHeritage);
   const setSliderState = useCreator((s) => s.set);
+  const setFaceSlider = useCreator((s) => s.setFaceSlider);
+  const setBodySlider = useCreator((s) => s.setBodySlider);
   const setCosmetic = useCreator((s) => s.setCosmetic);
   const setSaving = useCreator((s) => s.setSaving);
   const reset = useCreator((s) => s.reset);
@@ -233,6 +237,57 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
             </section>
           )}
 
+          {tab === "body" && (
+            <section>
+              <h3>Body Proportions</h3>
+              <Slider
+                label="Width"
+                value={sliders.buildWeight}
+                onChange={(v) => setSliderState((s) => (s.buildWeight = v))}
+              />
+              <Slider
+                label="Height"
+                value={sliders.height}
+                onChange={(v) => setSliderState((s) => (s.height = v))}
+              />
+              <Slider
+                label="Head size"
+                value={sliders.faceBlendshapes[8] ?? 128}
+                onChange={(v) =>
+                  setFaceSlider(8, v)
+                }
+              />
+              <Slider
+                label="Eye size"
+                value={sliders.faceBlendshapes[4] ?? 128}
+                onChange={(v) => setFaceSlider(4, v)}
+              />
+              <Slider
+                label="Eye spacing"
+                value={sliders.faceBlendshapes[2] ?? 128}
+                onChange={(v) => setFaceSlider(2, v)}
+              />
+              <Slider
+                label="Hand size"
+                value={sliders.bodyBlendshapes[3] ?? 128}
+                onChange={(v) => setBodySlider(3, v)}
+              />
+              <Slider
+                label="Foot size"
+                value={sliders.bodyBlendshapes[7] ?? 128}
+                onChange={(v) => setBodySlider(7, v)}
+              />
+              <Slider
+                label="Outline thickness"
+                value={sliders.muscle}
+                onChange={(v) => setSliderState((s) => (s.muscle = v))}
+              />
+              <p className="hint">
+                Drag any slider — your bean updates live.
+              </p>
+            </section>
+          )}
+
           {tab === "color" && (
             <section>
               <h3>Body Color</h3>
@@ -242,7 +297,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                 onChange={(v) => setSliderState((s) => (s.skin.paletteIndex = v))}
               />
               <p className="hint">Click a swatch to change your bean's body colour.</p>
-              <h4 style={{ marginTop: "1.4rem" }}>Pattern Accent</h4>
+              <h4 style={{ marginTop: "1.4rem" }}>Accent Color (hands / ears / tail)</h4>
               <Slider
                 label="Hue"
                 value={sliders.hair.gradient[0]?.h ?? 30}
@@ -270,17 +325,50 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                   })
                 }
               />
-              <p className="hint">Used by Pattern (Stripes / Dots / Split / Gradient).</p>
+              <p className="hint">Tints the bean's hands, ears, and tail — and feet when a pattern is active.</p>
             </section>
           )}
 
           {tab === "eyes" && (
-            <CosmeticGrid
-              title="Eye Style"
-              options={EYE_STYLES}
-              value={cosmetic.eyeStyle}
-              onChange={(v) => setCosmetic((c) => (c.eyeStyle = v))}
-            />
+            <section>
+              <h3>Eye Style</h3>
+              <div className="cosmetic-grid">
+                {EYE_STYLES.map((o) => (
+                  <button
+                    key={o.id}
+                    className={`cosmetic-card ${cosmetic.eyeStyle === o.id ? "is-active" : ""}`}
+                    onClick={() => setCosmetic((c) => (c.eyeStyle = o.id))}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <h4 style={{ marginTop: "1.4rem" }}>Eye Color</h4>
+              <Slider
+                label="Hue"
+                value={sliders.eyes.leftHsv.h}
+                onChange={(v) => setSliderState((s) => {
+                  s.eyes.leftHsv.h = v;
+                  s.eyes.rightHsv.h = v;
+                })}
+              />
+              <Slider
+                label="Saturation"
+                value={sliders.eyes.leftHsv.s}
+                onChange={(v) => setSliderState((s) => {
+                  s.eyes.leftHsv.s = v;
+                  s.eyes.rightHsv.s = v;
+                })}
+              />
+              <Slider
+                label="Brightness"
+                value={sliders.eyes.leftHsv.v}
+                onChange={(v) => setSliderState((s) => {
+                  s.eyes.leftHsv.v = v;
+                  s.eyes.rightHsv.v = v;
+                })}
+              />
+            </section>
           )}
 
           {tab === "mouth" && (
