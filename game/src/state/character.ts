@@ -5,11 +5,38 @@ import {
   type Heritage,
 } from "@game/systems/character/SliderBlob";
 import type { Character } from "@game/systems/character/Character";
+import type {
+  BeanPattern,
+  BeanEyeStyle,
+  BeanMouthStyle,
+  BeanHatId,
+  BeanOutfitId,
+  BeanAccessoryId,
+} from "@game/systems/character/Bean";
+
+export interface CosmeticState {
+  pattern: BeanPattern;
+  eyeStyle: BeanEyeStyle;
+  mouthStyle: BeanMouthStyle;
+  hat: BeanHatId;
+  outfit: BeanOutfitId;
+  accessory: BeanAccessoryId;
+}
+
+const defaultCosmetic: CosmeticState = {
+  pattern: "none",
+  eyeStyle: "round",
+  mouthStyle: "smile",
+  hat: "none",
+  outfit: "none",
+  accessory: "none",
+};
 
 interface CharacterCreatorState {
   sliders: SliderState;
   name: string;
   saving: boolean;
+  cosmetic: CosmeticState;
   setHeritage: (h: Heritage) => void;
   setSubBuild: (i: number) => void;
   setName: (n: string) => void;
@@ -17,6 +44,7 @@ interface CharacterCreatorState {
   setFaceSlider: (i: number, v: number) => void;
   setBodySlider: (i: number, v: number) => void;
   setSaving: (b: boolean) => void;
+  setCosmetic: (mut: (c: CosmeticState) => void) => void;
   reset: () => void;
 }
 
@@ -24,6 +52,13 @@ export const useCreator = create<CharacterCreatorState>((set) => ({
   sliders: makeDefaultSliderState("hjari"),
   name: "",
   saving: false,
+  cosmetic: defaultCosmetic,
+  setCosmetic: (mut) =>
+    set((state) => {
+      const next = { ...state.cosmetic };
+      mut(next);
+      return { cosmetic: next };
+    }),
   setHeritage: (h) =>
     set((state) => ({
       sliders: { ...state.sliders, heritage: h, subBuild: 0 },
