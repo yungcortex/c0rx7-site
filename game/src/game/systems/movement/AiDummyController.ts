@@ -14,6 +14,7 @@ import {
   type BeanMouthStyle,
 } from "@game/systems/character/Bean";
 import type { Heritage } from "@game/systems/character/SliderBlob";
+import { BeanAnimator } from "@game/systems/character/BeanAnimator";
 
 const HERITAGES: Heritage[] = ["hjari", "sivit", "korr", "vellish"];
 
@@ -35,6 +36,7 @@ export class AiDummyController {
   scene: Scene;
   root: TransformNode;
   bean: Bean;
+  animator: BeanAnimator;
   alive = true;
   velocity = new Vector3(0, 0, 0);
   grounded = true;
@@ -48,12 +50,14 @@ export class AiDummyController {
     this.scene = scene;
     this.root = root;
     this.bean = bean;
+    this.animator = new BeanAnimator({ bean });
     this.renderObserver = scene.onBeforeRenderObservable.add(() => this.tick());
     this.pickWander();
   }
 
   dispose() {
     if (this.renderObserver) this.scene.onBeforeRenderObservable.remove(this.renderObserver);
+    this.animator.dispose();
     this.bean.dispose();
     this.root.dispose();
   }
@@ -64,6 +68,7 @@ export class AiDummyController {
     this.velocity.z += impulse.z;
     this.stunTimer = Math.max(this.stunTimer, stunSeconds);
     this.grounded = false;
+    this.animator.triggerBonkHit();
   }
 
   private pickWander() {
@@ -115,6 +120,7 @@ export class AiDummyController {
       const r = Math.hypot(this.root.position.x, this.root.position.z);
       if (r <= 12) {
         this.root.position.y = 0;
+        if (!this.grounded) this.animator.triggerLand();
         this.velocity.y = 0;
         this.grounded = true;
       } else {
@@ -122,12 +128,19 @@ export class AiDummyController {
       }
     }
 
+    // Sync animator state for walking AI
+    const horizSpeed2 = Math.hypot(this.velocity.x, this.velocity.z);
+    this.animator.setState(
+      this.stunTimer > 0 ? "stunned" : horizSpeed2 > 0.3 ? "walk" : "idle",
+    );
+
     // Stun decay
     if (this.stunTimer > 0) this.stunTimer = Math.max(0, this.stunTimer - dt);
 
     // Face direction of motion
     const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-    if (horizSpeed > 0.2 && this.stunTimer <= 0) {
+    void horizSpeed;
+    if (Math.hypot(this.velocity.x, this.velocity.z) > 0.2 && this.stunTimer <= 0) {
       const yaw = Math.atan2(this.velocity.x, this.velocity.z);
       if (!this.root.rotationQuaternion) {
         this.root.rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, 0, 0);

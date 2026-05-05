@@ -6,11 +6,11 @@ import {
   Quaternion,
   KeyboardEventTypes,
   KeyboardInfo,
-  Animation,
   Mesh,
 } from "@babylonjs/core";
 import type { Bean } from "@game/systems/character/Bean";
 import { playSfx } from "@game/systems/audio/SoundManager";
+import { BeanAnimator, type BeanState } from "@game/systems/character/BeanAnimator";
 
 interface InputState {
   forward: boolean;
@@ -78,6 +78,8 @@ export class BonkController {
   stunTimer = 0;
   alive = true;
 
+  animator: BeanAnimator;
+
   private input: InputState = {
     forward: false,
     back: false,
@@ -108,16 +110,22 @@ export class BonkController {
     this.diveForward = opts.diveForward ?? 9.5;
     this.gravity = opts.gravity ?? -22;
 
+    this.animator = new BeanAnimator({ bean: this.bean });
+
     this.kbObserver = this.scene.onKeyboardObservable.add((kb) => this.onKey(kb));
     this.renderObserver = this.scene.onBeforeRenderObservable.add(() => this.tick());
 
-    // Camera lock-on the bean
     (this.camera as ArcRotateCamera).lockedTarget = this.root;
   }
 
   dispose() {
     if (this.kbObserver) this.scene.onKeyboardObservable.remove(this.kbObserver);
     if (this.renderObserver) this.scene.onBeforeRenderObservable.remove(this.renderObserver);
+    this.animator.dispose();
+  }
+
+  emote(id: "wave" | "dance" | "sleep" | "taunt") {
+    this.animator.emote(id);
   }
 
   applyKnockback(impulse: Vector3, stunSeconds = 0) {
@@ -154,11 +162,15 @@ export class BonkController {
           this.velocity.y = this.jumpVelocity;
           this.grounded = false;
           this.state = "jump";
-          this.squashAnim(0.7, 1.4);
+          this.animator.triggerJump();
           playSfx("jump");
         }
         this.input.jump = down;
         break;
+      case "Digit1": if (down) this.animator.emote("wave"); break;
+      case "Digit2": if (down) this.animator.emote("dance"); break;
+      case "Digit3": if (down) this.animator.emote("sleep"); break;
+      case "Digit4": if (down) this.animator.emote("taunt"); break;
       case "ShiftLeft":
       case "ShiftRight":
         this.input.bonk = down;
@@ -179,27 +191,11 @@ export class BonkController {
     this.velocity.z = fwd.z * this.diveForward;
     this.velocity.y = Math.max(this.velocity.y, 1.5);
     this.bean.body.rotation.x = -0.7;
-    this.squashAnim(1.3, 0.7);
+    this.animator.triggerDive();
     playSfx("dive");
   }
 
-  private squashAnim(sx: number, sy: number) {
-    // Quick cartoon squash on the body; eases back via the existing bob anim
-    const anim = new Animation(
-      "bean-squash",
-      "scaling",
-      30,
-      Animation.ANIMATIONTYPE_VECTOR3,
-      Animation.ANIMATIONLOOPMODE_CONSTANT,
-    );
-    const cur = this.bean.body.scaling.clone();
-    anim.setKeys([
-      { frame: 0, value: cur },
-      { frame: 4, value: new Vector3(sx, sy, sx) },
-      { frame: 14, value: cur },
-    ]);
-    this.scene.beginDirectAnimation(this.bean.body, [anim], 0, 14, false, 1.5);
-  }
+  // squashAnim removed — replaced by BeanAnimator pulse triggers
 
   private getYaw(): number {
     const rq = this.root.rotationQuaternion;
@@ -261,7 +257,7 @@ export class BonkController {
         this.root.position.y = 0;
         this.velocity.y = 0;
         if (!this.grounded) {
-          this.squashAnim(1.2, 0.8); // landing squash
+          this.animator.triggerLand();
           playSfx("land");
         }
         this.grounded = true;
@@ -317,6 +313,9 @@ export class BonkController {
       const moving = horizSpeed > 0.3;
       this.state = moving ? (this.input.bonk ? "run" : "walk") : "idle";
     }
+
+    // Sync animator state
+    this.animator.setState(this.state as unknown as BeanState);
   }
 
   private onPlatform(): boolean {
@@ -337,6 +336,7 @@ export class BonkController {
       const d2 = dx * dx + dy * dy + dz * dz;
       if (d2 < reach * reach) {
         if (this.onBonk) this.onBonk(t);
+        this.animator.triggerBonkHit();
         playSfx("bonk");
       }
     }
