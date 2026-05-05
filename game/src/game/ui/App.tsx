@@ -8,8 +8,10 @@ import { AuthScreen } from "@ui/screens/AuthScreen";
 import { CharacterSelectScreen } from "@ui/screens/CharacterSelectScreen";
 import { CharacterCreatorScreen } from "@ui/screens/CharacterCreatorScreen";
 import { LobbyScreen } from "@ui/screens/LobbyScreen";
+import { ShopScreen } from "@ui/screens/ShopScreen";
 import { HubHud } from "@ui/hud/HubHud";
 import { MatchHud } from "@ui/hud/MatchHud";
+import { playSfx } from "@game/systems/audio/SoundManager";
 
 interface Props {
   engine: GameEngine;
@@ -22,6 +24,7 @@ export function App({ engine }: Props) {
   const setActiveCharacter = useWorld((s) => s.setActiveCharacter);
   const [showAuth, setShowAuth] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   useEffect(() => {
     init();
@@ -79,7 +82,7 @@ export function App({ engine }: Props) {
           }}
         />
       )}
-      {showLobby && current === "title" && (
+      {showLobby && current === "title" && !showShop && (
         <LobbyScreen
           onClose={() => setShowLobby(false)}
           onCustomize={() => {
@@ -87,10 +90,15 @@ export function App({ engine }: Props) {
             engine.go("character-creator");
           }}
           onEnterMatch={() => {
+            playSfx("jump");
             setShowLobby(false);
             engine.go("arena-bonk");
           }}
+          onShop={() => setShowShop(true)}
         />
+      )}
+      {showShop && (
+        <ShopScreen onClose={() => setShowShop(false)} />
       )}
       {showAuth && (
         <AuthScreen

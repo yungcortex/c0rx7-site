@@ -10,6 +10,7 @@ import {
   Mesh,
 } from "@babylonjs/core";
 import type { Bean } from "@game/systems/character/Bean";
+import { playSfx } from "@game/systems/audio/SoundManager";
 
 interface InputState {
   forward: boolean;
@@ -150,6 +151,7 @@ export class BonkController {
           this.grounded = false;
           this.state = "jump";
           this.squashAnim(0.7, 1.4);
+          playSfx("jump");
         }
         this.input.jump = down;
         break;
@@ -172,9 +174,9 @@ export class BonkController {
     this.velocity.x = fwd.x * this.diveForward;
     this.velocity.z = fwd.z * this.diveForward;
     this.velocity.y = Math.max(this.velocity.y, 1.5);
-    // Tilt the bean forward while diving
     this.bean.body.rotation.x = -0.7;
     this.squashAnim(1.3, 0.7);
+    playSfx("dive");
   }
 
   private squashAnim(sx: number, sy: number) {
@@ -254,7 +256,10 @@ export class BonkController {
       if (onPlatform) {
         this.root.position.y = 0;
         this.velocity.y = 0;
-        if (!this.grounded) this.squashAnim(1.2, 0.8); // landing squash
+        if (!this.grounded) {
+          this.squashAnim(1.2, 0.8); // landing squash
+          playSfx("land");
+        }
         this.grounded = true;
         if (this.state === "jump" || this.state === "fall") this.state = "idle";
       } else {
@@ -268,6 +273,7 @@ export class BonkController {
     // Death by killfloor
     if (this.root.position.y < this.killFloorY) {
       this.alive = false;
+      playSfx("ko");
       if (this.onDeath) this.onDeath();
       return;
     }
@@ -326,6 +332,7 @@ export class BonkController {
       const d2 = dx * dx + dy * dy + dz * dz;
       if (d2 < reach * reach) {
         if (this.onBonk) this.onBonk(t);
+        playSfx("bonk");
       }
     }
   }

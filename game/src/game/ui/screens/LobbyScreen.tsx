@@ -1,7 +1,10 @@
+import { playSfx } from "@game/systems/audio/SoundManager";
+
 interface Props {
   onClose: () => void;
   onCustomize: () => void;
   onEnterMatch: () => void;
+  onShop: () => void;
 }
 
 const MODES = [
@@ -39,14 +42,17 @@ const MODES = [
   },
 ];
 
-export function LobbyScreen({ onClose, onCustomize, onEnterMatch }: Props) {
+export function LobbyScreen({ onClose, onCustomize, onEnterMatch, onShop }: Props) {
   return (
     <div className="lobby-screen">
       <div className="lobby-card">
         <header className="lobby-head">
-          <button className="ghost-btn" onClick={onClose}>← back</button>
+          <button className="ghost-btn" onClick={() => { playSfx("click"); onClose(); }}>← back</button>
           <h2>BEAN LOBBY</h2>
-          <button className="ghost-btn" onClick={onCustomize}>customize bean</button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="ghost-btn" onClick={() => { playSfx("click"); onShop(); }}>shop</button>
+            <button className="ghost-btn" onClick={() => { playSfx("click"); onCustomize(); }}>customize</button>
+          </div>
         </header>
 
         <div className="lobby-modes">
@@ -55,7 +61,7 @@ export function LobbyScreen({ onClose, onCustomize, onEnterMatch }: Props) {
               key={m.id}
               className={`lobby-mode ${m.available ? "" : "is-locked"}`}
               disabled={!m.available}
-              onClick={m.available ? onEnterMatch : undefined}
+              onClick={m.available ? () => { playSfx("click"); onEnterMatch(); } : undefined}
             >
               <span className="lobby-mode-title">{m.title}</span>
               <span className="lobby-mode-desc">{m.desc}</span>

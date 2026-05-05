@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { playSfx } from "@game/systems/audio/SoundManager";
 
 export type MatchPhase = "ready" | "playing" | "won" | "lost";
 
@@ -32,10 +33,13 @@ export const useMatch = create<MatchState>((set, get) => ({
     const next = Math.max(0, get().beansAlive - 1);
     if (next <= 1) {
       set({ beansAlive: next, phase: "won" });
+      playSfx("win");
     } else {
       set({ beansAlive: next });
     }
   },
-  setPlayerDead: () => set({ phase: "lost" }),
+  setPlayerDead: () => {
+    set({ phase: "lost" });
+  },
   incrementBonks: () => set((s) => ({ bonks: s.bonks + 1 })),
 }));
