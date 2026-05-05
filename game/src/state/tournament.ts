@@ -135,33 +135,27 @@ export const useTournament = create<TournamentState>((set, get) => ({
     }),
 }));
 
+// 3-round tournament with the three polished arenas.
 export const STANDARD_TOURNAMENT: TournamentRound[] = [
-  {
-    variant: "bean-race",
-    mode: "race",
-    qualifyCount: 12,
-    title: "Round 1 · Bean Race",
-    blurb: "Obstacle course. Reach the goal bell to qualify.",
-  },
   {
     variant: "bonk-island",
     mode: "elimination",
-    qualifyCount: 6,
-    title: "Round 2 · Bonk Brawl",
-    blurb: "Last 6 beans standing on the floating bowl move on.",
+    qualifyCount: 12,
+    title: "Round 1 · Bonk Brawl",
+    blurb: "Tiered pink bowl. Last 12 beans standing qualify.",
   },
   {
     variant: "hot-bean",
     mode: "survival",
-    qualifyCount: 3,
-    title: "Round 3 · Hot Bean",
-    blurb: "Volcano ring. Don't get bonked into the lava.",
+    qualifyCount: 6,
+    title: "Round 2 · Hot Bean",
+    blurb: "Volcano ring with a danger pillar. Survive to the top 6.",
   },
   {
     variant: "king-of-bell",
     mode: "final",
     qualifyCount: 1,
     title: "Final · King of the Bell",
-    blurb: "Last bean wins the crown.",
+    blurb: "Hold the central zone. One bean wins the crown.",
   },
 ];

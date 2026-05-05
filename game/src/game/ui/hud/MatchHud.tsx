@@ -60,12 +60,12 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
         </button>
       </div>
 
-      {/* Controls hint (bottom-center) */}
+      {/* Controls hint (bottom-center) — bigger, friendlier UX */}
       <div className="match-controls-hint">
         <span><kbd>WASD</kbd> move</span>
-        <span><kbd>R</kbd> run</span>
+        <span><kbd>SHIFT</kbd> or <kbd>R</kbd> run</span>
         <span><kbd>SPACE</kbd> jump</span>
-        <span className="hot"><kbd>T</kbd> tackle</span>
+        <span className="hot"><kbd>T</kbd> or <kbd>F</kbd> tackle</span>
         <span><kbd>1-4</kbd> emote</span>
       </div>
 

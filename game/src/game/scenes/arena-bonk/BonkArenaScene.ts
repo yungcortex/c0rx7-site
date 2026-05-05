@@ -153,19 +153,19 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
   });
   const dummyCount = dummies.length;
 
-  // Wire AI to ALSO target the player + each other
+  // Wire AI: each dummy gets surface ref (for floor) + targets list
   for (const ai of dummies) {
-    ai.setAttackSource({
+    const attackSource: any = {
+      surface,
       getTargets: () => [
         { root: playerRoot, alive: true },
         ...dummies
           .filter((d) => d !== ai && d.alive)
           .map((d) => ({ root: d.root, alive: d.alive })),
       ],
-      onBonk: (target, attacker) => {
+      onBonk: (target: TransformNode, attacker: AiDummyController) => {
         const dir = target.position.subtract(attacker.root.position).normalize();
         if (target === playerRoot) {
-          // Toned-down player knockback: 8 was 13, stun 1.5 was 3
           controller.applyKnockback(dir.scale(8), 1.5);
           spawnBonkBurst(scene, target.position.clone());
           cameraShake(camera, 0.12, 0.18);
@@ -177,7 +177,8 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
           }
         }
       },
-    });
+    };
+    ai.setAttackSource(attackSource);
   }
 
   // ---- PLAYER CONTROLLER (movement + bonk)
@@ -188,6 +189,7 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
     camera,
     arenaRadius,
     isOnSurface: (x, z) => surface.inside(x, z),
+    surfaceFloorY: (x, z) => surface.floorY(x, z),
     killFloorY: KILL_FLOOR_Y,
     targets: dummies.map((d) => d.root),
     onDeath: () => {

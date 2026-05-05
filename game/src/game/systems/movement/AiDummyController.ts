@@ -211,8 +211,21 @@ export class AiDummyController {
     this.root.position.y += this.velocity.y * dt;
     this.root.position.z += this.velocity.z * dt;
 
-    // Ground check at y=0 if on platform
-    if (this.root.position.y <= 0) {
+    // Ground check — use arena floor predicate if wired up via attackSource
+    // (which carries the surface ref); fall back to y=0 / r=12 default.
+    const surface = (this.attackSource as unknown as { surface?: { inside: (x:number,z:number)=>boolean; floorY:(x:number,z:number)=>number } })?.surface;
+    if (surface) {
+      const onSurface = surface.inside(this.root.position.x, this.root.position.z);
+      const floorY = onSurface ? surface.floorY(this.root.position.x, this.root.position.z) : -Infinity;
+      if (onSurface && this.root.position.y <= floorY + 0.01) {
+        this.root.position.y = floorY;
+        if (!this.grounded) this.animator.triggerLand();
+        this.velocity.y = 0;
+        this.grounded = true;
+      } else if (!onSurface || this.root.position.y > floorY + 0.05) {
+        this.grounded = false;
+      }
+    } else if (this.root.position.y <= 0) {
       const r = Math.hypot(this.root.position.x, this.root.position.z);
       if (r <= 12) {
         this.root.position.y = 0;

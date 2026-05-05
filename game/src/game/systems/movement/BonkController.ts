@@ -32,6 +32,8 @@ export interface BonkControllerOptions {
   arenaRadius: number;
   /** Per-arena predicate: is (x, z) on a valid standing surface? */
   isOnSurface?: (x: number, z: number) => boolean;
+  /** Per-arena Y of the floor at (x, z) — varies per arena (ramps, tiers). */
+  surfaceFloorY?: (x: number, z: number) => number;
   killFloorY: number;
   targets: TransformNode[];
   onDeath?: () => void;
