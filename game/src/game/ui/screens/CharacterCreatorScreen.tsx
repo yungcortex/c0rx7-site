@@ -6,85 +6,115 @@ import {
   HERITAGES,
   type Heritage,
 } from "@game/systems/character/SliderBlob";
-import { getCreatorContext, type LightPreset } from "@game/scenes/character-creator/CharacterCreatorScene";
+import {
+  getCreatorContext,
+  type LightPreset,
+} from "@game/scenes/character-creator/CharacterCreatorScene";
+import type {
+  BeanEyeStyle,
+  BeanMouthStyle,
+  BeanPattern,
+  BeanHatId,
+  BeanOutfitId,
+  BeanAccessoryId,
+} from "@game/systems/character/Bean";
 
 interface Props {
   onBack: () => void;
   onConfirm: () => void;
 }
 
-type Tab = "heritage" | "face" | "body" | "skin" | "hair" | "eyes" | "voice" | "backstory";
+type Tab =
+  | "heritage"
+  | "color"
+  | "eyes"
+  | "mouth"
+  | "pattern"
+  | "hat"
+  | "outfit"
+  | "accessory";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "heritage", label: "Heritage" },
-  { id: "face", label: "Face" },
-  { id: "body", label: "Body" },
-  { id: "skin", label: "Skin" },
-  { id: "hair", label: "Hair" },
+  { id: "heritage", label: "Shape" },
+  { id: "color", label: "Color" },
   { id: "eyes", label: "Eyes" },
-  { id: "voice", label: "Voice" },
-  { id: "backstory", label: "Backstory" },
+  { id: "mouth", label: "Mouth" },
+  { id: "pattern", label: "Pattern" },
+  { id: "hat", label: "Hat" },
+  { id: "outfit", label: "Outfit" },
+  { id: "accessory", label: "Extra" },
 ];
 
 const HERITAGE_LABEL: Record<Heritage, string> = {
-  hjari: "Hjari · The Carried",
-  sivit: "Sivit · The Long Listeners",
-  korr: "Korr · The Stone-Heavy",
-  vellish: "Vellish · The Walked-In",
-  ashen: "Ashen · The Half-Lit",
+  hjari: "Classic",
+  sivit: "Tall + Eared",
+  korr: "Wide + Round",
+  vellish: "Cat + Tail",
+  ashen: "Slim Ghost",
 };
 
 const HERITAGE_BLURB: Record<Heritage, string> = {
-  hjari: "Humanlike. The heart of the city. Memorial stones. Three-part names.",
-  sivit: "Tall, slender, long-eared. Watchful. Court archivists and Choir clergy.",
-  korr: "Short or tall, broad and dense. Stoneworkers, brewmasters, midwives. The Cycles cannot move them.",
-  vellish: "Beastfolk — feline or lupine. Walked in from the Nightlands. Watch frontline. Quiet Hand sympathizers.",
-  ashen: "Half-undead Wakers. Eyes that won't stop glowing. (Locked at launch.)",
+  hjari: "Standard medium bean. Friendly silhouette. The default.",
+  sivit: "Tall slim bean with long bunny-elf ears. Twiggy energy.",
+  korr: "Wide round ball. Deeply unbreakable. Tiny legs.",
+  vellish: "Smaller bean with cat ears + curly tail. Smug by design.",
+  ashen: "Slim ghostly bean. Translucent vibe. Locked at launch.",
 };
 
-const VOICE_SETS = [
-  "Warm-low",
-  "Sharp-high",
-  "Soft-mid",
-  "Rough-low",
-  "Bright-mid",
-  "Dry-low",
-  "Husky-mid",
-  "Clipped-high",
+const EYE_STYLES: { id: BeanEyeStyle; label: string }[] = [
+  { id: "round", label: "Round" },
+  { id: "sparkle", label: "Sparkle" },
+  { id: "sleepy", label: "Sleepy" },
+  { id: "angry", label: "Angry" },
+  { id: "dead", label: "Dead X" },
+  { id: "heart", label: "Heart" },
+  { id: "swirl", label: "Swirl" },
 ];
 
-const BACKSTORY_QUESTIONS = [
-  {
-    q: "What is your earliest memory?",
-    options: [
-      "A working hand on a tool",
-      "A song sung in a quiet room",
-      "Running between districts on errands",
-      "Walking in alone from the dark",
-    ],
-  },
-  {
-    q: "Who were you, before you Woke?",
-    options: ["Apprentice", "Witness", "Inheritor", "Outsider"],
-  },
-  {
-    q: "What do you fear?",
-    options: [
-      "Being forgotten",
-      "Forgetting someone",
-      "Standing still",
-      "Being seen",
-    ],
-  },
-  {
-    q: "What calls you?",
-    options: [
-      "An edge that wants swinging",
-      "A song that wants finishing",
-      "An oath that wants keeping",
-      "A door that wants opening",
-    ],
-  },
+const MOUTH_STYLES: { id: BeanMouthStyle; label: string }[] = [
+  { id: "smile", label: "Smile" },
+  { id: "grin", label: "Grin" },
+  { id: "frown", label: "Frown" },
+  { id: "gasp", label: "Gasp" },
+  { id: "smug", label: "Smug" },
+  { id: "tongue", label: "Tongue" },
+  { id: "neutral", label: "Neutral" },
+];
+
+const PATTERNS: { id: BeanPattern; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "stripes", label: "Stripes" },
+  { id: "dots", label: "Dots" },
+  { id: "split", label: "Split" },
+  { id: "gradient", label: "Gradient" },
+];
+
+const HATS: { id: BeanHatId; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "wizard", label: "Wizard" },
+  { id: "crown", label: "Crown" },
+  { id: "propeller", label: "Propeller" },
+  { id: "helmet", label: "Helmet" },
+  { id: "horns", label: "Horns" },
+  { id: "tophat", label: "Top Hat" },
+  { id: "halo", label: "Halo" },
+];
+
+const OUTFITS: { id: BeanOutfitId; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "cape", label: "Cape" },
+  { id: "scarf", label: "Scarf" },
+  { id: "armor", label: "Armor" },
+  { id: "robe-trim", label: "Robe Trim" },
+  { id: "bowtie", label: "Bowtie" },
+];
+
+const ACCESSORIES: { id: BeanAccessoryId; label: string }[] = [
+  { id: "none", label: "None" },
+  { id: "glasses", label: "Glasses" },
+  { id: "monocle", label: "Monocle" },
+  { id: "mustache", label: "Mustache" },
+  { id: "earrings", label: "Earrings" },
 ];
 
 export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
@@ -93,14 +123,13 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
   const [error, setError] = useState<string | null>(null);
   const user = useAuth((s) => s.user);
   const sliders = useCreator((s) => s.sliders);
+  const cosmetic = useCreator((s) => s.cosmetic);
   const name = useCreator((s) => s.name);
   const saving = useCreator((s) => s.saving);
   const setName = useCreator((s) => s.setName);
   const setHeritage = useCreator((s) => s.setHeritage);
-  const setSubBuild = useCreator((s) => s.setSubBuild);
   const setSliderState = useCreator((s) => s.set);
-  const setFaceSlider = useCreator((s) => s.setFaceSlider);
-  const setBodySlider = useCreator((s) => s.setBodySlider);
+  const setCosmetic = useCreator((s) => s.setCosmetic);
   const setSaving = useCreator((s) => s.setSaving);
   const reset = useCreator((s) => s.reset);
   const addCharacter = useCharacters((s) => s.add);
@@ -112,14 +141,14 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
     getCreatorContext()?.setLightPreset(preset);
   };
 
-  const onBindAspect = async () => {
+  const onBindBean = async () => {
     setError(null);
     if (name.trim().length < 2) {
-      setError("Your Waker needs a name.");
+      setError("Your bean needs a name.");
       return;
     }
     if (!user) {
-      setError("Sign in to bind a Waker. Guest characters aren't persisted yet.");
+      setError("Sign in to save your bean across cycles.");
       return;
     }
     setSaving(true);
@@ -127,7 +156,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
     let nextSlot = 1;
     while (usedSlots.has(nextSlot) && nextSlot <= 8) nextSlot++;
     if (nextSlot > 8) {
-      setError("All Waker slots are full. Unbind one first.");
+      setError("All bean slots are full. Unbind one first.");
       setSaving(false);
       return;
     }
@@ -136,11 +165,10 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
       name: name.trim(),
       heritage: sliders.heritage,
       sliders,
-      active_aspect: aspectFromBackstory(sliders.backstory),
     });
     setSaving(false);
     if (!created) {
-      setError("The city refused to remember. (Save failed — check your connection.)");
+      setError("The city refused to remember. Save failed.");
       return;
     }
     addCharacter(created);
@@ -155,7 +183,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
         <button className="ghost-btn" onClick={onBack}>
           ← back
         </button>
-        <h2>Wake a Waker</h2>
+        <h2>Bean Forge</h2>
         <div className="light-presets">
           {(["sunset", "dungeon", "town"] as LightPreset[]).map((p) => (
             <button
@@ -185,7 +213,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
         <div className="creator-content">
           {tab === "heritage" && (
             <section>
-              <h3>Heritage</h3>
+              <h3>Shape</h3>
               <div className="heritage-grid">
                 {HERITAGES.filter((h) => h !== "ashen").map((h) => (
                   <button
@@ -202,122 +230,21 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                   <span className="heritage-blurb">{HERITAGE_BLURB.ashen}</span>
                 </div>
               </div>
-
-              {(sliders.heritage === "korr" || sliders.heritage === "vellish") && (
-                <div className="sub-build">
-                  <label>Sub-build</label>
-                  <div className="sub-build-row">
-                    <button
-                      className={`pill ${sliders.subBuild === 0 ? "is-active" : ""}`}
-                      onClick={() => setSubBuild(0)}
-                    >
-                      {sliders.heritage === "korr" ? "Tall" : "Feline"}
-                    </button>
-                    <button
-                      className={`pill ${sliders.subBuild === 1 ? "is-active" : ""}`}
-                      onClick={() => setSubBuild(1)}
-                    >
-                      {sliders.heritage === "korr" ? "Short" : "Lupine"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </section>
           )}
 
-          {tab === "body" && (
+          {tab === "color" && (
             <section>
-              <h3>Body</h3>
-              <Slider
-                label="Height"
-                value={sliders.height}
-                onChange={(v) => setSliderState((s) => (s.height = v))}
-              />
-              <Slider
-                label="Build"
-                value={sliders.buildWeight}
-                onChange={(v) => setSliderState((s) => (s.buildWeight = v))}
-              />
-              <Slider
-                label="Muscle"
-                value={sliders.muscle}
-                onChange={(v) => setSliderState((s) => (s.muscle = v))}
-              />
-              <Slider
-                label="Body type (masc ↔ fem)"
-                value={sliders.bodyType}
-                onChange={(v) => setSliderState((s) => (s.bodyType = v))}
-              />
-              <h4>Body blendshapes</h4>
-              {Array.from({ length: 8 }, (_, i) => (
-                <Slider
-                  key={i}
-                  label={BODY_LABELS[i] ?? `Body ${i}`}
-                  value={sliders.bodyBlendshapes[i] ?? 128}
-                  onChange={(v) => setBodySlider(i, v)}
-                />
-              ))}
-            </section>
-          )}
-
-          {tab === "face" && (
-            <section>
-              <h3>Face</h3>
-              {Array.from({ length: 12 }, (_, i) => (
-                <Slider
-                  key={i}
-                  label={FACE_LABELS[i] ?? `Face ${i}`}
-                  value={sliders.faceBlendshapes[i] ?? 128}
-                  onChange={(v) => setFaceSlider(i, v)}
-                />
-              ))}
-            </section>
-          )}
-
-          {tab === "skin" && (
-            <section>
-              <h3>Skin</h3>
+              <h3>Body Color</h3>
               <PaletteRow
                 count={20}
                 value={sliders.skin.paletteIndex}
                 onChange={(v) => setSliderState((s) => (s.skin.paletteIndex = v))}
               />
+              <p className="hint">Click a swatch to change your bean's body colour.</p>
+              <h4 style={{ marginTop: "1.4rem" }}>Pattern Accent</h4>
               <Slider
-                label="Undertone"
-                value={sliders.skin.undertone * 64}
-                onChange={(v) =>
-                  setSliderState((s) => (s.skin.undertone = Math.round(v / 64)))
-                }
-                max={255}
-              />
-              <Slider
-                label="Freckles"
-                value={sliders.skin.freckles}
-                onChange={(v) => setSliderState((s) => (s.skin.freckles = v))}
-              />
-              <Slider
-                label="Scarring intensity"
-                value={sliders.skin.scarringIntensity}
-                onChange={(v) => setSliderState((s) => (s.skin.scarringIntensity = v))}
-              />
-            </section>
-          )}
-
-          {tab === "hair" && (
-            <section>
-              <h3>Hair</h3>
-              <Slider
-                label="Style index"
-                value={sliders.hair.style * 8}
-                onChange={(v) => setSliderState((s) => (s.hair.style = Math.round(v / 8)))}
-              />
-              <Slider
-                label="Density"
-                value={sliders.hair.density}
-                onChange={(v) => setSliderState((s) => (s.hair.density = v))}
-              />
-              <Slider
-                label="Hue (primary)"
+                label="Hue"
                 value={sliders.hair.gradient[0]?.h ?? 30}
                 onChange={(v) =>
                   setSliderState((s) => {
@@ -326,7 +253,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                 }
               />
               <Slider
-                label="Saturation (primary)"
+                label="Saturation"
                 value={sliders.hair.gradient[0]?.s ?? 80}
                 onChange={(v) =>
                   setSliderState((s) => {
@@ -335,7 +262,7 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                 }
               />
               <Slider
-                label="Value (primary)"
+                label="Value"
                 value={sliders.hair.gradient[0]?.v ?? 32}
                 onChange={(v) =>
                   setSliderState((s) => {
@@ -343,111 +270,62 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
                   })
                 }
               />
+              <p className="hint">Used by Pattern (Stripes / Dots / Split / Gradient).</p>
             </section>
           )}
 
           {tab === "eyes" && (
-            <section>
-              <h3>Eyes</h3>
-              <Slider
-                label="Hue (left)"
-                value={sliders.eyes.leftHsv.h}
-                onChange={(v) => setSliderState((s) => (s.eyes.leftHsv.h = v))}
-              />
-              <Slider
-                label="Saturation (left)"
-                value={sliders.eyes.leftHsv.s}
-                onChange={(v) => setSliderState((s) => (s.eyes.leftHsv.s = v))}
-              />
-              <Slider
-                label="Value (left)"
-                value={sliders.eyes.leftHsv.v}
-                onChange={(v) => setSliderState((s) => (s.eyes.leftHsv.v = v))}
-              />
-              <button
-                className="pill"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setSliderState((s) => {
-                    s.eyes.rightHsv = { ...s.eyes.leftHsv };
-                  })
-                }
-              >
-                match right to left
-              </button>
-              <h4 style={{ marginTop: 18 }}>Right eye (heterochromia)</h4>
-              <Slider
-                label="Hue (right)"
-                value={sliders.eyes.rightHsv.h}
-                onChange={(v) => setSliderState((s) => (s.eyes.rightHsv.h = v))}
-              />
-              <Slider
-                label="Saturation (right)"
-                value={sliders.eyes.rightHsv.s}
-                onChange={(v) => setSliderState((s) => (s.eyes.rightHsv.s = v))}
-              />
-              <Slider
-                label="Value (right)"
-                value={sliders.eyes.rightHsv.v}
-                onChange={(v) => setSliderState((s) => (s.eyes.rightHsv.v = v))}
-              />
-              <Slider
-                label="Waker glow"
-                value={sliders.eyes.glow}
-                onChange={(v) => setSliderState((s) => (s.eyes.glow = v))}
-              />
-            </section>
+            <CosmeticGrid
+              title="Eye Style"
+              options={EYE_STYLES}
+              value={cosmetic.eyeStyle}
+              onChange={(v) => setCosmetic((c) => (c.eyeStyle = v))}
+            />
           )}
 
-          {tab === "voice" && (
-            <section>
-              <h3>Voice</h3>
-              <div className="voice-grid">
-                {VOICE_SETS.map((v, i) => (
-                  <button
-                    key={v}
-                    className={`voice-card ${sliders.voice.set === i ? "is-active" : ""}`}
-                    onClick={() => setSliderState((s) => (s.voice.set = i))}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <Slider
-                label="Pitch"
-                value={sliders.voice.pitch * 64}
-                onChange={(v) =>
-                  setSliderState((s) => (s.voice.pitch = Math.round(v / 64)))
-                }
-              />
-              <p className="hint">Voice sample preview lands in Phase 1.5 (audio asset pipeline).</p>
-            </section>
+          {tab === "mouth" && (
+            <CosmeticGrid
+              title="Mouth"
+              options={MOUTH_STYLES}
+              value={cosmetic.mouthStyle}
+              onChange={(v) => setCosmetic((c) => (c.mouthStyle = v))}
+            />
           )}
 
-          {tab === "backstory" && (
-            <section>
-              <h3>Backstory</h3>
-              {BACKSTORY_QUESTIONS.map((q, i) => (
-                <div key={i} className="backstory-question">
-                  <p className="backstory-q">{q.q}</p>
-                  <div className="backstory-row">
-                    {q.options.map((opt, j) => (
-                      <button
-                        key={j}
-                        className={`backstory-opt ${sliders.backstory[i] === j ? "is-active" : ""}`}
-                        onClick={() =>
-                          setSliderState((s) => {
-                            s.backstory[i] = j;
-                          })
-                        }
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
+          {tab === "pattern" && (
+            <CosmeticGrid
+              title="Body Pattern"
+              options={PATTERNS}
+              value={cosmetic.pattern}
+              onChange={(v) => setCosmetic((c) => (c.pattern = v))}
+            />
+          )}
+
+          {tab === "hat" && (
+            <CosmeticGrid
+              title="Hat"
+              options={HATS}
+              value={cosmetic.hat}
+              onChange={(v) => setCosmetic((c) => (c.hat = v))}
+            />
+          )}
+
+          {tab === "outfit" && (
+            <CosmeticGrid
+              title="Outfit"
+              options={OUTFITS}
+              value={cosmetic.outfit}
+              onChange={(v) => setCosmetic((c) => (c.outfit = v))}
+            />
+          )}
+
+          {tab === "accessory" && (
+            <CosmeticGrid
+              title="Extra"
+              options={ACCESSORIES}
+              value={cosmetic.accessory}
+              onChange={(v) => setCosmetic((c) => (c.accessory = v))}
+            />
           )}
         </div>
 
@@ -455,20 +333,20 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
           <input
             type="text"
             className="name-input"
-            placeholder="name your Waker"
+            placeholder="name your bean"
             value={name}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             maxLength={24}
           />
           <button className="ghost-btn" onClick={reset}>
-            randomize
+            reset
           </button>
           <button
             className="primary-btn"
             disabled={name.trim().length < 2 || saving}
-            onClick={onBindAspect}
+            onClick={onBindBean}
           >
-            {saving ? "binding…" : "bind aspect"}
+            {saving ? "binding…" : "bind bean"}
           </button>
         </footer>
         {error && <div className="creator-error">{error}</div>}
@@ -477,15 +355,30 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
   );
 }
 
-function aspectFromBackstory(b: [number, number, number, number]): "tempest" | "choir" | "vow" | "hush" | "hymn" | "bloom" | "ember" | "veil" {
-  // Heuristic: the 4th question ("what calls you") drives starting Aspect
-  switch (b[3]) {
-    case 0: return "tempest";
-    case 1: return "choir";
-    case 2: return "vow";
-    case 3: return "hush";
-    default: return "tempest";
-  }
+interface CosmeticGridProps<T extends string> {
+  title: string;
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}
+
+function CosmeticGrid<T extends string>({ title, options, value, onChange }: CosmeticGridProps<T>) {
+  return (
+    <section>
+      <h3>{title}</h3>
+      <div className="cosmetic-grid">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            className={`cosmetic-card ${value === o.id ? "is-active" : ""}`}
+            onClick={() => onChange(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 interface SliderProps {
@@ -532,33 +425,3 @@ function PaletteRow({ count, value, onChange }: PaletteProps) {
     </div>
   );
 }
-
-const FACE_LABELS = [
-  "Brow height",
-  "Brow tilt",
-  "Eye spacing",
-  "Eye tilt",
-  "Eye size",
-  "Nose bridge",
-  "Nose length",
-  "Nose tip",
-  "Cheekbone height",
-  "Cheek depth",
-  "Jaw width",
-  "Chin shape",
-  "Mouth size",
-  "Lip volume (upper)",
-  "Lip volume (lower)",
-  "Mouth corner tilt",
-];
-
-const BODY_LABELS = [
-  "Shoulder width",
-  "Neck length",
-  "Torso length",
-  "Arm thickness",
-  "Hand size",
-  "Hip width",
-  "Leg length",
-  "Calf shape",
-];

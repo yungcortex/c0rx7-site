@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WalletPill } from "@ui/components/WalletPill";
 
 interface Props {
   onPressStart: () => void;
@@ -21,15 +22,18 @@ export function TitleScreen({ onPressStart }: Props) {
 
   return (
     <div className={`title-screen ${revealed ? "is-revealed" : ""}`}>
+      <div className="title-corner">
+        <WalletPill />
+      </div>
       <div className="title-mark">
-        <h1 className="title-logo">ÆTHERWAKE</h1>
-        <p className="title-tagline">Bind an Aspect. Carry your fate.</p>
+        <h1 className="title-logo">BEAN ROYALE</h1>
+        <p className="title-tagline">Bonk for glory. Win the pot. Buy hats.</p>
       </div>
       <button className="press-start" onClick={onPressStart}>
         <span>PRESS START</span>
       </button>
       <div className="title-foot">
-        <span>v0.0.1 — pre-alpha</span>
+        <span>v0.1.0 — bean alpha</span>
         <span>·</span>
         <span>c0r7x.com</span>
       </div>
