@@ -15377,6 +15377,68 @@ setTimeout(() => {
     await sb.from('signals').insert(rows);
   }
 
+  // ---- Load latest cron-generated batch from Supabase ----
+  // The /api/cron/generate-signals function writes a fresh set of signals
+  // server-side every 12h (00:05 + 12:05 UTC). When the user opens the
+  // Signals tab we prefer those over a local compute IF they're recent
+  // (< 6h old). Falls back to local compute otherwise.
+  async function loadLatestCronSignals() {
+    const sb = getSupabase();
+    if (!sb) return false;
+    try {
+      const since = new Date(Date.now() - 6 * 3600_000).toISOString();
+      const { data, error } = await sb
+        .from('signals')
+        .select('symbol,side,score,entry_price,stop_loss,tp1,tp2,tp3,confirms,metadata,created_at,author')
+        .eq('author', 'cron')
+        .gt('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(120);
+      if (error || !data?.length) return false;
+      // Group by created_at timestamp — pull only the latest run
+      const latestTs = data[0].created_at;
+      const latestEpoch = new Date(latestTs).getTime();
+      const batch = data.filter(r => Math.abs(new Date(r.created_at).getTime() - latestEpoch) < 60_000);
+      if (!batch.length) return false;
+
+      // Map Supabase rows → in-memory signal objects (same shape renderer expects)
+      const toSig = (r) => ({
+        side: r.side,
+        sym: r.symbol,
+        score: +r.score,
+        confirms: Array.isArray(r.confirms) ? r.confirms : [],
+        zones: {
+          entry: +r.entry_price,
+          entryLo: +r.entry_price * 0.997,
+          entryHi: +r.entry_price * 1.003,
+          stopLoss: +r.stop_loss,
+          tp1: +r.tp1, tp2: +r.tp2, tp3: +r.tp3,
+          slPct:  Math.abs((+r.stop_loss - +r.entry_price) / +r.entry_price),
+          tp1Pct: Math.abs((+r.tp1 - +r.entry_price) / +r.entry_price),
+          tp2Pct: Math.abs((+r.tp2 - +r.entry_price) / +r.entry_price),
+          tp3Pct: Math.abs((+r.tp3 - +r.entry_price) / +r.entry_price),
+        },
+        meta: r.metadata || {},
+      });
+      lastSignals = {
+        longs:  batch.filter(r => r.side === 'long').map(toSig).sort((a, b) => b.score - a.score),
+        shorts: batch.filter(r => r.side === 'short').map(toSig).sort((a, b) => b.score - a.score),
+      };
+      lastRunMs = latestEpoch;
+      const lr = document.getElementById('sig-lastrun');
+      if (lr) lr.textContent = `${new Date(latestEpoch).toLocaleString()} (cron)`;
+      const elU = document.getElementById('sig-universe');
+      if (elU) elU.textContent = `${batch.length} signals from server`;
+      const tabBadge = document.getElementById('tab-sig-count');
+      if (tabBadge) tabBadge.textContent = String(lastSignals.longs.length + lastSignals.shorts.length);
+      renderSignals();
+      return true;
+    } catch (e) {
+      console.warn('[signals] cron load failed', e);
+      return false;
+    }
+  }
+
   // ---- Outcome resolver (runs on page load — looks up unresolved signals) ----
   async function resolveOldSignals() {
     const sb = getSupabase();
@@ -15695,7 +15757,9 @@ setTimeout(() => {
     setTimeout(() => { try { refreshHitRate(); resolveOldSignals(); } catch {} }, 4000);
   });
 
-  // Auto-run on first signals-view entry if we haven't run today
+  // Auto-run on first signals-view entry: prefer cron batch if recent,
+  // otherwise local compute. We don't block the view on the network call —
+  // the empty-state shows briefly, then results fill in.
   const origSwitch = window.switchView;
   if (typeof origSwitch === 'function') {
     window.switchView = function(v) {
@@ -15703,8 +15767,12 @@ setTimeout(() => {
       if (v === 'signals') {
         const now = Date.now();
         if (!lastRunMs || (now - lastRunMs) > 6 * 3600_000) {
-          // Stagger so the view paints first
-          setTimeout(() => { try { generate(); } catch (e) { console.error(e); } }, 200);
+          setTimeout(async () => {
+            try {
+              const loaded = await loadLatestCronSignals();
+              if (!loaded) generate();
+            } catch (e) { console.error(e); generate(); }
+          }, 150);
         }
       }
     };
