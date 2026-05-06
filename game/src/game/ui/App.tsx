@@ -12,6 +12,7 @@ import { ShopScreen } from "@ui/screens/ShopScreen";
 import { ProfileScreen } from "@ui/screens/ProfileScreen";
 import { UsernamePrompt } from "@ui/screens/UsernamePrompt";
 import { TournamentBracketScreen } from "@ui/screens/TournamentBracketScreen";
+import { CrownPodiumScreen } from "@ui/screens/CrownPodiumScreen";
 import { useProfile } from "@state/profile";
 import { useTournament } from "@state/tournament";
 import { useMatch } from "@state/match";
@@ -39,7 +40,9 @@ export function App({ engine }: Props) {
   const tournamentShowResult = useTournament((s) => s.showRoundResult);
   const tournamentRounds = useTournament((s) => s.rounds);
   const tournamentRoundIdx = useTournament((s) => s.roundIdx);
+  const tournamentQualified = useTournament((s) => s.qualified);
   const abortTournament = useTournament((s) => s.abort);
+  const [showPodium, setShowPodium] = useState(false);
 
   useEffect(() => {
     init();
@@ -115,17 +118,37 @@ export function App({ engine }: Props) {
           }}
         />
       )}
-      {tournamentShowResult && (
+      {tournamentShowResult && !showPodium && (
         <TournamentBracketScreen
           onContinue={() => {
-            // Set next round's variant + (re-)launch arena
+            // ack() updated roundIdx in the bracket; force-rebuild arena-bonk
+            // so the new variant actually loads (engine.go skips same-id).
             const next = tournamentRounds[tournamentRoundIdx + 1];
             if (next) {
               useMatch.getState().setVariant(next.variant);
-              engine.go("arena-bonk");
+              engine.rebuildScene();
             }
           }}
           onAbort={() => {
+            // FINAL + player won → crown podium before returning to lobby
+            const isFinal =
+              tournamentRoundIdx + 1 >= tournamentRounds.length ||
+              tournamentQualified.length <= 1;
+            const playerWon = tournamentQualified.some((b) => b.isPlayer);
+            if (isFinal && playerWon) {
+              setShowPodium(true);
+              return;
+            }
+            abortTournament();
+            engine.go("title");
+            setShowLobby(true);
+          }}
+        />
+      )}
+      {showPodium && (
+        <CrownPodiumScreen
+          onClose={() => {
+            setShowPodium(false);
             abortTournament();
             engine.go("title");
             setShowLobby(true);

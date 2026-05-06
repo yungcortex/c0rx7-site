@@ -452,6 +452,17 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
             onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             maxLength={24}
           />
+          <button
+            className="ghost-btn"
+            title="Random Bean"
+            onClick={() => randomizeBean({
+              setHeritage,
+              setSliderState,
+              setCosmetic,
+            })}
+          >
+            ★ random
+          </button>
           <button className="ghost-btn" onClick={reset}>
             reset
           </button>
@@ -472,6 +483,63 @@ export function CharacterCreatorScreen({ onBack, onConfirm }: Props) {
       </aside>
     </div>
   );
+}
+
+// =====================================================================
+// Random-Bean — pulls a fresh combo of heritage + cosmetics + body shape.
+// Skips "dead" and "robe-trim" so the result always reads cute and alive.
+// =====================================================================
+function pick<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
+function randF(lo: number, hi: number): number {
+  return lo + Math.random() * (hi - lo);
+}
+
+interface RandomizeBeanArgs {
+  setHeritage: (h: Heritage) => void;
+  setSliderState: (mut: (s: import("@game/systems/character/SliderBlob").SliderState) => void) => void;
+  setCosmetic: (mut: (c: { pattern: BeanPattern; eyeStyle: BeanEyeStyle; mouthStyle: BeanMouthStyle; hat: BeanHatId; outfit: BeanOutfitId; accessory: BeanAccessoryId }) => void) => void;
+}
+
+function randomizeBean({ setHeritage, setSliderState, setCosmetic }: RandomizeBeanArgs) {
+  const heritage = pick<Heritage>(HERITAGES.filter((h) => h !== "ashen"));
+  setHeritage(heritage);
+
+  // Proportions are read from sliders by CharacterCreatorScene.refreshBean:
+  //   buildWeight → width, height → height, muscle → outline,
+  //   faceBlendshapes[8] → headSize, [4] → eyeSize, [2] → eyeSpacing,
+  //   bodyBlendshapes[3] → handSize, [7] → footSize.
+  // So we set those underlying byte fields directly. 0..255 range.
+  setSliderState((s) => {
+    s.buildWeight = Math.floor(randF(80, 200));
+    s.height      = Math.floor(randF(80, 200));
+    s.muscle      = Math.floor(randF(100, 180));
+    const fb = new Uint8Array(s.faceBlendshapes);
+    fb[8] = Math.floor(randF(100, 200));
+    fb[4] = Math.floor(randF(100, 220));
+    fb[2] = Math.floor(randF(90, 180));
+    s.faceBlendshapes = fb;
+    const bb = new Uint8Array(s.bodyBlendshapes);
+    bb[3] = Math.floor(randF(100, 200));
+    bb[7] = Math.floor(randF(100, 200));
+    s.bodyBlendshapes = bb;
+    s.skin.paletteIndex = Math.floor(Math.random() * 8);
+    s.hair.gradient[0] = {
+      h: Math.floor(Math.random() * 360),
+      s: 60 + Math.floor(Math.random() * 35),
+      v: 35 + Math.floor(Math.random() * 50),
+    };
+  });
+
+  setCosmetic((c) => {
+    c.pattern = pick<BeanPattern>(["none", "stripes", "dots", "split", "gradient"]);
+    c.eyeStyle = pick<BeanEyeStyle>(["round", "sparkle", "sleepy", "angry", "heart", "swirl"]);
+    c.mouthStyle = pick<BeanMouthStyle>(["smile", "grin", "smug", "tongue", "neutral"]);
+    c.hat = pick<BeanHatId>(["none", "wizard", "crown", "propeller", "helmet", "horns", "tophat", "halo"]);
+    c.outfit = pick<BeanOutfitId>(["none", "cape", "scarf", "armor", "bowtie"]);
+    c.accessory = pick<BeanAccessoryId>(["none", "glasses", "monocle", "mustache", "earrings"]);
+  });
 }
 
 interface CosmeticGridProps<T extends string> {

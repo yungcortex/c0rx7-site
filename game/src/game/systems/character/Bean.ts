@@ -104,6 +104,8 @@ export interface Bean {
   hatRoot: TransformNode;
   outfitRoot: TransformNode;
   accessoryRoot: TransformNode;
+  /** Soft elliptical drop shadow on the ground beneath the bean. */
+  shadow: Mesh;
   secondaryMats: StandardMaterial[];
   eyeSizeMul: number;
   hp: HeritageProportions;
@@ -355,6 +357,36 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     applyOutline(tail, 0.022);
   }
 
+  // ---- SOFT DROP SHADOW (radial-gradient disc on the ground)
+  const shadowTex = new DynamicTexture("bean-shadow-tex", { width: 128, height: 128 }, scene, false);
+  const sctx = shadowTex.getContext() as CanvasRenderingContext2D;
+  const shadowGrad = sctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  shadowGrad.addColorStop(0, "rgba(0,0,0,0.55)");
+  shadowGrad.addColorStop(0.55, "rgba(0,0,0,0.28)");
+  shadowGrad.addColorStop(1, "rgba(0,0,0,0)");
+  sctx.fillStyle = shadowGrad;
+  sctx.fillRect(0, 0, 128, 128);
+  shadowTex.hasAlpha = true;
+  shadowTex.update();
+  const shadowMat = new StandardMaterial("bean-shadow-mat", scene);
+  shadowMat.diffuseTexture = shadowTex;
+  shadowMat.useAlphaFromDiffuseTexture = true;
+  shadowMat.specularColor = new Color3(0, 0, 0);
+  shadowMat.emissiveColor = new Color3(0, 0, 0);
+  shadowMat.disableLighting = true;
+  shadowMat.backFaceCulling = false;
+  const shadow = MeshBuilder.CreatePlane(
+    "bean-shadow",
+    { width: 1.6 * props.bodyRX, height: 1.4 * props.bodyRZ },
+    scene,
+  );
+  shadow.parent = root;
+  shadow.position.set(0, 0.02, 0); // slight Y offset to avoid z-fight with floor
+  shadow.rotation.x = Math.PI / 2;
+  shadow.material = shadowMat;
+  shadow.isPickable = false;
+  shadow.renderingGroupId = 0;
+
   // ---- HAT / OUTFIT / ACCESSORY ROOT NODES
   // Hat sits on top of body — initial Y matches body top with the
   // default-height capsule (will be recomputed in setProportions).
@@ -425,6 +457,7 @@ export function buildBean(scene: Scene, parent: TransformNode, look: BeanLook): 
     hatRoot,
     outfitRoot,
     accessoryRoot,
+    shadow,
     secondaryMats: [feetMat, handsMat, earsMat, tailMat],
     eyeSizeMul: 1,
     hp: props,
@@ -538,6 +571,10 @@ function applyProportions(bean: Bean, p: BeanProportions, hp: HeritageProportion
     f.position.y = 0.18;
     bean.feetRestY[i] = 0.18;
   });
+
+  // Shadow tracks body width
+  bean.shadow.scaling.x = 1.0 + (restX - 1.0) * 0.85;
+  bean.shadow.scaling.y = 1.0 + (restZ - 1.0) * 0.85;
 }
 
 function applyBeanLook(

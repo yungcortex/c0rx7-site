@@ -15,7 +15,9 @@
  * Lazy-init the AudioContext on first use to satisfy autoplay rules.
  */
 
-type SfxId = "jump" | "land" | "dive" | "bonk" | "ko" | "win" | "click";
+type SfxId =
+  | "jump" | "land" | "dive" | "bonk" | "ko" | "win" | "click"
+  | "countdown" | "go" | "crown" | "qualify" | "eliminated";
 
 class SoundManager {
   private ctx: AudioContext | null = null;
@@ -54,7 +56,108 @@ class SoundManager {
       case "ko": return this.koTrumpet(ctx);
       case "win": return this.fanfare(ctx);
       case "click": return this.bloop(ctx, 1200, 1400, 0.05, "square");
+      case "countdown": return this.countdownBeep(ctx);
+      case "go": return this.goSting(ctx);
+      case "crown": return this.crownFanfare(ctx);
+      case "qualify": return this.qualifyChime(ctx);
+      case "eliminated": return this.eliminatedSting(ctx);
     }
+  }
+
+  private countdownBeep(ctx: AudioContext) {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    env.gain.setValueAtTime(0, ctx.currentTime);
+    env.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.005);
+    env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(env).connect(this.master!);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.2);
+  }
+
+  private goSting(ctx: AudioContext) {
+    // Big upward sting on "GO!"
+    const notes = [523, 784, 1046]; // C, G, C
+    notes.forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      const start = ctx.currentTime + i * 0.05;
+      osc.type = "square";
+      osc.frequency.setValueAtTime(hz, start);
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(0.4, start + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
+      osc.connect(env).connect(this.master!);
+      osc.start(start);
+      osc.stop(start + 0.35);
+    });
+  }
+
+  private crownFanfare(ctx: AudioContext) {
+    // 5-note ascending royal flourish, longer + brighter than win fanfare
+    const notes = [523, 659, 784, 988, 1318]; // C, E, G, B, E (octave)
+    notes.forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      const start = ctx.currentTime + i * 0.16;
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(hz, start);
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(0.5, start + 0.02);
+      env.gain.exponentialRampToValueAtTime(0.001, start + 0.55);
+      osc.connect(env).connect(this.master!);
+      osc.start(start);
+      osc.stop(start + 0.6);
+    });
+    // Sustained final tonic
+    const sus = ctx.createOscillator();
+    const susEnv = ctx.createGain();
+    const susStart = ctx.currentTime + 0.85;
+    sus.type = "triangle";
+    sus.frequency.setValueAtTime(523, susStart);
+    susEnv.gain.setValueAtTime(0, susStart);
+    susEnv.gain.linearRampToValueAtTime(0.35, susStart + 0.05);
+    susEnv.gain.exponentialRampToValueAtTime(0.001, susStart + 1.4);
+    sus.connect(susEnv).connect(this.master!);
+    sus.start(susStart);
+    sus.stop(susStart + 1.45);
+  }
+
+  private qualifyChime(ctx: AudioContext) {
+    const notes = [659, 988]; // E, B — bright "ding"
+    notes.forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      const start = ctx.currentTime + i * 0.1;
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(hz, start);
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(0.4, start + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
+      osc.connect(env).connect(this.master!);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    });
+  }
+
+  private eliminatedSting(ctx: AudioContext) {
+    // Two descending notes — soft sad, not harsh
+    const notes = [440, 330];
+    notes.forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      const start = ctx.currentTime + i * 0.18;
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(hz, start);
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(0.25, start + 0.02);
+      env.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+      osc.connect(env).connect(this.master!);
+      osc.start(start);
+      osc.stop(start + 0.55);
+    });
   }
 
   private bloop(

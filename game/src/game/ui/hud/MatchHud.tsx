@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMatch } from "@state/match";
+import { playSfx } from "@game/systems/audio/SoundManager";
 
 export function MatchHud({ onExit }: { onExit: () => void }) {
   const phase = useMatch((s) => s.phase);
@@ -42,6 +43,17 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
         ? "1"
         : "GO!"
       : null;
+
+  // Play countdown beep when label changes (3 → 2 → 1 → GO!)
+  const lastBeep = useRef<string | null>(null);
+  useEffect(() => {
+    if (countdownLabel && countdownLabel !== lastBeep.current) {
+      lastBeep.current = countdownLabel;
+      if (countdownLabel === "GO!") playSfx("go");
+      else playSfx("countdown");
+    }
+    if (!countdownLabel) lastBeep.current = null;
+  }, [countdownLabel]);
 
   const invulnRemaining = Math.max(0, (invulnerableUntil - now) / 1000);
   void startedAt;

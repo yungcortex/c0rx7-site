@@ -767,6 +767,212 @@ input {
   50% { box-shadow: 0 0 48px rgba(255, 105, 180, 0.32), inset 0 0 32px rgba(255, 200, 230, 0.16); }
 }
 
+/* ============== CROWN PODIUM ============== */
+.podium-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #1a0e2e 0%, #2d1846 50%, #1a0e2e 100%);
+  display: grid;
+  place-items: center;
+  z-index: 110;
+  animation: fade-in 0.5s ease;
+  overflow: hidden;
+}
+.podium-confetti-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255, 105, 180, 0.4) 2px, transparent 2px),
+    radial-gradient(circle at 80% 30%, rgba(255, 215, 64, 0.4) 2px, transparent 2px),
+    radial-gradient(circle at 30% 70%, rgba(120, 200, 255, 0.4) 2px, transparent 2px),
+    radial-gradient(circle at 60% 60%, rgba(180, 255, 180, 0.4) 2px, transparent 2px),
+    radial-gradient(circle at 90% 80%, rgba(255, 175, 71, 0.4) 2px, transparent 2px);
+  background-size: 200px 200px, 240px 240px, 280px 280px, 220px 220px, 260px 260px;
+  animation: confetti-fall 8s linear infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-100px); }
+  100% { transform: translateY(100vh); }
+}
+.podium-card {
+  position: relative;
+  z-index: 1;
+  width: min(900px, 94vw);
+  padding: 2.4rem 2rem 1.8rem;
+  background: linear-gradient(180deg, rgba(40, 22, 64, 0.85), rgba(24, 14, 42, 0.88));
+  border: 2px solid #ffb347;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7), 0 0 64px rgba(255, 179, 71, 0.25);
+  text-align: center;
+}
+.podium-head { margin-bottom: 1.6rem; }
+.podium-crown {
+  font-size: 4rem;
+  color: #ffd864;
+  text-shadow: 0 0 24px rgba(255, 216, 100, 0.7);
+  animation: crown-bob 2.4s ease-in-out infinite;
+  margin-bottom: 0.4rem;
+}
+@keyframes crown-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
+}
+.podium-title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 3rem;
+  letter-spacing: 0.36em;
+  margin: 0;
+  background: linear-gradient(90deg, #ffb6d8, #fff685, #b6e5ff, #fff685, #ffb6d8);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-pan 3s linear infinite;
+}
+@keyframes rainbow-pan {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.podium-sub {
+  margin: 0.4rem 0 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.32em;
+  color: #fff685;
+  text-transform: uppercase;
+}
+.podium-payout {
+  margin-top: 0.6rem;
+  font-size: 0.95rem;
+  color: #b6f5b6;
+  letter-spacing: 0.04em;
+}
+.podium-stage {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 1rem;
+  align-items: end;
+  padding: 1.4rem 0 0.8rem;
+}
+.podium-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.podium-bean {
+  width: 90px;
+  height: 100px;
+  border-radius: 45% 45% 40% 40%;
+  border: 3px solid #0a0410;
+  position: relative;
+  margin-bottom: 0.6rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  animation: bean-bob 1.6s ease-in-out infinite;
+}
+.podium-bean-winner {
+  width: 110px;
+  height: 124px;
+  animation: bean-celebrate 1.2s ease-in-out infinite;
+}
+@keyframes bean-bob {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-4px) scaleY(1.04); }
+}
+@keyframes bean-celebrate {
+  0%, 100% { transform: translateY(0) scaleY(1) rotate(-2deg); }
+  25% { transform: translateY(-8px) scaleY(1.1) rotate(2deg); }
+  50% { transform: translateY(0) scaleY(0.92) rotate(-2deg); }
+  75% { transform: translateY(-6px) scaleY(1.06) rotate(3deg); }
+}
+.podium-bean .bean-eyes {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+}
+.podium-bean .bean-eyes span {
+  width: 14px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #0a0410;
+  border-radius: 50%;
+  position: relative;
+}
+.podium-bean .bean-eyes span::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 4px;
+  height: 4px;
+  background: #0a0410;
+  border-radius: 50%;
+}
+.podium-bean .bean-mouth {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  color: #0a0410;
+  font-weight: 900;
+}
+.podium-bean-winner .bean-eyes span {
+  width: 16px;
+  height: 18px;
+}
+.podium-crown-floating {
+  position: absolute;
+  top: -36px;
+  font-size: 2.4rem;
+  color: #ffd864;
+  text-shadow: 0 0 12px rgba(255, 216, 100, 0.7);
+  animation: crown-bob 2.4s ease-in-out infinite;
+}
+.podium-block {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  padding: 0.8rem 0;
+  border: 2px solid #0a0410;
+  font-family: "Cormorant Garamond", serif;
+}
+.podium-block-1 {
+  background: linear-gradient(180deg, #ffd864, #d4a72a);
+  height: 130px;
+}
+.podium-block-2 {
+  background: linear-gradient(180deg, #d4d8e0, #98a2ad);
+  height: 100px;
+}
+.podium-block-3 {
+  background: linear-gradient(180deg, #cd7f32, #8b5a1f);
+  height: 80px;
+}
+.podium-rank {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #1a0e2e;
+  line-height: 1;
+}
+.podium-name {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  color: #1a0e2e;
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+  padding: 0 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.podium-foot {
+  margin-top: 1.4rem;
+}
+
 /* ============== TOURNAMENT BRACKET ============== */
 .bracket-screen {
   position: fixed;

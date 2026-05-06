@@ -12,6 +12,7 @@ import type { Bean } from "@game/systems/character/Bean";
 import { playSfx } from "@game/systems/audio/SoundManager";
 import { BeanAnimator, type BeanState } from "@game/systems/character/BeanAnimator";
 import { useMatch } from "@state/match";
+import { attachBeanTrails, type TrailHandles } from "@game/systems/effects/Trails";
 
 interface InputState {
   forward: boolean;
@@ -82,6 +83,7 @@ export class BonkController {
   alive = true;
 
   animator: BeanAnimator;
+  trails: TrailHandles;
 
   private input: InputState = {
     forward: false,
@@ -114,6 +116,7 @@ export class BonkController {
     this.gravity = opts.gravity ?? -22;
 
     this.animator = new BeanAnimator({ bean: this.bean });
+    this.trails = attachBeanTrails(this.scene, this.root);
 
     this.kbObserver = this.scene.onKeyboardObservable.add((kb) => this.onKey(kb));
     this.renderObserver = this.scene.onBeforeRenderObservable.add(() => this.tick());
@@ -125,6 +128,7 @@ export class BonkController {
     if (this.kbObserver) this.scene.onKeyboardObservable.remove(this.kbObserver);
     if (this.renderObserver) this.scene.onBeforeRenderObservable.remove(this.renderObserver);
     this.animator.dispose();
+    this.trails.dispose();
   }
 
   emote(id: "wave" | "dance" | "sleep" | "taunt") {
@@ -168,6 +172,7 @@ export class BonkController {
           this.grounded = false;
           this.state = "jump";
           this.animator.triggerJump();
+          this.trails.burstJump();
           playSfx("jump");
         }
         this.input.jump = down;
@@ -201,6 +206,7 @@ export class BonkController {
     this.velocity.y = Math.max(this.velocity.y, 1.5);
     this.bean.body.rotation.x = -0.7;
     this.animator.triggerDive();
+    this.trails.setDiving(true);
     playSfx("dive");
   }
 
@@ -284,6 +290,7 @@ export class BonkController {
         this.velocity.y = 0;
         if (!this.grounded) {
           this.animator.triggerLand();
+          this.trails.burstLand();
           playSfx("land");
         }
         this.grounded = true;
@@ -314,6 +321,7 @@ export class BonkController {
       if (this.diveTimer <= 0) {
         this.state = this.grounded ? "idle" : "fall";
         this.bean.body.rotation.x = 0;
+        this.trails.setDiving(false);
       }
     }
 
@@ -339,6 +347,9 @@ export class BonkController {
       const moving = horizSpeed > 0.3;
       this.state = moving ? (this.input.bonk ? "run" : "walk") : "idle";
     }
+
+    // Run dust trail — only while running on the ground (not walk/idle/jump)
+    this.trails.setRunning(this.grounded && this.state === "run" && horizSpeed > 1.5);
 
     // Sync animator state
     this.animator.setState(this.state as unknown as BeanState);
