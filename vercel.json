@@ -4,7 +4,7 @@
   "regions": ["fra1"],
   "buildCommand": "cd game && npm install && npm run build && rm -rf ../play && mv dist ../play",
   "outputDirectory": ".",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./game ./vercel.json ./index.html ./api ./supabase-schema.sql || exit 1",
+  "ignoreCommand": "bash -lc 'git fetch --depth=2 origin >/dev/null 2>&1 || true; git diff --quiet HEAD^ HEAD -- game vercel.json index.html api supabase-schema.sql supabase-signals-schema.sql 2>/dev/null && exit 0 || exit 1'",
   "rewrites": [
     { "source": "/play",          "destination": "/play/index.html" },
     { "source": "/play/",         "destination": "/play/index.html" },
