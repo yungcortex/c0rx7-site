@@ -1425,6 +1425,29 @@ try {
   .signals-table .col-age.recent  { color: var(--text-0); background: rgba(255,255,255,0.05); }
   .signals-table .col-age.older   { color: var(--text-1); }
   .signals-table .col-age.stale   { color: var(--text-2); opacity: 0.65; }
+
+  /* Live signal health column — color-coded PnL since entry */
+  .signals-table .col-health {
+    font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
+    font-size: 11px; padding: 4px 8px; border-radius: 3px; white-space: nowrap;
+  }
+  .signals-table .col-health .hg { display: inline-block; min-width: 18px; margin-right: 4px; font-weight: 600; }
+  .signals-table .col-health .hp { font-size: 10px; opacity: 0.85; }
+  .signals-table .col-health.flat   { color: var(--text-2); }
+  .signals-table .col-health.up     { color: #4ade80;  background: rgba(74,222,128,0.06); }
+  .signals-table .col-health.up2    { color: #00ffa3;  background: rgba(0,255,163,0.10);  font-weight: 600; }
+  .signals-table .col-health.tp1    { color: #00ffa3;  background: rgba(0,255,163,0.18);  font-weight: 700; }
+  .signals-table .col-health.tp2    { color: #fff685;  background: rgba(255,246,133,0.18); font-weight: 700; }
+  .signals-table .col-health.tp3    { color: #ffd34a;  background: rgba(255,211,74,0.22);  font-weight: 700; }
+  .signals-table .col-health.down   { color: #f87171;  background: rgba(248,113,113,0.06); }
+  .signals-table .col-health.down2  { color: #ff5c7a;  background: rgba(255,92,122,0.12); font-weight: 600; }
+  .signals-table .col-health.ko     { color: #ff5c7a;  background: rgba(255,92,122,0.20); font-weight: 700; text-decoration: line-through; }
+  /* Pulse animation for live updates */
+  @keyframes health-pulse {
+    0%,100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50% { box-shadow: 0 0 0 2px currentColor; opacity: 0.85; }
+  }
+  .signals-table tbody tr:hover .col-health { animation: health-pulse 1.4s ease-in-out infinite; }
   .signals-table .col-side { font-size: 10px; letter-spacing: 0.14em; padding: 3px 7px; border-radius: 3px; display: inline-block; }
   .signals-table .col-side.long  { color: var(--up);   background: rgba(0,255,163,0.08); }
   .signals-table .col-side.short { color: var(--down); background: rgba(255,80,120,0.08); }
@@ -1441,23 +1464,34 @@ try {
   .signals-table .col-confirms .conf-chip { display: inline-block; padding: 1px 6px; margin: 1px 3px 1px 0; border-radius: 3px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
   .signals-table .col-confirms .conf-chip.strong { color: var(--accent); border-color: rgba(0,255,163,0.3); background: rgba(0,255,163,0.06); }
   .signals-table .col-vol { color: var(--text-1); }
-  /* On mobile / narrow screens, collapse low-priority columns */
-  @media (max-width: 1100px) {
-    .signals-table thead th:nth-child(11),
-    .signals-table tbody td:nth-child(11),
-    .signals-table thead th:nth-child(13),
-    .signals-table tbody td:nth-child(13),
-    .signals-table thead th:nth-child(14),
-    .signals-table tbody td:nth-child(14) { display: none; }
-  }
-  @media (max-width: 760px) {
-    .signals-table thead th:nth-child(6),
-    .signals-table tbody td:nth-child(6),
-    .signals-table thead th:nth-child(10),
-    .signals-table tbody td:nth-child(10),
+  /* On mobile / narrow screens, collapse low-priority columns.
+     Column order: 1=Age 2=Side 3=Sym 4=Score 5=Health 6=Price 7=24h
+                   8=Entry 9=SL 10=TP1 11=TP2 12=TP3 13=R:R 14=Confirms 15=Vol */
+  @media (max-width: 1280px) {
     .signals-table thead th:nth-child(12),
-    .signals-table tbody td:nth-child(12) { display: none; }
+    .signals-table tbody td:nth-child(12),  /* TP3 */
+    .signals-table thead th:nth-child(14),
+    .signals-table tbody td:nth-child(14),  /* Confirms */
+    .signals-table thead th:nth-child(15),
+    .signals-table tbody td:nth-child(15)   /* Vol */
+    { display: none; }
+  }
+  @media (max-width: 900px) {
+    .signals-table thead th:nth-child(7),
+    .signals-table tbody td:nth-child(7),   /* 24h */
+    .signals-table thead th:nth-child(11),
+    .signals-table tbody td:nth-child(11),  /* TP2 */
+    .signals-table thead th:nth-child(13),
+    .signals-table tbody td:nth-child(13)   /* R:R */
+    { display: none; }
     .signals-table { font-size: 10px; }
+  }
+  @media (max-width: 640px) {
+    .signals-table thead th:nth-child(6),
+    .signals-table tbody td:nth-child(6),   /* Price */
+    .signals-table thead th:nth-child(9),
+    .signals-table tbody td:nth-child(9)    /* SL */
+    { display: none; }
   }
 
   /* Embed mode: strip chrome when ?embed=1 */
@@ -2104,6 +2138,7 @@ try {
               <th class="sortable" data-sort="side">Side</th>
               <th class="sortable" data-sort="sym">Symbol</th>
               <th class="sortable" data-sort="score" title="Composite score">Score</th>
+              <th class="sortable" data-sort="health" title="Live PnL since signal — green = working, red = going against the call">Health</th>
               <th class="sortable" data-sort="price" title="Current price">Price</th>
               <th class="sortable" data-sort="chg24" title="24h price change">24h</th>
               <th class="sortable" data-sort="entry">Entry</th>
@@ -15578,16 +15613,16 @@ setTimeout(() => {
   let sideFilter = 'all'; // 'all' | 'long' | 'short'
   let viewMode  = 'table'; // 'table' | 'cards'
 
-  // Live-update timer for the Age column — re-renders every 60s so cells
-  // tick "5m → 6m → 7m..." while the user looks at the page.
+  // Live-update timer for Age + Health columns — re-renders every 15s so
+  // health PnL ticks live and age stays close to real time. Only fires
+  // when the Signals view is visible to keep CPU low.
   let ageTimer = null;
   function startAgeTimer() {
     if (ageTimer) return;
     ageTimer = setInterval(() => {
-      // Cheap: only re-render if the signals view is visible
       const view = document.getElementById('view-signals');
       if (view && !view.classList.contains('hidden')) renderTable();
-    }, 60_000);
+    }, 15_000);
   }
 
   function fmtAge(ms) {
@@ -15617,24 +15652,61 @@ setTimeout(() => {
     return Date.now() - (+r.createdAtMs || lastRunMs || Date.now());
   }
 
+  // Live signal health — % return from entry given current price + side.
+  // Tiered into status buckets so we can color-code in the table.
+  // Buckets: ko (sl hit) / down2 (>5% adverse) / down (1-5% adverse) /
+  //          flat (-1%..+1%) / up (1-5% favorable) / up2 (5-tp1 favorable) /
+  //          tp1 / tp2 / tp3 (target hit).
+  function liveHealth(r) {
+    const z = r.zones || {};
+    const entry = +z.entry;
+    if (!entry) return { pct: 0, bucket: 'flat', glyph: '—', label: '—' };
+    // Latest mark — prefer Binance perp price, fall back to ticker24h.lastPrice
+    let cur = STATE?.prices?.binance?.get?.(r.sym);
+    if (!cur) {
+      const t = STATE?.ticker24h?.get?.(r.sym);
+      if (t) cur = +t.lastPrice || +t.last || 0;
+    }
+    if (!cur || !Number.isFinite(+cur)) return { pct: 0, bucket: 'flat', glyph: '—', label: '—', cur: null };
+    const dir = r.side === 'long' ? 1 : -1;
+    const pct = ((cur - entry) / entry) * dir;
+
+    // Bucket — tightened around target/SL distance so 1R = 'up2', etc.
+    const slDist = z.slPct || 0.04;
+    const tp1Dist = z.tp1Pct || 0.06;
+    let bucket, glyph, label;
+    if (pct <= -slDist)            { bucket = 'ko';    glyph = '✗'; label = 'SL hit'; }
+    else if (pct >= z.tp3Pct)      { bucket = 'tp3';   glyph = '🏆'; label = 'TP3'; }
+    else if (pct >= z.tp2Pct)      { bucket = 'tp2';   glyph = '★★'; label = 'TP2'; }
+    else if (pct >= tp1Dist)       { bucket = 'tp1';   glyph = '★'; label = 'TP1'; }
+    else if (pct >= 0.05)          { bucket = 'up2';   glyph = '↑↑'; label = 'strong'; }
+    else if (pct >= 0.01)          { bucket = 'up';    glyph = '↑'; label = 'up'; }
+    else if (pct <= -0.05)         { bucket = 'down2'; glyph = '↓↓'; label = 'losing'; }
+    else if (pct <= -0.01)         { bucket = 'down';  glyph = '↓'; label = 'down'; }
+    else                            { bucket = 'flat';  glyph = '—'; label = 'flat'; }
+
+    return { pct, bucket, glyph, label, cur };
+  }
+
   function compareRows(a, b, key) {
     const get = (r, k) => {
       const z = r.zones || {};
       const m = r.meta || {};
       switch (k) {
-        case 'age':   return rowAgeMs(r);
-        case 'side':  return r.side;
-        case 'sym':   return r.sym;
-        case 'score': return r.score;
-        case 'price': return z.entry;
-        case 'chg24': return m.priceChg24h;
-        case 'entry': return z.entry;
-        case 'sl':    return z.stopLoss;
-        case 'tp1':   return z.tp1;
-        case 'tp2':   return z.tp2;
-        case 'tp3':   return z.tp3;
-        case 'rr':    return z.tp1Pct / z.slPct;
-        case 'vol':   return m.vol;
+        case 'age':    return rowAgeMs(r);
+        case 'side':   return r.side;
+        case 'sym':    return r.sym;
+        case 'score':  return r.score;
+        case 'health': return liveHealth(r).pct;
+        case 'price':  return z.entry;
+        case 'chg24':  return m.priceChg24h;
+        case 'entry':  return z.entry;
+        case 'sl':     return z.stopLoss;
+        case 'tp1':    return z.tp1;
+        case 'tp2':    return z.tp2;
+        case 'tp3':    return z.tp3;
+        case 'rr':     return z.tp1Pct / z.slPct;
+        case 'vol':    return m.vol;
         default: return 0;
       }
     };
@@ -15669,12 +15741,19 @@ setTimeout(() => {
         const ageStr = fmtAge(ageMs);
         const ageCls = ageColor(ageMs);
         const sourceStr = r.author === 'cron' ? 'auto' : 'manual';
+        const h = liveHealth(r);
+        const hPctTxt = (h.pct * 100).toFixed(2);
+        const hSign = h.pct > 0 ? '+' : '';
         return `
           <tr class="row-${r.side}" data-sym="${r.sym}">
             <td class="col-age ${ageCls}" title="Generated ${new Date((+r.createdAtMs || lastRunMs || Date.now())).toLocaleString()} · ${sourceStr}">${ageStr}</td>
             <td><span class="col-side ${r.side}">${r.side.toUpperCase()}</span></td>
             <td class="col-sym">${r.sym}</td>
             <td class="col-score ${scoreCls}">${r.score.toFixed(1)}</td>
+            <td class="col-health ${h.bucket}" title="${h.label}${h.cur != null ? ' · current ' + fmtN(h.cur) : ''}">
+              <span class="hg">${h.glyph}</span>
+              <span class="hp">${hSign}${hPctTxt}%</span>
+            </td>
             <td>${fmtN(z.entry)}</td>
             <td class="col-chg ${chgCls}">${fmtPct(chgPctV)}</td>
             <td>${fmtN(z.entry)}</td>
