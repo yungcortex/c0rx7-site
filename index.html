@@ -29,12 +29,27 @@
 <meta name="twitter:description" content="Real-time perps dashboard — cross-venue spread, funding arbitrage, OI regime, CVD divergence, Deribit IV & skew, liquidation cascades." />
 <meta name="twitter:image" content="https://c0r7x.com/og.png" />
 
+<!-- ===== Resource hints ===== -->
+<!-- Critical: fonts + bundle CDNs + Supabase + Binance proxy origin (this domain) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
-<!-- binance REST proxied via /binance and /binance-spot rewrites in vercel.json (US geo-block workaround) -->
+<link rel="preconnect" href="https://xzxxhsjwzkgxhdbvyaud.supabase.co" crossorigin>
+<!-- Direct exchange origins for cross-exchange basis fetches -->
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
+<link rel="preconnect" href="https://www.okx.com" crossorigin>
+<link rel="preconnect" href="https://api.gateio.ws" crossorigin>
+<link rel="preconnect" href="https://fx-api.gateio.ws" crossorigin>
+<!-- Binance + others go through same-origin /binance, /gate, /kucoin proxies; preload first ticker call -->
+<link rel="preload" as="fetch" href="/binance/fapi/v1/ticker/24hr" crossorigin>
+<link rel="preload" as="fetch" href="/binance/fapi/v1/premiumIndex" crossorigin>
+<!-- DNS prefetch as cheap fallback for the rest -->
+<link rel="dns-prefetch" href="https://api.bitget.com">
+<link rel="dns-prefetch" href="https://api-futures.kucoin.com">
+<link rel="dns-prefetch" href="https://api.international.coinbase.com">
+<link rel="dns-prefetch" href="https://api.exchange.coinbase.com">
+<link rel="dns-prefetch" href="https://api.hyperliquid.xyz">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Silence Tailwind CDN dev-warning before CDN script evaluates -->
 <script>
@@ -108,25 +123,25 @@
   #auth-gate .ag-footer { margin-top: 14px; text-align: center; font-size: 9px; color: #3a4250; letter-spacing: 0.14em; }
 </style>
 <script>
-  // Before anything paints, if there's no cached Supabase session for this
-  // project, mark the body as gated so the whole UI stays invisible.
-  // CortexCloud later confirms and removes the class on real auth.
+  // Auth-pending flag — only blocks the UI if explicitly enabled via
+  // ?gated=1 query param. By default the site is fully usable without
+  // signing in; sign-in is optional (gives you cross-device sync of
+  // ideas, watchlists, and signal outcomes via Supabase).
   (function(){
     try {
-      // Project ref lives in CORTEX_CLOUD.url — extract it before that block parses.
-      // We hard-code here because the config block is a few lines below.
-      var ref = 'xzxxhsjwzkgxhdbvyaud';
-      var raw = localStorage.getItem('sb-' + ref + '-auth-token');
-      var hasSession = false;
-      if (raw) {
-        try {
-          var parsed = JSON.parse(raw);
-          hasSession = !!(parsed && (parsed.access_token || parsed.currentSession?.access_token));
-        } catch (e) {}
-      }
-      if (!hasSession) {
-        // body doesn't exist yet; queue the class add for when it does
-        document.documentElement.setAttribute('data-auth-pending', '1');
+      if (location.search.indexOf('gated=1') >= 0) {
+        var ref = 'xzxxhsjwzkgxhdbvyaud';
+        var raw = localStorage.getItem('sb-' + ref + '-auth-token');
+        var hasSession = false;
+        if (raw) {
+          try {
+            var parsed = JSON.parse(raw);
+            hasSession = !!(parsed && (parsed.access_token || parsed.currentSession?.access_token));
+          } catch (e) {}
+        }
+        if (!hasSession) {
+          document.documentElement.setAttribute('data-auth-pending', '1');
+        }
       }
     } catch (e) {}
   })();
@@ -1311,9 +1326,15 @@ try {
     position: fixed; top: 64px; right: 14px; z-index: 200;
     background: rgba(7, 14, 22, 0.95); border: 1px solid rgba(0,255,163,0.3);
     color: var(--text-0); padding: 8px 12px; border-radius: 5px;
-    font-size: 11px; letter-spacing: 0.04em; max-width: 280px;
+    font-size: 11px; letter-spacing: 0.04em; max-width: 320px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.6); animation: toast-in 0.4s ease, toast-out 0.6s ease 4s forwards;
   }
+  /* Stagger consecutive toasts so they don't overlap */
+  .auth-toast + .auth-toast { top: 110px; }
+  .auth-toast + .auth-toast + .auth-toast { top: 156px; }
+  .auth-toast + .auth-toast + .auth-toast + .auth-toast { top: 202px; }
+  .sig-toast.sig-toast-win  { border-color: rgba(0,255,163,0.55); box-shadow: 0 0 24px rgba(0,255,163,0.25), 0 8px 24px rgba(0,0,0,0.6); }
+  .sig-toast.sig-toast-loss { border-color: rgba(255,80,120,0.55); box-shadow: 0 0 18px rgba(255,80,120,0.20), 0 8px 24px rgba(0,0,0,0.6); }
   @keyframes toast-in  { from { transform: translateY(-6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
   @keyframes toast-out { to   { transform: translateY(-6px); opacity: 0 } }
 
@@ -1341,6 +1362,15 @@ try {
   .signals-meta { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
   .signals-meta .small-caps { font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; }
   .signals-meta .tabular { font-size: 14px; }
+  .signals-meta-stretch { flex: 1 1 auto; min-width: 220px; }
+  .hr-pill-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding-top: 2px; }
+  .hr-pill {
+    font-size: 10px; padding: 2px 7px; border-radius: 999px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-1); letter-spacing: 0.04em; cursor: help;
+    font-family: ui-monospace, "SFMono-Regular", monospace;
+  }
+  .hr-pill.empty { opacity: 0.5; }
 
   .signals-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 900px) { .signals-cols { grid-template-columns: 1fr; } }
@@ -1393,6 +1423,8 @@ try {
   .signals-side-filter .sf-btn.active { background: rgba(0,255,163,0.1); border-color: rgba(0,255,163,0.4); color: var(--accent); }
   .signals-side-filter .sf-btn[data-side="long"].active  { background: rgba(0,255,163,0.1); border-color: rgba(0,255,163,0.4); color: var(--up); }
   .signals-side-filter .sf-btn[data-side="short"].active { background: rgba(255,80,120,0.08); border-color: rgba(255,80,120,0.4); color: var(--down); }
+  .signals-side-filter .sf-divider { width: 1px; height: 22px; background: rgba(255,255,255,0.1); margin: 0 6px; align-self: center; }
+  .signals-side-filter .sf-score.active { background: rgba(255,202,84,0.10); border-color: rgba(255,202,84,0.4); color: #ffd34a; }
 
   .signals-table-scroll { max-height: calc(100vh - 280px); overflow: auto; min-height: 320px; }
   .signals-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace; }
@@ -2121,6 +2153,10 @@ try {
         <span class="small-caps">Hit-rate · Short</span>
         <span class="tabular num-down" id="sig-hr-short">building</span>
       </div>
+      <div class="signals-meta signals-meta-stretch">
+        <span class="small-caps">By type</span>
+        <span class="hr-pill-row" id="sig-hr-by-type"><span class="hr-pill empty">building…</span></span>
+      </div>
     </div>
 
     <!-- Default view: combined sortable table -->
@@ -2129,6 +2165,11 @@ try {
         <button class="sf-btn active" data-side="all">ALL · <span id="sig-tbl-all-count">0</span></button>
         <button class="sf-btn" data-side="long">LONGS · <span id="sig-tbl-long-count">0</span></button>
         <button class="sf-btn" data-side="short">SHORTS · <span id="sig-tbl-short-count">0</span></button>
+        <span class="sf-divider"></span>
+        <button class="sf-btn sf-score active" data-min-score="0">ANY</button>
+        <button class="sf-btn sf-score" data-min-score="5" title="High-conviction signals">≥ 5</button>
+        <button class="sf-btn sf-score" data-min-score="7" title="Top-tier setups only">≥ 7</button>
+        <button class="sf-btn sf-score" data-min-score="8" title="Rare conviction">≥ 8</button>
       </div>
       <div class="signals-table-scroll">
         <table class="signals-table" id="signals-table">
@@ -15592,7 +15633,7 @@ setTimeout(() => {
     if (!sb) return;
     const { data } = await sb
       .from('signals')
-      .select('side,outcome_24h')
+      .select('side,signal_type,outcome_24h,outcome_72h,tp1_hit,sl_hit')
       .gt('created_at', new Date(Date.now() - 90 * 86400 * 1000).toISOString())
       .not('outcome_24h', 'is', null);
     if (!data) return;
@@ -15605,12 +15646,34 @@ setTimeout(() => {
     const sEl = document.getElementById('sig-hr-short');
     if (lEl) lEl.textContent = (lwr === null || longRows.length < 10)  ? `building (n=${longRows.length})`  : `${(lwr*100).toFixed(0)}% · n=${longRows.length}`;
     if (sEl) sEl.textContent = (swr === null || shortRows.length < 10) ? `building (n=${shortRows.length})` : `${(swr*100).toFixed(0)}% · n=${shortRows.length}`;
+
+    // Per-signal-type breakdown — surfaces in the meta row as a tooltip
+    const byType = new Map();
+    for (const r of data) {
+      const k = r.signal_type || 'composite';
+      const o = byType.get(k) || { n: 0, wins: 0, tp1: 0, sl: 0 };
+      o.n++;
+      if (+r.outcome_24h > 0) o.wins++;
+      if (r.tp1_hit) o.tp1++;
+      if (r.sl_hit)  o.sl++;
+      byType.set(k, o);
+    }
+    const mEl = document.getElementById('sig-hr-by-type');
+    if (mEl) {
+      const parts = [];
+      for (const [k, v] of byType.entries()) {
+        const wr = (v.wins / v.n * 100).toFixed(0);
+        parts.push(`<span class="hr-pill" title="${v.tp1} TP1 hits · ${v.sl} SL hits">${k}: ${wr}% · n=${v.n}</span>`);
+      }
+      mEl.innerHTML = parts.length ? parts.join('') : '<span class="hr-pill empty">building…</span>';
+    }
   }
 
   // ---- Table view state ----
   // Default sort: newest first (Age ascending = smallest age = most recent)
   let tableSort = { key: 'age', dir: 1 };
   let sideFilter = 'all'; // 'all' | 'long' | 'short'
+  let minScore = 0;       // filter by composite score
   let viewMode  = 'table'; // 'table' | 'cards'
 
   // Live-update timer for Age + Health columns — re-renders every 15s so
@@ -15645,11 +15708,56 @@ setTimeout(() => {
 
   function flatRows() {
     return [...lastSignals.longs, ...lastSignals.shorts]
-      .filter(r => sideFilter === 'all' || r.side === sideFilter);
+      .filter(r => sideFilter === 'all' || r.side === sideFilter)
+      .filter(r => r.score >= minScore);
   }
 
   function rowAgeMs(r) {
     return Date.now() - (+r.createdAtMs || lastRunMs || Date.now());
+  }
+
+  // ---- Hit-bucket transition tracker (for TP/SL hit toasts) ----
+  // Maps signal-key → last-seen bucket. Whenever a signal transitions
+  // into a target/SL bucket, we emit a one-time toast notification.
+  const lastBucketBy = new Map();
+  const sigKey = (r) => `${r.sym}:${r.side}:${r.createdAtMs || lastRunMs}`;
+  function notifyToast(text, kind = 'info') {
+    const t = document.createElement('div');
+    t.className = `auth-toast sig-toast sig-toast-${kind}`;
+    t.textContent = text;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5800);
+  }
+  function checkBucketTransition(r, h) {
+    const key = sigKey(r);
+    const prev = lastBucketBy.get(key);
+    lastBucketBy.set(key, h.bucket);
+    if (!prev) return; // first observation — no notification
+    if (prev === h.bucket) return;
+    // Notify on positive milestones + SL hits
+    if (['tp1', 'tp2', 'tp3'].includes(h.bucket) && !['tp1', 'tp2', 'tp3'].includes(prev)) {
+      const tier = h.bucket.toUpperCase();
+      notifyToast(`★ ${r.sym} ${r.side.toUpperCase()} hit ${tier} (+${(h.pct*100).toFixed(2)}%)`, 'win');
+      try { playSfxBeep(880, 0.12); } catch {}
+    } else if (h.bucket === 'ko' && prev !== 'ko') {
+      notifyToast(`✗ ${r.sym} ${r.side.toUpperCase()} hit SL (${(h.pct*100).toFixed(2)}%)`, 'loss');
+      try { playSfxBeep(220, 0.18); } catch {}
+    }
+  }
+  // Tiny WebAudio beep — used for TP/SL transitions only (rare)
+  let _audioCtx;
+  function playSfxBeep(freq, dur) {
+    if (typeof window === 'undefined') return;
+    if (!_audioCtx) {
+      try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch { return; }
+    }
+    const o = _audioCtx.createOscillator(); const g = _audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.value = 0; g.gain.linearRampToValueAtTime(0.07, _audioCtx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, _audioCtx.currentTime + dur);
+    o.connect(g).connect(_audioCtx.destination);
+    o.start(); o.stop(_audioCtx.currentTime + dur + 0.05);
   }
 
   // Live signal health — % return from entry given current price + side.
@@ -15742,6 +15850,8 @@ setTimeout(() => {
         const ageCls = ageColor(ageMs);
         const sourceStr = r.author === 'cron' ? 'auto' : 'manual';
         const h = liveHealth(r);
+        // Watch for bucket transitions → emit toast on TP/SL hits
+        checkBucketTransition(r, h);
         const hPctTxt = (h.pct * 100).toFixed(2);
         const hSign = h.pct > 0 ? '+' : '';
         return `
@@ -15888,10 +15998,18 @@ setTimeout(() => {
     } catch {}
 
     // Side filter (ALL / LONGS / SHORTS) in the table header strip
-    document.querySelectorAll('.signals-side-filter .sf-btn').forEach(b => {
+    document.querySelectorAll('.signals-side-filter .sf-btn[data-side]').forEach(b => {
       b.addEventListener('click', () => {
-        document.querySelectorAll('.signals-side-filter .sf-btn').forEach(o => o.classList.toggle('active', o === b));
+        document.querySelectorAll('.signals-side-filter .sf-btn[data-side]').forEach(o => o.classList.toggle('active', o === b));
         sideFilter = b.dataset.side;
+        renderTable();
+      });
+    });
+    // Score filter (≥ X) — independent of side filter
+    document.querySelectorAll('.signals-side-filter .sf-score').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.signals-side-filter .sf-score').forEach(o => o.classList.toggle('active', o === b));
+        minScore = +b.dataset.minScore;
         renderTable();
       });
     });
