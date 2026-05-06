@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export type InventorySlot =
   | "hat"
@@ -52,18 +53,26 @@ interface InventoryState {
   unlock: (slot: InventorySlot, itemId: string) => void;
 }
 
-export const useInventory = create<InventoryState>((set, get) => ({
-  owned: FREE_STARTER_ITEMS.map((i) => ({ ...i, acquiredAt: 0 })),
-  has: (slot, itemId) =>
-    get().owned.some((o) => o.slot === slot && o.itemId === itemId),
-  unlock: (slot, itemId) =>
-    set((state) => {
-      if (state.owned.some((o) => o.slot === slot && o.itemId === itemId)) return state;
-      return {
-        owned: [...state.owned, { slot, itemId, acquiredAt: Date.now() }],
-      };
+export const useInventory = create<InventoryState>()(
+  persist(
+    (set, get) => ({
+      owned: FREE_STARTER_ITEMS.map((i) => ({ ...i, acquiredAt: 0 })),
+      has: (slot, itemId) =>
+        get().owned.some((o) => o.slot === slot && o.itemId === itemId),
+      unlock: (slot, itemId) =>
+        set((state) => {
+          if (state.owned.some((o) => o.slot === slot && o.itemId === itemId)) return state;
+          return {
+            owned: [...state.owned, { slot, itemId, acquiredAt: Date.now() }],
+          };
+        }),
     }),
-}));
+    {
+      name: "bean-royale-inventory",
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
+);
 
 // =================== SHOP CATALOG ===================
 

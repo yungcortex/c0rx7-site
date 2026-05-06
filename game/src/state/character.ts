@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import {
   makeDefaultSliderState,
   type SliderState,
@@ -105,17 +106,27 @@ interface CharactersState {
   remove: (id: string) => void;
 }
 
-export const useCharacters = create<CharactersState>((set) => ({
-  list: [],
-  selected: null,
-  loading: false,
-  setList: (list) => set({ list }),
-  setSelected: (selected) => set({ selected }),
-  setLoading: (loading) => set({ loading }),
-  add: (c) => set((s) => ({ list: [...s.list, c].sort((a, b) => a.slot - b.slot) })),
-  remove: (id) =>
-    set((s) => ({
-      list: s.list.filter((c) => c.id !== id),
-      selected: s.selected?.id === id ? null : s.selected,
-    })),
-}));
+export const useCharacters = create<CharactersState>()(
+  persist(
+    (set) => ({
+      list: [],
+      selected: null,
+      loading: false,
+      setList: (list) => set({ list }),
+      setSelected: (selected) => set({ selected }),
+      setLoading: (loading) => set({ loading }),
+      add: (c) => set((s) => ({ list: [...s.list, c].sort((a, b) => a.slot - b.slot) })),
+      remove: (id) =>
+        set((s) => ({
+          list: s.list.filter((c) => c.id !== id),
+          selected: s.selected?.id === id ? null : s.selected,
+        })),
+    }),
+    {
+      name: "bean-royale-characters",
+      storage: createJSONStorage(() => localStorage),
+      // `loading` is transient — don't persist it
+      partialize: (s) => ({ list: s.list, selected: s.selected }) as Partial<CharactersState>,
+    },
+  ),
+);

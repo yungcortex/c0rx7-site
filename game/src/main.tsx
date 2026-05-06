@@ -10,8 +10,46 @@ const root = document.getElementById("root") as HTMLDivElement;
 if (!canvas) throw new Error("game-canvas element not found");
 if (!root) throw new Error("root element not found");
 
+// Make the canvas keyboard-focusable + grab focus on first paint so WASD
+// works without the user having to click the world first.
+canvas.tabIndex = 0;
+canvas.style.outline = "none";
+const focusCanvas = () => {
+  try { canvas.focus({ preventScroll: true } as FocusOptions); } catch { canvas.focus(); }
+};
+focusCanvas();
+// Re-focus whenever any non-input click happens — covers the case where a
+// modal closed and stole focus.
+window.addEventListener("pointerdown", (e) => {
+  const tgt = e.target as HTMLElement | null;
+  if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+  focusCanvas();
+});
+// Also forward keyboard events from window → canvas. Some browsers only
+// dispatch to the focused element; this guarantees Babylon's
+// scene.onKeyboardObservable receives them even if focus is on body.
+const forwardKey = (type: "keydown" | "keyup") => (e: KeyboardEvent) => {
+  if (document.activeElement === canvas) return; // already going to canvas
+  const tgt = e.target as HTMLElement | null;
+  if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+  // Re-dispatch on canvas so Babylon's listener picks it up
+  const cloned = new KeyboardEvent(type, {
+    key: e.key,
+    code: e.code,
+    keyCode: e.keyCode,
+    which: e.which,
+    bubbles: true,
+    cancelable: true,
+  });
+  canvas.dispatchEvent(cloned);
+};
+window.addEventListener("keydown", forwardKey("keydown"));
+window.addEventListener("keyup", forwardKey("keyup"));
+
 const engine = new GameEngine(canvas);
 engine.start();
+// Focus the canvas every time the scene changes
+engine.sceneManager.onChange(() => focusCanvas());
 
 // DEBUG: jump straight to a scene via ?debug=<scene> on URL.
 // Useful for screenshot iteration / dev. Has no effect in production
