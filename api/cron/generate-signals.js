@@ -263,7 +263,7 @@ async function supabaseInsert(rows) {
 }
 
 // ---- Main handler ----
-export default async function handler(req, res) {
+async function handler(req, res) {
   // Optional auth: require CRON_SECRET if set in env (Vercel cron sets a header)
   if (CRON_SECRET) {
     const auth = req.headers.authorization || '';
@@ -325,3 +325,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: String(e?.message || e), durationMs: Date.now() - t0 });
   }
 }
+
+module.exports = handler;
+module.exports.default = handler;
