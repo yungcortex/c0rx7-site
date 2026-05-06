@@ -1416,6 +1416,15 @@ try {
   .signals-table .row-long  { border-left: 2px solid rgba(0,255,163,0.55); }
   .signals-table .row-short { border-left: 2px solid rgba(255,80,120,0.55); }
   .signals-table .col-rank { color: var(--text-2); font-size: 10px; }
+  .signals-table .col-age {
+    font-size: 10px; font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
+    letter-spacing: 0.04em; padding: 4px 7px; border-radius: 3px; display: inline-block;
+    background: rgba(255,255,255,0.04);
+  }
+  .signals-table .col-age.fresh   { color: var(--accent); background: rgba(0,255,163,0.10); border: 1px solid rgba(0,255,163,0.25); }
+  .signals-table .col-age.recent  { color: var(--text-0); background: rgba(255,255,255,0.05); }
+  .signals-table .col-age.older   { color: var(--text-1); }
+  .signals-table .col-age.stale   { color: var(--text-2); opacity: 0.65; }
   .signals-table .col-side { font-size: 10px; letter-spacing: 0.14em; padding: 3px 7px; border-radius: 3px; display: inline-block; }
   .signals-table .col-side.long  { color: var(--up);   background: rgba(0,255,163,0.08); }
   .signals-table .col-side.short { color: var(--down); background: rgba(255,80,120,0.08); }
@@ -2091,10 +2100,10 @@ try {
         <table class="signals-table" id="signals-table">
           <thead>
             <tr>
-              <th class="sortable" data-sort="rank" style="width:38px">#</th>
+              <th class="sortable sort-active sort-desc" data-sort="age" style="width:60px" title="Time since signal was generated">Age</th>
               <th class="sortable" data-sort="side">Side</th>
               <th class="sortable" data-sort="sym">Symbol</th>
-              <th class="sortable sort-active sort-desc" data-sort="score" title="Composite score">Score</th>
+              <th class="sortable" data-sort="score" title="Composite score">Score</th>
               <th class="sortable" data-sort="price" title="Current price">Price</th>
               <th class="sortable" data-sort="chg24" title="24h price change">24h</th>
               <th class="sortable" data-sort="entry">Entry</th>
@@ -15328,18 +15337,33 @@ setTimeout(() => {
       const longs  = scored.filter(s => s.longScore > 0).sort((a, b) => b.longScore - a.longScore);
       const shorts = scored.filter(s => s.shortScore > 0).sort((a, b) => b.shortScore - a.shortScore);
 
-      // Build full signal records with TP/SL
+      // Build full signal records with TP/SL — include createdAtMs so the
+      // Age column can render correctly for fresh client-generated signals.
+      const nowMs = Date.now();
       const longRecs = longs.map(s => {
         const z = computeZones('long', s.price, s.vol);
-        return { side: 'long', sym: s.sym, score: s.longScore, confirms: s.confirms.filter(c => c.side === 'long'), zones: z, meta: s.meta };
+        return { side: 'long', sym: s.sym, score: s.longScore, author: 'manual', createdAtMs: nowMs, confirms: s.confirms.filter(c => c.side === 'long'), zones: z, meta: s.meta };
       });
       const shortRecs = shorts.map(s => {
         const z = computeZones('short', s.price, s.vol);
-        return { side: 'short', sym: s.sym, score: s.shortScore, confirms: s.confirms.filter(c => c.side === 'short'), zones: z, meta: s.meta };
+        return { side: 'short', sym: s.sym, score: s.shortScore, author: 'manual', createdAtMs: nowMs, confirms: s.confirms.filter(c => c.side === 'short'), zones: z, meta: s.meta };
       });
 
-      lastSignals = { longs: longRecs, shorts: shortRecs };
-      lastRunMs = Date.now();
+      // Append to (rather than replace) lastSignals so previously-loaded
+      // history stays visible. Dedup on (sym, side, ~score) within 5 min.
+      const existing = [...lastSignals.longs, ...lastSignals.shorts];
+      const fresh = [...longRecs, ...shortRecs];
+      const merged = [...fresh];
+      const dedupKey = (s) => `${s.sym}:${s.side}:${Math.round(s.score * 10)}`;
+      const freshKeys = new Set(fresh.map(dedupKey));
+      for (const e of existing) {
+        if (!freshKeys.has(dedupKey(e))) merged.push(e);
+      }
+      lastSignals = {
+        longs:  merged.filter(s => s.side === 'long').sort((a, b) => (b.createdAtMs - a.createdAtMs) || (b.score - a.score)),
+        shorts: merged.filter(s => s.side === 'short').sort((a, b) => (b.createdAtMs - a.createdAtMs) || (b.score - a.score)),
+      };
+      lastRunMs = nowMs;
 
       // Persist (best-effort)
       try { await persistSignals([...longRecs, ...shortRecs]); } catch (e) { console.warn('persist signals failed', e); }
@@ -15377,36 +15401,35 @@ setTimeout(() => {
     await sb.from('signals').insert(rows);
   }
 
-  // ---- Load latest cron-generated batch from Supabase ----
-  // The /api/cron/generate-signals function writes a fresh set of signals
-  // server-side every 12h (00:05 + 12:05 UTC). When the user opens the
-  // Signals tab we prefer those over a local compute IF they're recent
-  // (< 6h old). Falls back to local compute otherwise.
+  // ---- Load recent signal history from Supabase ----
+  // Pulls the last 24h of all signals (both cron-generated and any
+  // client-generated by signed-in users) so the table is populated
+  // immediately on page load, not just after pressing GENERATE.
+  // Each row gets a `createdAtMs` so the Age column can live-update.
   async function loadLatestCronSignals() {
+    return loadRecentSignals(24); // backwards-compatible alias for the old caller
+  }
+  async function loadRecentSignals(hoursBack = 24) {
     const sb = getSupabase();
     if (!sb) return false;
     try {
-      const since = new Date(Date.now() - 6 * 3600_000).toISOString();
+      const since = new Date(Date.now() - hoursBack * 3600_000).toISOString();
       const { data, error } = await sb
         .from('signals')
         .select('symbol,side,score,entry_price,stop_loss,tp1,tp2,tp3,confirms,metadata,created_at,author')
-        .eq('author', 'cron')
         .gt('created_at', since)
         .order('created_at', { ascending: false })
-        .limit(120);
+        .limit(400);
       if (error || !data?.length) return false;
-      // Group by created_at timestamp — pull only the latest run
-      const latestTs = data[0].created_at;
-      const latestEpoch = new Date(latestTs).getTime();
-      const batch = data.filter(r => Math.abs(new Date(r.created_at).getTime() - latestEpoch) < 60_000);
-      if (!batch.length) return false;
 
-      // Map Supabase rows → in-memory signal objects (same shape renderer expects)
+      // Map Supabase rows → in-memory signal objects (shape the renderer expects)
       const toSig = (r) => ({
         side: r.side,
         sym: r.symbol,
         score: +r.score,
         confirms: Array.isArray(r.confirms) ? r.confirms : [],
+        author: r.author || 'manual',
+        createdAtMs: new Date(r.created_at).getTime(),
         zones: {
           entry: +r.entry_price,
           entryLo: +r.entry_price * 0.997,
@@ -15420,21 +15443,38 @@ setTimeout(() => {
         },
         meta: r.metadata || {},
       });
+
+      // De-dup: same symbol+side+score within 5 min = same signal (don't double-list)
+      const seen = new Map();
+      const dedup = [];
+      for (const r of data) {
+        const sig = toSig(r);
+        const key = `${sig.sym}:${sig.side}:${Math.round(sig.score * 10)}`;
+        const prev = seen.get(key);
+        if (prev && Math.abs(prev - sig.createdAtMs) < 5 * 60_000) continue;
+        seen.set(key, sig.createdAtMs);
+        dedup.push(sig);
+      }
+
       lastSignals = {
-        longs:  batch.filter(r => r.side === 'long').map(toSig).sort((a, b) => b.score - a.score),
-        shorts: batch.filter(r => r.side === 'short').map(toSig).sort((a, b) => b.score - a.score),
+        longs:  dedup.filter(s => s.side === 'long'),
+        shorts: dedup.filter(s => s.side === 'short'),
       };
-      lastRunMs = latestEpoch;
+      // Newest signal sets the "last run" anchor
+      lastRunMs = dedup[0]?.createdAtMs || 0;
+
+      const cronCount = dedup.filter(s => s.author === 'cron').length;
       const lr = document.getElementById('sig-lastrun');
-      if (lr) lr.textContent = `${new Date(latestEpoch).toLocaleString()} (cron)`;
+      if (lr) lr.textContent = lastRunMs ? new Date(lastRunMs).toLocaleString() : '—';
       const elU = document.getElementById('sig-universe');
-      if (elU) elU.textContent = `${batch.length} signals from server`;
+      if (elU) elU.textContent = `${dedup.length} signals · last ${hoursBack}h${cronCount ? ` · ${cronCount} from cron` : ''}`;
       const tabBadge = document.getElementById('tab-sig-count');
-      if (tabBadge) tabBadge.textContent = String(lastSignals.longs.length + lastSignals.shorts.length);
+      if (tabBadge) tabBadge.textContent = String(dedup.length);
       renderSignals();
+      startAgeTimer();
       return true;
     } catch (e) {
-      console.warn('[signals] cron load failed', e);
+      console.warn('[signals] history load failed', e);
       return false;
     }
   }
@@ -15533,13 +15573,48 @@ setTimeout(() => {
   }
 
   // ---- Table view state ----
-  let tableSort = { key: 'score', dir: -1 };
+  // Default sort: newest first (Age ascending = smallest age = most recent)
+  let tableSort = { key: 'age', dir: 1 };
   let sideFilter = 'all'; // 'all' | 'long' | 'short'
   let viewMode  = 'table'; // 'table' | 'cards'
+
+  // Live-update timer for the Age column — re-renders every 60s so cells
+  // tick "5m → 6m → 7m..." while the user looks at the page.
+  let ageTimer = null;
+  function startAgeTimer() {
+    if (ageTimer) return;
+    ageTimer = setInterval(() => {
+      // Cheap: only re-render if the signals view is visible
+      const view = document.getElementById('view-signals');
+      if (view && !view.classList.contains('hidden')) renderTable();
+    }, 60_000);
+  }
+
+  function fmtAge(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return '—';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ' + (m % 60) + 'm';
+    const d = Math.floor(h / 24);
+    return d + 'd ' + (h % 24) + 'h';
+  }
+  function ageColor(ms) {
+    if (ms < 30 * 60_000) return 'fresh';        // < 30m → green
+    if (ms < 6 * 3600_000) return 'recent';      // < 6h → text-0
+    if (ms < 24 * 3600_000) return 'older';      // < 24h → text-1
+    return 'stale';                               // 24h+ → text-2
+  }
 
   function flatRows() {
     return [...lastSignals.longs, ...lastSignals.shorts]
       .filter(r => sideFilter === 'all' || r.side === sideFilter);
+  }
+
+  function rowAgeMs(r) {
+    return Date.now() - (+r.createdAtMs || lastRunMs || Date.now());
   }
 
   function compareRows(a, b, key) {
@@ -15547,7 +15622,7 @@ setTimeout(() => {
       const z = r.zones || {};
       const m = r.meta || {};
       switch (k) {
-        case 'rank':  return 0;
+        case 'age':   return rowAgeMs(r);
         case 'side':  return r.side;
         case 'sym':   return r.sym;
         case 'score': return r.score;
@@ -15581,7 +15656,7 @@ setTimeout(() => {
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="14" class="signals-empty">No qualifying signals${sideFilter !== 'all' ? ' on this side' : ''}.<br/><span style="font-size:11px;opacity:0.7">Markets need 2+ confirms to align — try at the next funding window.</span></td></tr>`;
     } else {
-      tbody.innerHTML = rows.map((r, i) => {
+      tbody.innerHTML = rows.map((r) => {
         const z = r.zones, m = r.meta || {};
         const rr = (z.tp1Pct / z.slPct).toFixed(1);
         const scoreCls = r.score >= 7 ? 'high' : '';
@@ -15590,9 +15665,13 @@ setTimeout(() => {
         const chips = (r.confirms || []).slice(0, 3).map(c =>
           `<span class="conf-chip${c.strong ? ' strong' : ''}" title="${(c.label || '').replace(/"/g,'&quot;')}">${c.label}</span>`
         ).join(' ');
+        const ageMs = rowAgeMs(r);
+        const ageStr = fmtAge(ageMs);
+        const ageCls = ageColor(ageMs);
+        const sourceStr = r.author === 'cron' ? 'auto' : 'manual';
         return `
           <tr class="row-${r.side}" data-sym="${r.sym}">
-            <td class="col-rank">${i + 1}</td>
+            <td class="col-age ${ageCls}" title="Generated ${new Date((+r.createdAtMs || lastRunMs || Date.now())).toLocaleString()} · ${sourceStr}">${ageStr}</td>
             <td><span class="col-side ${r.side}">${r.side.toUpperCase()}</span></td>
             <td class="col-sym">${r.sym}</td>
             <td class="col-score ${scoreCls}">${r.score.toFixed(1)}</td>
@@ -15755,6 +15834,11 @@ setTimeout(() => {
 
     // First-load hit-rate fetch (best-effort)
     setTimeout(() => { try { refreshHitRate(); resolveOldSignals(); } catch {} }, 4000);
+
+    // Boot-time hydration: pull last 24h of signals from Supabase as soon
+    // as the cloud client is ready. Means the Signals tab is never empty —
+    // user sees historical signals without clicking GENERATE.
+    setTimeout(() => { try { loadRecentSignals(24); } catch {} }, 2500);
   });
 
   // Auto-run on first signals-view entry: prefer cron batch if recent,
