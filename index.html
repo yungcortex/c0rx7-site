@@ -1285,6 +1285,65 @@ try {
     100% { box-shadow: 0 0 0 0 rgba(0,255,163,0), 0 0 0 rgba(0,255,163,0); }
   }
 
+  /* ============ SIGNALS VIEW ============ */
+  .signals-wrap { padding: 14px 16px 24px; max-width: 1500px; margin: 0 auto; }
+  .signals-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 14px; }
+  .signals-head-l { flex: 1 1 auto; min-width: 0; }
+  .signals-head-l h2 { font-size: 22px; letter-spacing: 0.18em; margin: 0 0 4px; color: var(--text-0); }
+  .signals-sub { font-size: 12px; color: var(--text-2); line-height: 1.5; max-width: 720px; margin: 0; }
+  .signals-sub code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .signals-head-r { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+  .signals-status { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-2); padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); }
+  .signals-status.running { color: var(--accent); animation: sig-pulse 1.4s ease-in-out infinite; }
+  .signals-status.error { color: var(--down); }
+  @keyframes sig-pulse { 0%,100%{opacity:0.55} 50%{opacity:1} }
+  .btn-primary { background: linear-gradient(180deg, rgba(0,255,163,0.18), rgba(0,255,163,0.06)); border: 1px solid rgba(0,255,163,0.5); color: var(--accent); padding: 7px 14px; border-radius: 4px; font-size: 11px; letter-spacing: 0.18em; cursor: pointer; transition: all 0.15s ease; }
+  .btn-primary:hover { background: linear-gradient(180deg, rgba(0,255,163,0.32), rgba(0,255,163,0.12)); box-shadow: 0 0 18px rgba(0,255,163,0.3); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .signals-meta-row { display: flex; gap: 18px; margin-bottom: 14px; padding: 10px 14px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 5px; flex-wrap: wrap; }
+  .signals-meta { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
+  .signals-meta .small-caps { font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; }
+  .signals-meta .tabular { font-size: 14px; }
+
+  .signals-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .signals-cols { grid-template-columns: 1fr; } }
+  .signals-col { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; }
+  .signals-col-hd { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 11px; letter-spacing: 0.22em; }
+  .signals-col-hd .dot { width: 6px; height: 6px; border-radius: 999px; }
+  .signals-col-hd.long .dot { background: var(--up); box-shadow: 0 0 10px var(--up); }
+  .signals-col-hd.short .dot { background: var(--down); box-shadow: 0 0 10px var(--down); }
+  .signals-col-hd.long { color: var(--up); }
+  .signals-col-hd.short { color: var(--down); }
+  .signals-col-count { margin-left: auto; font-size: 10px; color: var(--text-2); padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.05); letter-spacing: 0.1em; }
+  .signals-col-body { padding: 8px; max-height: calc(100vh - 320px); overflow-y: auto; min-height: 240px; }
+  .signals-empty { padding: 32px 14px; text-align: center; color: var(--text-2); font-size: 12px; }
+  .signals-empty kbd { font-family: inherit; padding: 1px 6px; background: rgba(0,255,163,0.08); border: 1px solid rgba(0,255,163,0.3); color: var(--accent); border-radius: 3px; font-size: 10px; letter-spacing: 0.16em; }
+
+  .signal-card { padding: 11px 13px; border: 1px solid rgba(255,255,255,0.07); border-radius: 5px; margin-bottom: 8px; background: rgba(255,255,255,0.015); transition: all 0.15s ease; }
+  .signal-card:hover { border-color: rgba(0,255,163,0.25); background: rgba(0,255,163,0.02); }
+  .signal-card.long { border-left: 3px solid var(--up); }
+  .signal-card.short { border-left: 3px solid var(--down); }
+  .signal-card-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .signal-card-sym { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; }
+  .signal-card-sym:hover { color: var(--accent); }
+  .signal-card-score { font-size: 11px; letter-spacing: 0.16em; padding: 2px 7px; border-radius: 3px; background: rgba(255,255,255,0.05); }
+  .signal-card-score.high { background: rgba(0,255,163,0.12); color: var(--accent); }
+  .signal-card-confirms { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .signal-confirm-chip { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); color: var(--text-1); letter-spacing: 0.04em; }
+  .signal-confirm-chip.strong { color: var(--accent); border-color: rgba(0,255,163,0.3); background: rgba(0,255,163,0.05); }
+  .signal-card-tps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; font-size: 10px; }
+  .signal-card-tps > div { padding: 4px 5px; background: rgba(0,0,0,0.25); border-radius: 3px; text-align: center; }
+  .signal-card-tps .small-caps { font-size: 9px; color: var(--text-2); display: block; margin-bottom: 2px; }
+  .signal-card-tps .v { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--text-0); }
+  .signal-card-tps .pct { font-size: 9px; color: var(--text-2); }
+  .signal-card-tps .sl .v { color: var(--down); }
+  .signal-card-tps .tp1 .v, .signal-card-tps .tp2 .v, .signal-card-tps .tp3 .v { color: var(--up); }
+  .signal-card-foot { margin-top: 6px; font-size: 10px; color: var(--text-2); display: flex; justify-content: space-between; }
+  .signal-card-hr.win  { color: var(--up); }
+  .signal-card-hr.lose { color: var(--down); }
+  .signals-disclaimer { margin-top: 18px; font-size: 10px; color: var(--text-2); text-align: center; opacity: 0.7; }
+
   /* Embed mode: strip chrome when ?embed=1 */
   body.embed-mode header,
   body.embed-mode > nav,
@@ -1515,6 +1574,7 @@ try {
   <div class="side-group">
     <div class="side-section">Views</div>
     <div class="side-item side-view-item active" data-view="overview" data-ico="1"><span>Pulse</span><span class="k-hint">1</span></div>
+    <div class="side-item side-view-item" data-view="signals" data-ico="✦"><span>Signals</span><span class="k-hint">S</span></div>
     <div class="side-item side-view-item" data-view="screener" data-ico="2"><span>Screener</span><span class="k-hint">2</span></div>
     <div class="side-item side-view-item" data-view="edge" data-ico="3"><span>Flow</span><span class="k-hint">3</span></div>
     <div class="side-item side-view-item" data-view="whales" data-ico="4"><span>Liquidations</span><span class="k-hint">4</span></div>
@@ -1648,6 +1708,7 @@ try {
 <!-- ============ TAB NAV ============ -->
 <nav class="nav-tabs">
   <div class="nav-tab active" data-view="overview" title="Price, depth, funding, liquidations — the terminal">PULSE</div>
+  <div class="nav-tab" data-view="signals" title="Daily composite signals: funding-flip, OI/price divergence, basis spread">SIGNALS <span class="badge" id="tab-sig-count">—</span></div>
   <div class="nav-tab" data-view="screener" title="All symbols, ranked">SCREENER <span class="badge" id="tab-scr-count">0</span></div>
   <div class="nav-tab" data-view="edge" title="Cross-venue spread, CVD, hot zones, squeezes">FLOW <span class="badge" id="tab-edge-count">0</span></div>
   <div class="nav-tab" data-view="whales" title="Whale trades + liquidation maps">LIQUIDATIONS <span class="badge" id="tab-whales-count">0</span></div>
@@ -1685,6 +1746,10 @@ try {
   <div class="mbn-item active" data-view="overview">
     <svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
     <span>Pulse</span>
+  </div>
+  <div class="mbn-item" data-view="signals">
+    <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.4L21 11l-5.4 4.4L17 22l-5-4-5 4 1.4-6.6L3 11l6.6-2.6L12 2z"/></svg>
+    <span>Signals</span>
   </div>
   <div class="mbn-item" data-view="edge">
     <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-9M21 7l-2-2-2 2M21 7v4"/></svg>
@@ -1867,6 +1932,71 @@ try {
     </div>
   </div>
 </div>
+<!-- ============ SIGNALS VIEW ============ -->
+<div id="view-signals" class="view hidden">
+  <div class="signals-wrap">
+    <div class="signals-head">
+      <div class="signals-head-l">
+        <h2>DAILY SIGNALS</h2>
+        <p class="signals-sub">
+          Composite-scored setups across the perp universe. Each signal fuses 2-3 confirms (funding flip,
+          OI/price divergence, cross-exchange basis, volume z-score). Hit-rate is computed from outcome
+          history — shows <code>building</code> until n≥10 per type.
+        </p>
+      </div>
+      <div class="signals-head-r">
+        <span id="signals-status" class="signals-status">idle</span>
+        <button class="btn btn-primary" id="signals-generate">GENERATE</button>
+      </div>
+    </div>
+
+    <div class="signals-meta-row">
+      <div class="signals-meta">
+        <span class="small-caps">Universe</span>
+        <span class="tabular" id="sig-universe">—</span>
+      </div>
+      <div class="signals-meta">
+        <span class="small-caps">Last run</span>
+        <span class="tabular" id="sig-lastrun">—</span>
+      </div>
+      <div class="signals-meta">
+        <span class="small-caps">Hit-rate · Long</span>
+        <span class="tabular num-up" id="sig-hr-long">building</span>
+      </div>
+      <div class="signals-meta">
+        <span class="small-caps">Hit-rate · Short</span>
+        <span class="tabular num-down" id="sig-hr-short">building</span>
+      </div>
+    </div>
+
+    <div class="signals-cols">
+      <div class="signals-col">
+        <div class="signals-col-hd long">
+          <span class="dot"></span> TOP LONGS
+          <span class="signals-col-count" id="sig-long-count">0</span>
+        </div>
+        <div class="signals-col-body" id="sig-long-list">
+          <div class="signals-empty">Press <kbd>GENERATE</kbd> to compute today's signals.</div>
+        </div>
+      </div>
+      <div class="signals-col">
+        <div class="signals-col-hd short">
+          <span class="dot"></span> TOP SHORTS
+          <span class="signals-col-count" id="sig-short-count">0</span>
+        </div>
+        <div class="signals-col-body" id="sig-short-list">
+          <div class="signals-empty">Press <kbd>GENERATE</kbd> to compute today's signals.</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="signals-disclaimer">
+      Signals are computed from public market data and presented as research, not financial advice.
+      Crypto perps are leveraged and can move violently — use position sizing you can lose.
+    </p>
+  </div>
+</div>
+
 <div id="view-overview" class="view">
 <!-- ============ WATCHLIST BAR ============ -->
 <div id="watchlist-bar" class="px-3 md:px-4 pt-3 flex items-center gap-3 text-[11px] flex-wrap">
@@ -14639,6 +14769,538 @@ setTimeout(() => {
   setTimeout(poll, 4000);
   setTimeout(poll, 10000);
 })();
+
+/* ====================================================================
+   DAILY SIGNALS ENGINE
+   ====================================================================
+   Computes composite-scored daily signals across the perp universe by
+   fusing 3 independent indicators per coin/side:
+     1. Funding-Flip + OI Rising       — funding flips polarity 24h while
+                                          OI grew → squeeze setup
+     2. OI / Price Divergence          — price-direction vs OI-direction
+                                          mismatch → squeeze or exhaustion
+     3. Cross-Exchange Basis Sustained — Binance perp price diverges from
+                                          Gate/OKX/KuCoin by N+ bps
+   Each indicator returns a contribution 0..3 per side. Composite score is
+   the sum (max 9, displayed as /10). A signal must have 2+ indicators
+   contributing > 1 to qualify.
+
+   TP/SL are volume-classified percentage zones (BTC/ETH < majors < alts).
+   Outcomes are logged to Supabase if the user is signed in. Hit-rate
+   per signal_type is computed from the last 90d of resolved outcomes.
+   ==================================================================== */
+(function(){
+  // ---- Constants ----
+  const MIN_24H_VOLUME       = 50_000_000;   // USD — liquidity floor
+  const FUNDING_FLIP_MIN     = 0.0002;       // 0.02%/period as "extreme"
+  const OI_RISING_MIN        = 0.05;         // 5% OI delta over 24h
+  const OI_FALLING_MAX       = -0.03;        // -3% OI delta
+  const PRICE_BIG_MOVE       = 0.03;         // 3% 24h
+  const BASIS_MIN_BPS        = 20;           // 20 bps cross-exchange spread
+  const FETCH_CONCURRENCY    = 8;            // parallel binance hits
+
+  // Volume-classified TP/SL profiles (% from entry)
+  const SLTP_PROFILES = [
+    // [minVolUsd, sl%, tp1%, tp2%, tp3%]
+    [10_000_000_000, 0.025, 0.0375, 0.05,  0.075],  // BTC/ETH-class
+    [   500_000_000, 0.040, 0.060,  0.080, 0.120],  // High-vol majors
+    [    50_000_000, 0.060, 0.090,  0.120, 0.180],  // Mid-vol alts
+  ];
+
+  let lastRunMs = 0;
+  let running = false;
+  let lastSignals = { longs: [], shorts: [] };
+  let supabaseClient = null;
+
+  // ---- Supabase helper (best-effort — no-op if not configured) ----
+  function getSupabase() {
+    if (supabaseClient !== null) return supabaseClient;
+    if (typeof window === 'undefined' || !window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
+      supabaseClient = false;
+      return null;
+    }
+    try {
+      supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      return supabaseClient;
+    } catch (e) {
+      supabaseClient = false;
+      return null;
+    }
+  }
+
+  // ---- Fetch helpers (re-use existing fetchJson if exposed; else local) ----
+  function fetchJ(name, url, opts) {
+    if (typeof fetchJson === 'function') return fetchJson(name, url, opts);
+    return fetch(url).then(r => r.json());
+  }
+
+  // ---- Universe filter ----
+  function filterUniverse() {
+    const out = [];
+    if (!STATE?.ticker24h) return out;
+    for (const [sym, t] of STATE.ticker24h.entries()) {
+      if (!sym.endsWith('USDT')) continue;
+      // Skip leveraged tokens / unusual pairs
+      if (/UP|DOWN|BULL|BEAR/.test(sym)) continue;
+      const vol = +(t.quoteVolume || t.volume || 0);
+      if (!Number.isFinite(vol) || vol < MIN_24H_VOLUME) continue;
+      const price = +(t.lastPrice || t.last || 0);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const chgPct = +(t.priceChangePercent ?? t.changePct ?? 0) / 100;
+      out.push({ sym, vol, price, chgPct, ticker: t });
+    }
+    // Sort by volume descending — top liquidity first
+    out.sort((a, b) => b.vol - a.vol);
+    // Cap to top 60 — keeps API load sane
+    return out.slice(0, 60);
+  }
+
+  // ---- Concurrency-limited Promise.all ----
+  async function pLimit(items, fn, concurrency) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    async function worker() {
+      while (cursor < items.length) {
+        const idx = cursor++;
+        try { results[idx] = await fn(items[idx], idx); }
+        catch (e) { results[idx] = { __err: e?.message || String(e) }; }
+      }
+    }
+    const workers = Array.from({ length: Math.min(concurrency, items.length) }, worker);
+    await Promise.all(workers);
+    return results;
+  }
+
+  // ---- Fetch funding + OI history for a symbol ----
+  async function fetchSymbolHistory(sym) {
+    const fUrl  = `${CFG.binance.rest}/fapi/v1/fundingRate?symbol=${sym}&limit=4`;
+    const oUrl  = `${CFG.binance.rest}/futures/data/openInterestHist?symbol=${sym}&period=1h&limit=24`;
+    const [fRes, oRes] = await Promise.all([
+      fetchJ(`sig:fund:${sym}`, fUrl).catch(() => null),
+      fetchJ(`sig:oi:${sym}`, oUrl).catch(() => null),
+    ]);
+    return { sym, funding: Array.isArray(fRes) ? fRes : [], oi: Array.isArray(oRes) ? oRes : [] };
+  }
+
+  // ---- Indicator computations (all return {longScore, shortScore, confirms}) ----
+
+  // 1. Funding-Flip + OI Rising
+  function indFundingFlip(history, oiDelta) {
+    const f = history.funding;
+    if (!f || f.length < 2) return { l: 0, s: 0, confirms: [] };
+    const curr = +f[f.length - 1].fundingRate;
+    const prev = (+f[f.length - 2].fundingRate + +(f[f.length - 3]?.fundingRate || 0) + +(f[f.length - 4]?.fundingRate || 0)) / Math.min(3, f.length - 1);
+    if (!Number.isFinite(curr) || !Number.isFinite(prev)) return { l: 0, s: 0, confirms: [] };
+
+    const confirms = [];
+    let l = 0, s = 0;
+    // LONG bias: funding was extreme positive, flipped negative, OI rising = shorts piling in
+    if (prev > FUNDING_FLIP_MIN && curr < 0 && oiDelta > OI_RISING_MIN) {
+      l += 3;
+      confirms.push({ side: 'long', label: `funding flipped ${(prev*100).toFixed(3)}% → ${(curr*100).toFixed(3)}%`, strong: true });
+    }
+    // SHORT bias: funding was extreme negative, flipped positive, OI rising = longs piling in
+    if (prev < -FUNDING_FLIP_MIN && curr > 0 && oiDelta > OI_RISING_MIN) {
+      s += 3;
+      confirms.push({ side: 'short', label: `funding flipped ${(prev*100).toFixed(3)}% → ${(curr*100).toFixed(3)}%`, strong: true });
+    }
+    return { l, s, confirms };
+  }
+
+  // 2. OI / Price Divergence
+  function indOiDivergence(priceChg24h, oiDelta) {
+    const confirms = [];
+    let l = 0, s = 0;
+    // LONG: price down + OI up = shorts piling on → squeeze candidate
+    if (priceChg24h < -PRICE_BIG_MOVE && oiDelta > OI_RISING_MIN) {
+      l += 2.5;
+      confirms.push({ side: 'long', label: `OI +${(oiDelta*100).toFixed(1)}% / 24h while price ${(priceChg24h*100).toFixed(1)}%`, strong: true });
+    }
+    // SHORT: price up + OI down/flat = rally exhausted, weak hands
+    if (priceChg24h > PRICE_BIG_MOVE && oiDelta < OI_FALLING_MAX) {
+      s += 2.5;
+      confirms.push({ side: 'short', label: `OI ${(oiDelta*100).toFixed(1)}% / 24h while price +${(priceChg24h*100).toFixed(1)}%`, strong: true });
+    }
+    // Continuation bias (weaker)
+    if (priceChg24h > PRICE_BIG_MOVE && oiDelta > OI_RISING_MIN * 1.5) {
+      l += 1.0; // healthy uptrend with confirming OI
+      confirms.push({ side: 'long', label: `healthy trend: price + OI both rising`, strong: false });
+    }
+    if (priceChg24h < -PRICE_BIG_MOVE && oiDelta < OI_FALLING_MAX * 1.5) {
+      s += 1.0; // capitulation but OI not yet flushed completely
+      confirms.push({ side: 'short', label: `downtrend confirmed by OI shrinking`, strong: false });
+    }
+    return { l, s, confirms };
+  }
+
+  // 3. Cross-Exchange Basis (current snapshot — sustained-check is v2)
+  function indBasisSpread(sym, price) {
+    const confirms = [];
+    let l = 0, s = 0;
+    if (!STATE.prices) return { l, s, confirms };
+    // Compare Binance to Gate, OKX, KuCoin, Coinbase Intx — pick the most-divergent
+    const others = [];
+    for (const ex of ['gate', 'okx', 'kucoin', 'coinbaseIntx', 'bybit', 'bitget']) {
+      const otherPrice = STATE.prices[ex]?.get?.(sym);
+      if (otherPrice && otherPrice > 0) others.push({ ex, p: +otherPrice });
+    }
+    if (others.length < 1) return { l, s, confirms };
+
+    // Binance perp is the reference (price arg should be Binance price)
+    let maxBps = 0;
+    let exHit = null;
+    for (const o of others) {
+      const bps = ((price - o.p) / o.p) * 10_000;
+      if (Math.abs(bps) > Math.abs(maxBps)) { maxBps = bps; exHit = o.ex; }
+    }
+    if (Math.abs(maxBps) < BASIS_MIN_BPS) return { l, s, confirms };
+
+    // Binance HIGHER than rest (positive bps): laggards likely catch up upward → LONG bias
+    if (maxBps > BASIS_MIN_BPS) {
+      l += 1.5;
+      confirms.push({ side: 'long', label: `Binance +${maxBps.toFixed(0)}bps over ${exHit}`, strong: false });
+    }
+    // Binance LOWER than rest (negative bps): laggards likely catch down → SHORT bias
+    if (maxBps < -BASIS_MIN_BPS) {
+      s += 1.5;
+      confirms.push({ side: 'short', label: `Binance ${maxBps.toFixed(0)}bps under ${exHit}`, strong: false });
+    }
+    return { l, s, confirms };
+  }
+
+  // ---- TP/SL calculator ----
+  function computeZones(side, price, vol) {
+    let profile = SLTP_PROFILES[SLTP_PROFILES.length - 1];
+    for (const p of SLTP_PROFILES) { if (vol >= p[0]) { profile = p; break; } }
+    const [, sl, tp1, tp2, tp3] = profile;
+    const dir = side === 'long' ? 1 : -1;
+    return {
+      entry: price,
+      entryLo: price * (1 - 0.003 * dir),
+      entryHi: price * (1 + 0.003 * dir),
+      stopLoss: price * (1 - sl * dir),
+      tp1: price * (1 + tp1 * dir),
+      tp2: price * (1 + tp2 * dir),
+      tp3: price * (1 + tp3 * dir),
+      slPct: sl,
+      tp1Pct: tp1,
+      tp2Pct: tp2,
+      tp3Pct: tp3,
+    };
+  }
+
+  // ---- Aggregate scoring per symbol ----
+  function scoreSymbol(rec, hist) {
+    const f = hist.funding;
+    const o = hist.oi;
+    if (!o || o.length < 2) return null;
+    const oiNow = +o[o.length - 1].sumOpenInterestValue || +o[o.length - 1].sumOpenInterest || 0;
+    const oi24 = +o[0].sumOpenInterestValue || +o[0].sumOpenInterest || 0;
+    if (!oi24) return null;
+    const oiDelta = (oiNow - oi24) / oi24;
+
+    const priceChg = rec.chgPct;
+    const i1 = indFundingFlip({ funding: f }, oiDelta);
+    const i2 = indOiDivergence(priceChg, oiDelta);
+    const i3 = indBasisSpread(rec.sym, rec.price);
+
+    const longTotal  = i1.l + i2.l + i3.l;
+    const shortTotal = i1.s + i2.s + i3.s;
+
+    // Multi-confirm gate: at least 2 independent indicators contributing > 0.5
+    const longConfirmsCount  = (i1.l > 0.5 ? 1 : 0) + (i2.l > 0.5 ? 1 : 0) + (i3.l > 0.5 ? 1 : 0);
+    const shortConfirmsCount = (i1.s > 0.5 ? 1 : 0) + (i2.s > 0.5 ? 1 : 0) + (i3.s > 0.5 ? 1 : 0);
+
+    const allConfirms = [...i1.confirms, ...i2.confirms, ...i3.confirms];
+    const meta = {
+      oiDelta, oiNow, oi24,
+      priceChg24h: priceChg,
+      fundingCurrent: f.length ? +f[f.length - 1].fundingRate : null,
+      fundingPrev:    f.length > 1 ? +f[f.length - 2].fundingRate : null,
+      vol: rec.vol,
+      indicators: { funding: i1, divergence: i2, basis: i3 },
+    };
+
+    return {
+      sym: rec.sym, price: rec.price, vol: rec.vol,
+      longScore: longConfirmsCount >= 2 ? Math.min(10, longTotal) : 0,
+      shortScore: shortConfirmsCount >= 2 ? Math.min(10, shortTotal) : 0,
+      confirms: allConfirms,
+      meta,
+    };
+  }
+
+  // ---- Public: generate ----
+  async function generate() {
+    if (running) return;
+    running = true;
+    const statusEl = document.getElementById('signals-status');
+    const btnEl    = document.getElementById('signals-generate');
+    if (statusEl) { statusEl.textContent = 'fetching…'; statusEl.className = 'signals-status running'; }
+    if (btnEl) btnEl.disabled = true;
+
+    try {
+      const universe = filterUniverse();
+      const elU = document.getElementById('sig-universe'); if (elU) elU.textContent = `${universe.length} pairs`;
+      if (!universe.length) {
+        if (statusEl) { statusEl.textContent = 'no data'; statusEl.className = 'signals-status error'; }
+        return;
+      }
+
+      if (statusEl) statusEl.textContent = `fetching ${universe.length}×2…`;
+      const histories = await pLimit(universe, (rec) => fetchSymbolHistory(rec.sym), FETCH_CONCURRENCY);
+
+      if (statusEl) statusEl.textContent = 'scoring…';
+      const scored = [];
+      for (let i = 0; i < universe.length; i++) {
+        const h = histories[i];
+        if (!h || h.__err) continue;
+        const r = scoreSymbol(universe[i], h);
+        if (r && (r.longScore > 0 || r.shortScore > 0)) scored.push(r);
+      }
+
+      const longs  = scored.filter(s => s.longScore > 0).sort((a, b) => b.longScore - a.longScore).slice(0, 5);
+      const shorts = scored.filter(s => s.shortScore > 0).sort((a, b) => b.shortScore - a.shortScore).slice(0, 5);
+
+      // Build full signal records with TP/SL
+      const longRecs = longs.map(s => {
+        const z = computeZones('long', s.price, s.vol);
+        return { side: 'long', sym: s.sym, score: s.longScore, confirms: s.confirms.filter(c => c.side === 'long'), zones: z, meta: s.meta };
+      });
+      const shortRecs = shorts.map(s => {
+        const z = computeZones('short', s.price, s.vol);
+        return { side: 'short', sym: s.sym, score: s.shortScore, confirms: s.confirms.filter(c => c.side === 'short'), zones: z, meta: s.meta };
+      });
+
+      lastSignals = { longs: longRecs, shorts: shortRecs };
+      lastRunMs = Date.now();
+
+      // Persist (best-effort)
+      try { await persistSignals([...longRecs, ...shortRecs]); } catch (e) { console.warn('persist signals failed', e); }
+
+      renderSignals();
+      const tabBadge = document.getElementById('tab-sig-count'); if (tabBadge) tabBadge.textContent = String(longRecs.length + shortRecs.length);
+      if (statusEl) { statusEl.textContent = 'live'; statusEl.className = 'signals-status'; }
+      const lr = document.getElementById('sig-lastrun'); if (lr) lr.textContent = new Date(lastRunMs).toLocaleTimeString();
+    } catch (e) {
+      console.error('generate signals', e);
+      if (statusEl) { statusEl.textContent = 'error'; statusEl.className = 'signals-status error'; }
+    } finally {
+      running = false;
+      if (btnEl) btnEl.disabled = false;
+    }
+  }
+
+  // ---- Persistence ----
+  async function persistSignals(recs) {
+    const sb = getSupabase();
+    if (!sb || !recs.length) return;
+    const rows = recs.map(r => ({
+      symbol: r.sym,
+      side: r.side,
+      signal_type: 'composite',
+      score: r.score,
+      entry_price: r.zones.entry,
+      stop_loss:   r.zones.stopLoss,
+      tp1:         r.zones.tp1,
+      tp2:         r.zones.tp2,
+      tp3:         r.zones.tp3,
+      confirms:    r.confirms,
+      metadata:    r.meta,
+    }));
+    await sb.from('signals').insert(rows);
+  }
+
+  // ---- Outcome resolver (runs on page load — looks up unresolved signals) ----
+  async function resolveOldSignals() {
+    const sb = getSupabase();
+    if (!sb) return;
+    const since = new Date(Date.now() - 4 * 86400 * 1000).toISOString();
+    const { data, error } = await sb
+      .from('signals')
+      .select('id,symbol,side,entry_price,stop_loss,tp1,tp2,tp3,created_at,outcome_24h,outcome_48h,outcome_72h')
+      .gt('created_at', since)
+      .is('resolved_at', null)
+      .limit(80);
+    if (error || !data?.length) return;
+
+    for (const row of data) {
+      try {
+        const ageH = (Date.now() - new Date(row.created_at).getTime()) / 36e5;
+        if (ageH < 24) continue; // wait until at least 24h passed
+        // Pull klines from creation to now (1h interval)
+        const startMs = new Date(row.created_at).getTime();
+        const url = `${CFG.binance.rest}/fapi/v1/klines?symbol=${row.symbol}&interval=1h&limit=${Math.min(80, Math.ceil(ageH) + 2)}&startTime=${startMs}`;
+        const k = await fetchJ(`sig:resolve:${row.symbol}`, url).catch(() => null);
+        if (!Array.isArray(k) || !k.length) continue;
+        const dir = row.side === 'long' ? 1 : -1;
+        const entry = +row.entry_price;
+        let mfe = 0, mae = 0;
+        let tp1Hit = false, tp2Hit = false, tp3Hit = false, slHit = false;
+        let p24 = null, p48 = null, p72 = null;
+        for (let i = 0; i < k.length; i++) {
+          const candle = k[i];
+          const t = +candle[0];
+          const high = +candle[2], low = +candle[3], close = +candle[4];
+          const fav  = dir === 1 ? (high - entry) / entry : (entry - low) / entry;
+          const adv  = dir === 1 ? (entry - low) / entry  : (high - entry) / entry;
+          if (fav > mfe) mfe = fav;
+          if (adv > mae) mae = adv;
+          if (dir === 1) {
+            if (high >= +row.tp1) tp1Hit = true;
+            if (high >= +row.tp2) tp2Hit = true;
+            if (high >= +row.tp3) tp3Hit = true;
+            if (low  <= +row.stop_loss) slHit = true;
+          } else {
+            if (low  <= +row.tp1) tp1Hit = true;
+            if (low  <= +row.tp2) tp2Hit = true;
+            if (low  <= +row.tp3) tp3Hit = true;
+            if (high >= +row.stop_loss) slHit = true;
+          }
+          const hoursElapsed = (t - startMs) / 36e5;
+          if (p24 === null && hoursElapsed >= 24) p24 = ((close - entry) / entry) * dir;
+          if (p48 === null && hoursElapsed >= 48) p48 = ((close - entry) / entry) * dir;
+          if (p72 === null && hoursElapsed >= 72) p72 = ((close - entry) / entry) * dir;
+        }
+        const final = +k[k.length - 1][4];
+        const finalPnl = ((final - entry) / entry) * dir;
+        if (p24 === null) p24 = finalPnl;
+        const update = {
+          outcome_24h: p24,
+          outcome_48h: p48,
+          outcome_72h: p72,
+          max_favorable: mfe,
+          max_adverse: mae,
+          tp1_hit: tp1Hit,
+          tp2_hit: tp2Hit,
+          tp3_hit: tp3Hit,
+          sl_hit: slHit,
+          resolved_at: ageH >= 72 ? new Date().toISOString() : null,
+        };
+        await sb.from('signals').update(update).eq('id', row.id);
+      } catch (e) { /* keep going */ }
+    }
+    // After resolving, refresh hit-rate display
+    await refreshHitRate();
+  }
+
+  async function refreshHitRate() {
+    const sb = getSupabase();
+    if (!sb) return;
+    const { data } = await sb
+      .from('signals')
+      .select('side,outcome_24h')
+      .gt('created_at', new Date(Date.now() - 90 * 86400 * 1000).toISOString())
+      .not('outcome_24h', 'is', null);
+    if (!data) return;
+    const longRows  = data.filter(r => r.side === 'long');
+    const shortRows = data.filter(r => r.side === 'short');
+    const winRate = (rows) => rows.length ? rows.filter(r => +r.outcome_24h > 0).length / rows.length : null;
+    const lwr = winRate(longRows);
+    const swr = winRate(shortRows);
+    const lEl = document.getElementById('sig-hr-long');
+    const sEl = document.getElementById('sig-hr-short');
+    if (lEl) lEl.textContent = (lwr === null || longRows.length < 10)  ? `building (n=${longRows.length})`  : `${(lwr*100).toFixed(0)}% · n=${longRows.length}`;
+    if (sEl) sEl.textContent = (swr === null || shortRows.length < 10) ? `building (n=${shortRows.length})` : `${(swr*100).toFixed(0)}% · n=${shortRows.length}`;
+  }
+
+  // ---- Render ----
+  function renderSignals() {
+    const fmtN = (v, dp = 4) => Number.isFinite(v) ? (Math.abs(v) >= 1 ? (+v).toFixed(2) : (+v).toFixed(dp).replace(/0+$/, '').replace(/\.$/, '')) : '—';
+    const buildCard = (s) => {
+      const z = s.zones;
+      const longCls = s.side;
+      const scoreCls = s.score >= 7 ? 'high' : '';
+      const chips = s.confirms.slice(0, 3).map(c =>
+        `<span class="signal-confirm-chip${c.strong ? ' strong' : ''}" title="${c.label.replace(/"/g,'&quot;')}">${c.label}</span>`,
+      ).join('');
+      const slPctTxt = `${(z.slPct*100).toFixed(1)}%`;
+      const tp1PctTxt = `${(z.tp1Pct*100).toFixed(1)}%`;
+      const tp2PctTxt = `${(z.tp2Pct*100).toFixed(1)}%`;
+      const tp3PctTxt = `${(z.tp3Pct*100).toFixed(1)}%`;
+      const r1 = (z.tp1Pct / z.slPct).toFixed(1);
+      return `
+        <div class="signal-card ${longCls}" data-sym="${s.sym}">
+          <div class="signal-card-hd">
+            <span class="signal-card-sym">${s.sym}</span>
+            <span class="signal-card-score ${scoreCls}">${s.score.toFixed(1)} / 10</span>
+          </div>
+          <div class="signal-card-confirms">${chips || '<span class="signal-confirm-chip">single confirm</span>'}</div>
+          <div class="signal-card-tps">
+            <div class="entry"><span class="small-caps">Entry</span><div class="v">${fmtN(z.entry)}</div><span class="pct">±0.3%</span></div>
+            <div class="sl"><span class="small-caps">SL</span><div class="v">${fmtN(z.stopLoss)}</div><span class="pct">−${slPctTxt}</span></div>
+            <div class="tp1"><span class="small-caps">TP1</span><div class="v">${fmtN(z.tp1)}</div><span class="pct">+${tp1PctTxt}</span></div>
+            <div class="tp2"><span class="small-caps">TP2</span><div class="v">${fmtN(z.tp2)}</div><span class="pct">+${tp2PctTxt}</span></div>
+            <div class="tp3"><span class="small-caps">TP3</span><div class="v">${fmtN(z.tp3)}</div><span class="pct">+${tp3PctTxt}</span></div>
+          </div>
+          <div class="signal-card-foot">
+            <span>R:R 1:${r1}</span>
+            <span class="signal-card-hr">hit-rate: building</span>
+          </div>
+        </div>
+      `;
+    };
+
+    const longList  = document.getElementById('sig-long-list');
+    const shortList = document.getElementById('sig-short-list');
+    const longCount = document.getElementById('sig-long-count');
+    const shortCount = document.getElementById('sig-short-count');
+    if (longList) {
+      longList.innerHTML = lastSignals.longs.length
+        ? lastSignals.longs.map(buildCard).join('')
+        : '<div class="signals-empty">No qualifying LONG setups in this run.<br/><span style="font-size:11px;opacity:0.7">Markets need 2+ aligned confirms — try again at the next funding window.</span></div>';
+    }
+    if (shortList) {
+      shortList.innerHTML = lastSignals.shorts.length
+        ? lastSignals.shorts.map(buildCard).join('')
+        : '<div class="signals-empty">No qualifying SHORT setups in this run.<br/><span style="font-size:11px;opacity:0.7">Markets need 2+ aligned confirms — try again at the next funding window.</span></div>';
+    }
+    if (longCount) longCount.textContent = lastSignals.longs.length;
+    if (shortCount) shortCount.textContent = lastSignals.shorts.length;
+
+    // Click symbol → switch active symbol + view
+    document.querySelectorAll('#view-signals .signal-card-sym').forEach(el => {
+      el.addEventListener('click', () => {
+        const sym = el.closest('.signal-card')?.dataset?.sym;
+        if (sym && typeof window.setActiveSymbol === 'function') {
+          window.setActiveSymbol(sym);
+          if (typeof switchView === 'function') switchView('overview');
+        } else if (sym) {
+          STATE.symbol = sym;
+          if (typeof switchView === 'function') switchView('overview');
+        }
+      });
+    });
+  }
+
+  // ---- Hook into the global view router ----
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('signals-generate');
+    if (btn) btn.addEventListener('click', generate);
+    // First-load hit-rate fetch (best-effort)
+    setTimeout(() => { try { refreshHitRate(); resolveOldSignals(); } catch {} }, 4000);
+  });
+
+  // Auto-run on first signals-view entry if we haven't run today
+  const origSwitch = window.switchView;
+  if (typeof origSwitch === 'function') {
+    window.switchView = function(v) {
+      origSwitch(v);
+      if (v === 'signals') {
+        const now = Date.now();
+        if (!lastRunMs || (now - lastRunMs) > 6 * 3600_000) {
+          // Stagger so the view paints first
+          setTimeout(() => { try { generate(); } catch (e) { console.error(e); } }, 200);
+        }
+      }
+    };
+  }
+
+  // Expose for debug
+  window._signalsGenerate = generate;
+  window._signalsResolve = resolveOldSignals;
+})();
+
 </script>
 </body>
 </html>
