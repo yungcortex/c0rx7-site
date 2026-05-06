@@ -1380,6 +1380,77 @@ try {
   .signal-card-hr.lose { color: var(--down); }
   .signals-disclaimer { margin-top: 18px; font-size: 10px; color: var(--text-2); text-align: center; opacity: 0.7; }
 
+  /* ============ SIGNALS · TABLE VIEW ============ */
+  .signals-view-toggle { display: inline-flex; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .signals-view-toggle .sv-btn { padding: 6px 11px; font-size: 10px; letter-spacing: 0.18em; background: rgba(255,255,255,0.03); color: var(--text-2); border: none; cursor: pointer; transition: all 0.15s ease; }
+  .signals-view-toggle .sv-btn:hover { color: var(--text-0); background: rgba(255,255,255,0.06); }
+  .signals-view-toggle .sv-btn.active { background: rgba(0,255,163,0.12); color: var(--accent); }
+
+  .signals-table-wrap { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; }
+  .signals-side-filter { display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.25); }
+  .signals-side-filter .sf-btn { padding: 5px 12px; font-size: 10px; letter-spacing: 0.16em; background: rgba(255,255,255,0.03); color: var(--text-2); border: 1px solid rgba(255,255,255,0.06); border-radius: 3px; cursor: pointer; transition: all 0.15s ease; font-family: inherit; }
+  .signals-side-filter .sf-btn:hover { color: var(--text-0); background: rgba(255,255,255,0.06); }
+  .signals-side-filter .sf-btn.active { background: rgba(0,255,163,0.1); border-color: rgba(0,255,163,0.4); color: var(--accent); }
+  .signals-side-filter .sf-btn[data-side="long"].active  { background: rgba(0,255,163,0.1); border-color: rgba(0,255,163,0.4); color: var(--up); }
+  .signals-side-filter .sf-btn[data-side="short"].active { background: rgba(255,80,120,0.08); border-color: rgba(255,80,120,0.4); color: var(--down); }
+
+  .signals-table-scroll { max-height: calc(100vh - 280px); overflow: auto; min-height: 320px; }
+  .signals-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace; }
+  .signals-table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: rgba(7, 14, 22, 0.97);
+    text-align: left; padding: 8px 10px;
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-2); font-weight: 500;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    white-space: nowrap;
+  }
+  .signals-table thead th.sortable { cursor: pointer; user-select: none; }
+  .signals-table thead th.sortable:hover { color: var(--text-0); }
+  .signals-table thead th.sort-active { color: var(--accent); }
+  .signals-table thead th.sort-active.sort-asc::after  { content: ' ▲'; font-size: 7px; }
+  .signals-table thead th.sort-active.sort-desc::after { content: ' ▼'; font-size: 7px; }
+  .signals-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.12s ease; }
+  .signals-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+  .signals-table tbody td { padding: 8px 10px; vertical-align: middle; white-space: nowrap; }
+  .signals-table .row-long  { border-left: 2px solid rgba(0,255,163,0.55); }
+  .signals-table .row-short { border-left: 2px solid rgba(255,80,120,0.55); }
+  .signals-table .col-rank { color: var(--text-2); font-size: 10px; }
+  .signals-table .col-side { font-size: 10px; letter-spacing: 0.14em; padding: 3px 7px; border-radius: 3px; display: inline-block; }
+  .signals-table .col-side.long  { color: var(--up);   background: rgba(0,255,163,0.08); }
+  .signals-table .col-side.short { color: var(--down); background: rgba(255,80,120,0.08); }
+  .signals-table .col-sym  { color: var(--text-0); font-weight: 600; cursor: pointer; }
+  .signals-table .col-sym:hover { color: var(--accent); }
+  .signals-table .col-score { font-weight: 600; color: var(--text-0); }
+  .signals-table .col-score.high { color: var(--accent); }
+  .signals-table .col-chg.pos { color: var(--up); }
+  .signals-table .col-chg.neg { color: var(--down); }
+  .signals-table .col-sl { color: var(--down); }
+  .signals-table .col-tp1, .signals-table .col-tp2, .signals-table .col-tp3 { color: var(--up); }
+  .signals-table .col-rr  { color: var(--text-1); }
+  .signals-table .col-confirms { font-size: 10px; color: var(--text-2); max-width: 280px; white-space: normal; line-height: 1.35; }
+  .signals-table .col-confirms .conf-chip { display: inline-block; padding: 1px 6px; margin: 1px 3px 1px 0; border-radius: 3px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+  .signals-table .col-confirms .conf-chip.strong { color: var(--accent); border-color: rgba(0,255,163,0.3); background: rgba(0,255,163,0.06); }
+  .signals-table .col-vol { color: var(--text-1); }
+  /* On mobile / narrow screens, collapse low-priority columns */
+  @media (max-width: 1100px) {
+    .signals-table thead th:nth-child(11),
+    .signals-table tbody td:nth-child(11),
+    .signals-table thead th:nth-child(13),
+    .signals-table tbody td:nth-child(13),
+    .signals-table thead th:nth-child(14),
+    .signals-table tbody td:nth-child(14) { display: none; }
+  }
+  @media (max-width: 760px) {
+    .signals-table thead th:nth-child(6),
+    .signals-table tbody td:nth-child(6),
+    .signals-table thead th:nth-child(10),
+    .signals-table tbody td:nth-child(10),
+    .signals-table thead th:nth-child(12),
+    .signals-table tbody td:nth-child(12) { display: none; }
+    .signals-table { font-size: 10px; }
+  }
+
   /* Embed mode: strip chrome when ?embed=1 */
   body.embed-mode header,
   body.embed-mode > nav,
@@ -1981,6 +2052,10 @@ try {
         </p>
       </div>
       <div class="signals-head-r">
+        <div class="signals-view-toggle" role="tablist" aria-label="Signals view">
+          <button class="sv-btn active" data-mode="table" role="tab">TABLE</button>
+          <button class="sv-btn" data-mode="cards" role="tab">CARDS</button>
+        </div>
         <span id="signals-status" class="signals-status">idle</span>
         <button class="btn btn-primary" id="signals-generate">GENERATE</button>
       </div>
@@ -2005,10 +2080,45 @@ try {
       </div>
     </div>
 
-    <div class="signals-cols">
+    <!-- Default view: combined sortable table -->
+    <div class="signals-table-wrap" id="signals-table-wrap">
+      <div class="signals-side-filter">
+        <button class="sf-btn active" data-side="all">ALL · <span id="sig-tbl-all-count">0</span></button>
+        <button class="sf-btn" data-side="long">LONGS · <span id="sig-tbl-long-count">0</span></button>
+        <button class="sf-btn" data-side="short">SHORTS · <span id="sig-tbl-short-count">0</span></button>
+      </div>
+      <div class="signals-table-scroll">
+        <table class="signals-table" id="signals-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="rank" style="width:38px">#</th>
+              <th class="sortable" data-sort="side">Side</th>
+              <th class="sortable" data-sort="sym">Symbol</th>
+              <th class="sortable sort-active sort-desc" data-sort="score" title="Composite score">Score</th>
+              <th class="sortable" data-sort="price" title="Current price">Price</th>
+              <th class="sortable" data-sort="chg24" title="24h price change">24h</th>
+              <th class="sortable" data-sort="entry">Entry</th>
+              <th class="sortable" data-sort="sl">SL</th>
+              <th class="sortable" data-sort="tp1">TP1</th>
+              <th class="sortable" data-sort="tp2">TP2</th>
+              <th class="sortable" data-sort="tp3">TP3</th>
+              <th class="sortable" data-sort="rr">R:R</th>
+              <th>Confirms</th>
+              <th class="sortable" data-sort="vol">Vol 24h</th>
+            </tr>
+          </thead>
+          <tbody id="sig-table-body">
+            <tr><td colspan="14" class="signals-empty">Press <kbd>GENERATE</kbd> to compute today's signals.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Alternate: card view (toggle) -->
+    <div class="signals-cols" id="signals-cards-wrap" style="display:none;">
       <div class="signals-col">
         <div class="signals-col-hd long">
-          <span class="dot"></span> TOP LONGS
+          <span class="dot"></span> LONGS
           <span class="signals-col-count" id="sig-long-count">0</span>
         </div>
         <div class="signals-col-body" id="sig-long-list">
@@ -2017,7 +2127,7 @@ try {
       </div>
       <div class="signals-col">
         <div class="signals-col-hd short">
-          <span class="dot"></span> TOP SHORTS
+          <span class="dot"></span> SHORTS
           <span class="signals-col-count" id="sig-short-count">0</span>
         </div>
         <div class="signals-col-body" id="sig-short-list">
@@ -14903,6 +15013,8 @@ setTimeout(() => {
   const OI_FALLING_MAX       = -0.03;        // -3% OI delta
   const PRICE_BIG_MOVE       = 0.03;         // 3% 24h
   const BASIS_MIN_BPS        = 20;           // 20 bps cross-exchange spread
+  const LIQ_CASCADE_USD      = 1_500_000;    // min total liq USD over 24h to qualify
+  const LIQ_ASYMMETRY        = 2.5;          // side dominance ratio for cascade signal
   const FETCH_CONCURRENCY    = 8;            // parallel binance hits
 
   // Volume-classified TP/SL profiles (% from entry)
@@ -15039,6 +15151,51 @@ setTimeout(() => {
     return { l, s, confirms };
   }
 
+  // 4. Liquidation Cascade — uses STATE.liqEventsAll (rolling 24h)
+  // Side dominance >2.5× plus minimum USD threshold = forced-flow signal.
+  // Pairs naturally with OI: if shorts were liquidated AND OI is still
+  // rising, the squeeze isn't done; if OI flushed alongside, it's exhaustion.
+  function indLiqCascade(sym, oiDelta) {
+    const confirms = [];
+    let l = 0, s = 0;
+    if (!STATE?.liqEventsAll) return { l, s, confirms };
+    const cut = Date.now() - 24 * 3600_000;
+    let longLiqUsd = 0, shortLiqUsd = 0;
+    for (const ev of STATE.liqEventsAll) {
+      if (ev.symbol !== sym || ev.time < cut) continue;
+      // ev.side: "BUY" = short being liquidated (price went up); "SELL" = long being liquidated
+      if (ev.side === 'BUY' || ev.side === 'buy')  shortLiqUsd += +ev.usd || 0;
+      if (ev.side === 'SELL' || ev.side === 'sell') longLiqUsd  += +ev.usd || 0;
+    }
+    const total = longLiqUsd + shortLiqUsd;
+    if (total < LIQ_CASCADE_USD) return { l, s, confirms };
+
+    const fmtUsd = (n) => n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : `$${(n/1e3).toFixed(0)}K`;
+
+    if (shortLiqUsd > longLiqUsd * LIQ_ASYMMETRY) {
+      // Shorts getting squeezed → LONG bias. Stronger if OI still rising.
+      const base = 1.5;
+      const oiBoost = oiDelta > OI_RISING_MIN ? 0.8 : 0;
+      l += base + oiBoost;
+      confirms.push({
+        side: 'long',
+        label: `${fmtUsd(shortLiqUsd)} shorts liq'd vs ${fmtUsd(longLiqUsd)} longs (24h)`,
+        strong: oiBoost > 0,
+      });
+    }
+    if (longLiqUsd > shortLiqUsd * LIQ_ASYMMETRY) {
+      const base = 1.5;
+      const oiBoost = oiDelta < OI_FALLING_MAX ? 0.8 : 0;
+      s += base + oiBoost;
+      confirms.push({
+        side: 'short',
+        label: `${fmtUsd(longLiqUsd)} longs liq'd vs ${fmtUsd(shortLiqUsd)} shorts (24h)`,
+        strong: oiBoost > 0,
+      });
+    }
+    return { l, s, confirms };
+  }
+
   // 3. Cross-Exchange Basis (current snapshot — sustained-check is v2)
   function indBasisSpread(sym, price) {
     const confirms = [];
@@ -15109,22 +15266,23 @@ setTimeout(() => {
     const i1 = indFundingFlip({ funding: f }, oiDelta);
     const i2 = indOiDivergence(priceChg, oiDelta);
     const i3 = indBasisSpread(rec.sym, rec.price);
+    const i4 = indLiqCascade(rec.sym, oiDelta);
 
-    const longTotal  = i1.l + i2.l + i3.l;
-    const shortTotal = i1.s + i2.s + i3.s;
+    const longTotal  = i1.l + i2.l + i3.l + i4.l;
+    const shortTotal = i1.s + i2.s + i3.s + i4.s;
 
     // Multi-confirm gate: at least 2 independent indicators contributing > 0.5
-    const longConfirmsCount  = (i1.l > 0.5 ? 1 : 0) + (i2.l > 0.5 ? 1 : 0) + (i3.l > 0.5 ? 1 : 0);
-    const shortConfirmsCount = (i1.s > 0.5 ? 1 : 0) + (i2.s > 0.5 ? 1 : 0) + (i3.s > 0.5 ? 1 : 0);
+    const longConfirmsCount  = (i1.l > 0.5 ? 1 : 0) + (i2.l > 0.5 ? 1 : 0) + (i3.l > 0.5 ? 1 : 0) + (i4.l > 0.5 ? 1 : 0);
+    const shortConfirmsCount = (i1.s > 0.5 ? 1 : 0) + (i2.s > 0.5 ? 1 : 0) + (i3.s > 0.5 ? 1 : 0) + (i4.s > 0.5 ? 1 : 0);
 
-    const allConfirms = [...i1.confirms, ...i2.confirms, ...i3.confirms];
+    const allConfirms = [...i1.confirms, ...i2.confirms, ...i3.confirms, ...i4.confirms];
     const meta = {
       oiDelta, oiNow, oi24,
       priceChg24h: priceChg,
       fundingCurrent: f.length ? +f[f.length - 1].fundingRate : null,
       fundingPrev:    f.length > 1 ? +f[f.length - 2].fundingRate : null,
       vol: rec.vol,
-      indicators: { funding: i1, divergence: i2, basis: i3 },
+      indicators: { funding: i1, divergence: i2, basis: i3, liqCascade: i4 },
     };
 
     return {
@@ -15165,8 +15323,10 @@ setTimeout(() => {
         if (r && (r.longScore > 0 || r.shortScore > 0)) scored.push(r);
       }
 
-      const longs  = scored.filter(s => s.longScore > 0).sort((a, b) => b.longScore - a.longScore).slice(0, 5);
-      const shorts = scored.filter(s => s.shortScore > 0).sort((a, b) => b.shortScore - a.shortScore).slice(0, 5);
+      // Show ALL qualifying signals (no top-N slice) so the table view
+      // can present the full ranked list. Card view uses the full list too.
+      const longs  = scored.filter(s => s.longScore > 0).sort((a, b) => b.longScore - a.longScore);
+      const shorts = scored.filter(s => s.shortScore > 0).sort((a, b) => b.shortScore - a.shortScore);
 
       // Build full signal records with TP/SL
       const longRecs = longs.map(s => {
@@ -15310,6 +15470,105 @@ setTimeout(() => {
     if (sEl) sEl.textContent = (swr === null || shortRows.length < 10) ? `building (n=${shortRows.length})` : `${(swr*100).toFixed(0)}% · n=${shortRows.length}`;
   }
 
+  // ---- Table view state ----
+  let tableSort = { key: 'score', dir: -1 };
+  let sideFilter = 'all'; // 'all' | 'long' | 'short'
+  let viewMode  = 'table'; // 'table' | 'cards'
+
+  function flatRows() {
+    return [...lastSignals.longs, ...lastSignals.shorts]
+      .filter(r => sideFilter === 'all' || r.side === sideFilter);
+  }
+
+  function compareRows(a, b, key) {
+    const get = (r, k) => {
+      const z = r.zones || {};
+      const m = r.meta || {};
+      switch (k) {
+        case 'rank':  return 0;
+        case 'side':  return r.side;
+        case 'sym':   return r.sym;
+        case 'score': return r.score;
+        case 'price': return z.entry;
+        case 'chg24': return m.priceChg24h;
+        case 'entry': return z.entry;
+        case 'sl':    return z.stopLoss;
+        case 'tp1':   return z.tp1;
+        case 'tp2':   return z.tp2;
+        case 'tp3':   return z.tp3;
+        case 'rr':    return z.tp1Pct / z.slPct;
+        case 'vol':   return m.vol;
+        default: return 0;
+      }
+    };
+    const av = get(a, key), bv = get(b, key);
+    if (typeof av === 'string') return av.localeCompare(bv);
+    return (av || 0) - (bv || 0);
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('sig-table-body');
+    if (!tbody) return;
+    let rows = flatRows();
+    rows.sort((a, b) => tableSort.dir * compareRows(a, b, tableSort.key));
+
+    const fmtN = (v, dp = 4) => Number.isFinite(v) ? (Math.abs(v) >= 1 ? (+v).toFixed(2) : (+v).toFixed(dp).replace(/0+$/, '').replace(/\.$/, '')) : '—';
+    const fmtUsdShort = (v) => !Number.isFinite(+v) ? '—' : (+v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : +v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : +v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${(+v).toFixed(0)}`);
+    const fmtPct = (p, decimals = 1) => Number.isFinite(p) ? `${(p * 100).toFixed(decimals)}%` : '—';
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="14" class="signals-empty">No qualifying signals${sideFilter !== 'all' ? ' on this side' : ''}.<br/><span style="font-size:11px;opacity:0.7">Markets need 2+ confirms to align — try at the next funding window.</span></td></tr>`;
+    } else {
+      tbody.innerHTML = rows.map((r, i) => {
+        const z = r.zones, m = r.meta || {};
+        const rr = (z.tp1Pct / z.slPct).toFixed(1);
+        const scoreCls = r.score >= 7 ? 'high' : '';
+        const chgPctV = m.priceChg24h ?? 0;
+        const chgCls = chgPctV >= 0 ? 'pos' : 'neg';
+        const chips = (r.confirms || []).slice(0, 3).map(c =>
+          `<span class="conf-chip${c.strong ? ' strong' : ''}" title="${(c.label || '').replace(/"/g,'&quot;')}">${c.label}</span>`
+        ).join(' ');
+        return `
+          <tr class="row-${r.side}" data-sym="${r.sym}">
+            <td class="col-rank">${i + 1}</td>
+            <td><span class="col-side ${r.side}">${r.side.toUpperCase()}</span></td>
+            <td class="col-sym">${r.sym}</td>
+            <td class="col-score ${scoreCls}">${r.score.toFixed(1)}</td>
+            <td>${fmtN(z.entry)}</td>
+            <td class="col-chg ${chgCls}">${fmtPct(chgPctV)}</td>
+            <td>${fmtN(z.entry)}</td>
+            <td class="col-sl">${fmtN(z.stopLoss)}<div style="font-size:9px;opacity:0.6">−${fmtPct(z.slPct)}</div></td>
+            <td class="col-tp1">${fmtN(z.tp1)}<div style="font-size:9px;opacity:0.6">+${fmtPct(z.tp1Pct)}</div></td>
+            <td class="col-tp2">${fmtN(z.tp2)}<div style="font-size:9px;opacity:0.6">+${fmtPct(z.tp2Pct)}</div></td>
+            <td class="col-tp3">${fmtN(z.tp3)}<div style="font-size:9px;opacity:0.6">+${fmtPct(z.tp3Pct)}</div></td>
+            <td class="col-rr">1:${rr}</td>
+            <td class="col-confirms">${chips || '<span class="conf-chip">single</span>'}</td>
+            <td class="col-vol">$${fmtUsdShort(m.vol)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    // Symbol click → switch active symbol + jump to overview
+    tbody.querySelectorAll('.col-sym').forEach(el => {
+      el.addEventListener('click', () => {
+        const sym = el.closest('tr')?.dataset?.sym;
+        if (!sym) return;
+        if (typeof window.setActiveSymbol === 'function') window.setActiveSymbol(sym);
+        else STATE.symbol = sym;
+        if (typeof switchView === 'function') switchView('overview');
+      });
+    });
+
+    // Refresh side filter counts
+    const allCount = lastSignals.longs.length + lastSignals.shorts.length;
+    const lc = document.getElementById('sig-tbl-long-count');
+    const sc = document.getElementById('sig-tbl-short-count');
+    const ac = document.getElementById('sig-tbl-all-count');
+    if (lc) lc.textContent = lastSignals.longs.length;
+    if (sc) sc.textContent = lastSignals.shorts.length;
+    if (ac) ac.textContent = allCount;
+  }
+
   // ---- Render ----
   function renderSignals() {
     const fmtN = (v, dp = 4) => Number.isFinite(v) ? (Math.abs(v) >= 1 ? (+v).toFixed(2) : (+v).toFixed(dp).replace(/0+$/, '').replace(/\.$/, '')) : '—';
@@ -15377,12 +15636,61 @@ setTimeout(() => {
         }
       });
     });
+
+    // Always (re)render the table view from same data
+    renderTable();
+  }
+
+  function applyViewMode(mode) {
+    viewMode = mode;
+    const tWrap = document.getElementById('signals-table-wrap');
+    const cWrap = document.getElementById('signals-cards-wrap');
+    if (tWrap) tWrap.style.display = (mode === 'table') ? '' : 'none';
+    if (cWrap) cWrap.style.display = (mode === 'cards') ? '' : 'none';
+    document.querySelectorAll('.signals-view-toggle .sv-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    try { localStorage.setItem('cortex.signalsView', mode); } catch {}
   }
 
   // ---- Hook into the global view router ----
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('signals-generate');
     if (btn) btn.addEventListener('click', generate);
+
+    // View toggle (TABLE | CARDS)
+    document.querySelectorAll('.signals-view-toggle .sv-btn').forEach(b => {
+      b.addEventListener('click', () => applyViewMode(b.dataset.mode));
+    });
+    // Restore last-chosen view
+    try {
+      const saved = localStorage.getItem('cortex.signalsView');
+      if (saved === 'cards' || saved === 'table') applyViewMode(saved);
+    } catch {}
+
+    // Side filter (ALL / LONGS / SHORTS) in the table header strip
+    document.querySelectorAll('.signals-side-filter .sf-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.signals-side-filter .sf-btn').forEach(o => o.classList.toggle('active', o === b));
+        sideFilter = b.dataset.side;
+        renderTable();
+      });
+    });
+
+    // Sortable table headers
+    document.querySelectorAll('#signals-table thead th.sortable').forEach(th => {
+      th.addEventListener('click', () => {
+        const k = th.dataset.sort;
+        if (tableSort.key === k) tableSort.dir = -tableSort.dir;
+        else { tableSort.key = k; tableSort.dir = -1; }
+        // Visual: clear all then mark current
+        document.querySelectorAll('#signals-table thead th').forEach(o => {
+          o.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+        });
+        th.classList.add('sort-active', tableSort.dir === 1 ? 'sort-asc' : 'sort-desc');
+        renderTable();
+      });
+    });
+
     // First-load hit-rate fetch (best-effort)
     setTimeout(() => { try { refreshHitRate(); resolveOldSignals(); } catch {} }, 4000);
   });
