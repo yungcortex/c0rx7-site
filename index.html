@@ -15121,19 +15121,27 @@ setTimeout(() => {
   let supabaseClient = null;
 
   // ---- Supabase helper (best-effort — no-op if not configured) ----
+  // Prefer the existing CortexCloud client (already authed + same project)
+  // so we don't double-create. Fall back to building one from CORTEX_CLOUD
+  // config if the cloud module isn't ready yet on first call.
   function getSupabase() {
-    if (supabaseClient !== null) return supabaseClient;
-    if (typeof window === 'undefined' || !window.supabase || !window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
-      supabaseClient = false;
-      return null;
-    }
+    if (supabaseClient && supabaseClient !== false) return supabaseClient;
     try {
-      supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-      return supabaseClient;
+      // Reuse the live CortexCloud client if available
+      if (window.CortexCloud && typeof window.CortexCloud.client === 'function') {
+        const c = window.CortexCloud.client();
+        if (c) { supabaseClient = c; return supabaseClient; }
+      }
+      // Fall back: build our own from the config the site already injects
+      const cfg = window.CORTEX_CLOUD || {};
+      if (window.supabase && cfg.url && cfg.anonKey) {
+        supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+        return supabaseClient;
+      }
     } catch (e) {
-      supabaseClient = false;
-      return null;
+      console.warn('[signals] supabase init failed', e);
     }
+    return null;
   }
 
   // ---- Fetch helpers (re-use existing fetchJson if exposed; else local) ----
