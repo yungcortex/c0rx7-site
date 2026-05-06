@@ -27,6 +27,8 @@ node_modules/
 dist/
 .netlify/
 .vercel/
+# Vercel build output for the game (mounted at /play/)
+/play/
 
 # Misc
 *.bak

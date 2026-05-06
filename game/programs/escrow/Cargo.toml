@@ -1,0 +1,20 @@
+[package]
+name = "bean-royale-escrow"
+version = "0.1.0"
+description = "Bean Royale match-pot escrow program"
+edition = "2021"
+license-file = "LICENSE"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "bean_royale_escrow"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
