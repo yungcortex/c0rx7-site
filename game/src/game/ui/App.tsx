@@ -13,6 +13,7 @@ import { ProfileScreen } from "@ui/screens/ProfileScreen";
 import { UsernamePrompt } from "@ui/screens/UsernamePrompt";
 import { TournamentBracketScreen } from "@ui/screens/TournamentBracketScreen";
 import { CrownPodiumScreen } from "@ui/screens/CrownPodiumScreen";
+import { TournamentDepositScreen } from "@ui/screens/TournamentDepositScreen";
 import { useProfile } from "@state/profile";
 import { useTournament } from "@state/tournament";
 import { useMatch } from "@state/match";
@@ -43,6 +44,15 @@ export function App({ engine }: Props) {
   const tournamentQualified = useTournament((s) => s.qualified);
   const abortTournament = useTournament((s) => s.abort);
   const [showPodium, setShowPodium] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+
+  // Lobby tournament card dispatches `bean-royale:open-deposit` — open the
+  // deposit modal here. (Without this listener nothing happens on click.)
+  useEffect(() => {
+    const onOpen = () => setShowDeposit(true);
+    window.addEventListener("bean-royale:open-deposit", onOpen);
+    return () => window.removeEventListener("bean-royale:open-deposit", onOpen);
+  }, []);
 
   useEffect(() => {
     init();
@@ -152,6 +162,17 @@ export function App({ engine }: Props) {
             abortTournament();
             engine.go("title");
             setShowLobby(true);
+          }}
+        />
+      )}
+      {showDeposit && (
+        <TournamentDepositScreen
+          onCancel={() => setShowDeposit(false)}
+          onConfirm={() => {
+            setShowDeposit(false);
+            // LobbyScreen attaches a window listener for this event that
+            // calls startTournament + setVariant + onEnterMatch (engine.go).
+            window.dispatchEvent(new CustomEvent("bean-royale:start-tournament"));
           }}
         />
       )}
