@@ -466,6 +466,11 @@ try {
   }
   .nav-tab:hover { color: var(--text-0); }
   .nav-tab.active { color: var(--text-0); border-bottom-color: var(--accent); text-shadow: 0 0 10px rgba(0,255,163,0.4); }
+  .nav-tab .badge.badge-flash { animation: badge-flash 1.4s ease-out 1; }
+  @keyframes badge-flash {
+    0%   { background: rgba(0,255,163,0.55); color: var(--text-0); box-shadow: 0 0 16px rgba(0,255,163,0.7); transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
   .nav-tab .badge {
     display:inline-block; margin-left:6px; padding: 1px 6px; border-radius: 999px;
     background: rgba(255,255,255,0.06); color: var(--text-1); font-size: 9px; letter-spacing: 0.1em;
@@ -15548,6 +15553,7 @@ setTimeout(() => {
       if (tabBadge) tabBadge.textContent = String(dedup.length);
       renderSignals();
       startAgeTimer();
+      startPollTimer();
       return true;
     } catch (e) {
       console.warn('[signals] history load failed', e);
@@ -15686,6 +15692,35 @@ setTimeout(() => {
       const view = document.getElementById('view-signals');
       if (view && !view.classList.contains('hidden')) renderTable();
     }, 15_000);
+  }
+
+  // Auto-poll Supabase every 60s for newly-inserted signals from the
+  // server cron. So if a fresh signal lands while the user has the page
+  // open, it appears on the next refresh without any click. Throttled
+  // and only fires when the Signals view is visible.
+  let pollTimer = null;
+  function startPollTimer() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      const view = document.getElementById('view-signals');
+      if (!view || view.classList.contains('hidden')) return;
+      try {
+        const beforeIds = new Set([...lastSignals.longs, ...lastSignals.shorts].map(s => `${s.sym}:${s.side}:${s.createdAtMs}`));
+        await loadRecentSignals(24);
+        const afterRows = [...lastSignals.longs, ...lastSignals.shorts];
+        const fresh = afterRows.filter(s => !beforeIds.has(`${s.sym}:${s.side}:${s.createdAtMs}`));
+        if (fresh.length) {
+          const tabBadge = document.getElementById('tab-sig-count');
+          if (tabBadge) {
+            tabBadge.classList.add('badge-flash');
+            setTimeout(() => tabBadge.classList.remove('badge-flash'), 2000);
+          }
+          // Toast for the freshest one (avoid spam if many at once)
+          const top = fresh.sort((a, b) => b.score - a.score)[0];
+          notifyToast(`✦ New ${top.side.toUpperCase()} signal — ${top.sym} score ${top.score.toFixed(1)}`, 'win');
+        }
+      } catch (e) { /* keep going */ }
+    }, 60_000);
   }
 
   function fmtAge(ms) {

@@ -1,0 +1,33 @@
+name: signals-cron
+
+# Runs every 30 minutes — pings the /api/cron/generate-signals endpoint
+# on Vercel. The endpoint itself does universe filter → score → insert
+# into Supabase with a 4h same-coin/side dedup. So firing every 30 min
+# is safe — duplicates get filtered server-side.
+#
+# Why GitHub Actions (not Vercel cron)? Vercel Hobby plan limits cron
+# to once-per-day. GitHub Actions on a public repo is free and supports
+# 5-minute minimum intervals. We use 30 min as a sweet spot.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Hit signals cron endpoint
+        run: |
+          set -e
+          echo "Pinging $(date -u) ..."
+          response=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\n" \
+            --max-time 90 \
+            ${CRON_SECRET:+-H "Authorization: Bearer $CRON_SECRET"} \
+            "https://c0r7x.com/api/cron/generate-signals")
+          echo "$response"
+          echo "$response" | grep -q "HTTP_STATUS:200" || { echo "::error::Non-200 response"; exit 1; }
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

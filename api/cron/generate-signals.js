@@ -243,6 +243,31 @@ function scoreSymbol(rec, hist, others) {
 }
 
 // ---- Supabase REST ----
+const DEDUP_WINDOW_HOURS = 4;
+
+async function supabaseGetRecent() {
+  // Fetch (sym, side) pairs from the last DEDUP_WINDOW_HOURS so we don't
+  // re-insert the same signal every 30 minutes when conditions persist.
+  if (!SUPABASE_SERVICE_ROLE_KEY) return new Set();
+  const since = new Date(Date.now() - DEDUP_WINDOW_HOURS * 3600_000).toISOString();
+  const url = `${SUPABASE_URL}/rest/v1/signals?select=symbol,side&created_at=gt.${encodeURIComponent(since)}`;
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    if (!r.ok) return new Set();
+    const arr = await r.json();
+    const seen = new Set();
+    for (const row of arr) seen.add(`${row.symbol}:${row.side}`);
+    return seen;
+  } catch (e) {
+    return new Set();
+  }
+}
+
 async function supabaseInsert(rows) {
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('[cron] no SUPABASE_SERVICE_ROLE_KEY set — skipping persist');
@@ -288,9 +313,15 @@ async function handler(req, res) {
     const longs  = scored.filter(s => s.longScore > 0).sort((a, b) => b.longScore - a.longScore);
     const shorts = scored.filter(s => s.shortScore > 0).sort((a, b) => b.shortScore - a.shortScore);
 
+    // De-dup: skip any (sym, side) we already inserted in the last 4h
+    const recent = await supabaseGetRecent();
+    const filterDup = (s, side) => !recent.has(`${s.sym}:${side}`);
+
     // Build Supabase rows
     const rows = [];
+    let dupSkipped = 0;
     for (const s of longs) {
+      if (!filterDup(s, 'long')) { dupSkipped++; continue; }
       const z = computeZones('long', s.price, s.vol);
       rows.push({
         symbol: s.sym, side: 'long', signal_type: 'composite', score: s.longScore,
@@ -299,6 +330,7 @@ async function handler(req, res) {
       });
     }
     for (const s of shorts) {
+      if (!filterDup(s, 'short')) { dupSkipped++; continue; }
       const z = computeZones('short', s.price, s.vol);
       rows.push({
         symbol: s.sym, side: 'short', signal_type: 'composite', score: s.shortScore,
@@ -317,6 +349,7 @@ async function handler(req, res) {
       crossExSymbols: Object.keys(others).length,
       longCount: longs.length,
       shortCount: shorts.length,
+      dupSkipped,
       dbResult,
       topLongs:  longs.slice(0, 5).map(s => ({ sym: s.sym, score: +s.longScore.toFixed(1) })),
       topShorts: shorts.slice(0, 5).map(s => ({ sym: s.sym, score: +s.shortScore.toFixed(1) })),
