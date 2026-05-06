@@ -1285,6 +1285,42 @@ try {
     100% { box-shadow: 0 0 0 0 rgba(0,255,163,0), 0 0 0 rgba(0,255,163,0); }
   }
 
+  /* ============ DEFAULT LAYOUT — strip rarely-used customization UI ============
+     User wants the site to "just look like how it is" without the configurable
+     bits. We hide the smart-tab focus filter, the sidebar focus group, and
+     the layout-preset group. JS still uses these state values internally
+     (set to defaults), so nothing breaks — they just stop being clickable
+     UI clutter. To bring them back, delete this block. */
+  #smart-tabs { display: none !important; }
+  /* Sidebar groups: Focus + Layout — match by their first child .side-section */
+  aside .side-group:has(.side-filter-item),
+  aside .side-group:has(.side-ws-item) { display: none !important; }
+  /* Mobile: also nuke the section headers */
+  body .side-section:where(.is-focus, .is-layout) { display: none !important; }
+
+  /* Friendlier "signed in" status indicator (top-right of header) */
+  .auth-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 0.18em; padding: 4px 9px;
+    border-radius: 999px; background: rgba(0,255,163,0.06);
+    border: 1px solid rgba(0,255,163,0.25); color: var(--accent);
+    text-transform: uppercase;
+  }
+  .auth-status .auth-dot { width: 5px; height: 5px; border-radius:999px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .auth-toast {
+    position: fixed; top: 64px; right: 14px; z-index: 200;
+    background: rgba(7, 14, 22, 0.95); border: 1px solid rgba(0,255,163,0.3);
+    color: var(--text-0); padding: 8px 12px; border-radius: 5px;
+    font-size: 11px; letter-spacing: 0.04em; max-width: 280px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6); animation: toast-in 0.4s ease, toast-out 0.6s ease 4s forwards;
+  }
+  @keyframes toast-in  { from { transform: translateY(-6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+  @keyframes toast-out { to   { transform: translateY(-6px); opacity: 0 } }
+
+  /* Soften the auth gate copy so it reads less "wall of text" */
+  #auth-gate .ag-card { transform: scale(0.98); transition: transform 0.4s ease; }
+  body.auth-gated #auth-gate .ag-card { transform: scale(1); }
+
   /* ============ SIGNALS VIEW ============ */
   .signals-wrap { padding: 14px 16px 24px; max-width: 1500px; margin: 0 auto; }
   .signals-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 14px; }
@@ -14768,6 +14804,76 @@ setTimeout(() => {
   }
   setTimeout(poll, 4000);
   setTimeout(poll, 10000);
+})();
+
+/* ====================================================================
+   AUTH UX POLISH — visible signed-in chip + welcome-back toast
+   ====================================================================
+   The auth gate already does session persistence (Supabase persistSession
+   + autoRefreshToken). Most "I keep getting logged out" complaints are
+   actually "I can't tell I'm signed in." This adds:
+     1. A small ✓ chip in the header showing handle when signed in
+     2. A 4-second toast on first session restore each tab session
+   The session itself is already remembered — Supabase stores access +
+   refresh tokens in localStorage and silently refreshes. ==================== */
+(function authStatusUI(){
+  if (!window.CortexCloud) return;
+  let restoredOnce = false;
+
+  function chipEl() {
+    let el = document.getElementById('auth-status-chip');
+    if (el) return el;
+    el = document.createElement('span');
+    el.id = 'auth-status-chip';
+    el.className = 'auth-status';
+    el.style.display = 'none';
+    // Inject near the top-right header — best effort: append into nav-tabs row
+    const host = document.querySelector('header') || document.body;
+    host.appendChild(el);
+    el.style.position = 'fixed';
+    el.style.top = '12px';
+    el.style.right = '14px';
+    el.style.zIndex = '120';
+    el.title = 'Click to sign out';
+    el.addEventListener('click', () => {
+      if (!confirm('Sign out of c0r7x?')) return;
+      try { CortexCloud.auth.signOut(); } catch {}
+    });
+    return el;
+  }
+  function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'auth-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5200);
+  }
+  function update() {
+    const u = CortexCloud.getUser?.();
+    const p = CortexCloud.getProfile?.();
+    const el = chipEl();
+    if (u) {
+      const handle = p?.handle || u.email?.split('@')[0] || 'signed in';
+      el.style.display = 'inline-flex';
+      el.innerHTML = `<span class="auth-dot"></span><span>${handle}</span>`;
+      // Toast only on the first restore per page-load (so refreshes don't spam)
+      if (!restoredOnce) {
+        restoredOnce = true;
+        try {
+          const k = 'cortex.lastWelcomeAt';
+          const last = +(localStorage.getItem(k) || 0);
+          if (Date.now() - last > 60_000) {
+            toast(`Welcome back, ${handle} — session restored.`);
+            localStorage.setItem(k, String(Date.now()));
+          }
+        } catch {}
+      }
+    } else {
+      el.style.display = 'none';
+    }
+  }
+  CortexCloud.on('auth', update);
+  setTimeout(update, 800);
 })();
 
 /* ====================================================================
