@@ -23,6 +23,7 @@ import { hsvToRgbColor, paletteIndexToColor } from "@game/systems/character/colo
 import { BonkController, type BonkControllerOptions } from "@game/systems/movement/BonkController";
 import { spawnAiDummy, AiDummyController } from "@game/systems/movement/AiDummyController";
 import { buildArenaSurface, type ArenaSurface } from "@game/scenes/arena-bonk/arenaVariants";
+import { spawnConfettiBurst } from "@game/scenes/arena-bonk/decorations";
 
 export interface BonkArenaContext {
   scene: Scene;
@@ -266,6 +267,30 @@ export function buildBonkArenaScene(engine: Engine, canvas: HTMLCanvasElement): 
         useMatch.getState().registerKO();
       }
     }
+
+    // Confetti party on player win — 6 staggered bursts around player
+    const phase = useMatch.getState().phase;
+    if (phase === "won" && !((scene as unknown as { _wonConfetti?: boolean })._wonConfetti)) {
+      (scene as unknown as { _wonConfetti?: boolean })._wonConfetti = true;
+      const bursts: Array<[number, number, number, number]> = [
+        [0, 2, 0, 0],
+        [-2, 3, 1, 180],
+        [2, 3, -1, 360],
+        [-3, 4, -2, 540],
+        [3, 4, 2, 720],
+        [0, 5, 0, 900],
+      ];
+      for (const [dx, dy, dz, delay] of bursts) {
+        setTimeout(
+          () => spawnConfettiBurst(scene, playerRoot.position.add(new Vector3(dx, dy, dz))),
+          delay,
+        );
+      }
+    }
+
+    // Subtle FOV pump while running for that "I'm fast" feel
+    const targetFov = controller.state === "run" ? 1.06 : 0.95;
+    camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 5);
 
     // Smooth camera lerp toward player position (face-height target)
     const target = playerRoot.position;

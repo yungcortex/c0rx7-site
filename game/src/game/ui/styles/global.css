@@ -767,6 +767,51 @@ input {
   50% { box-shadow: 0 0 48px rgba(255, 105, 180, 0.32), inset 0 0 32px rgba(255, 200, 230, 0.16); }
 }
 
+/* ============== ROUND-START SPLASH ============== */
+.match-splash {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  text-align: center;
+  pointer-events: none;
+  animation: splash-in 1.7s ease forwards;
+}
+@keyframes splash-in {
+  0% { opacity: 0; transform: translate(-50%, -10px) scale(0.92); }
+  10% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  82% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 0) scale(1.08); }
+}
+.match-splash-tag {
+  font-size: 0.95rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #fff685;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.match-splash-name {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 4rem;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  background: linear-gradient(90deg, #ffb6d8, #fff685, #b6e5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 4px 24px rgba(255, 182, 216, 0.4);
+}
+.match-splash-sub {
+  font-size: 1.1rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-top: 0.4rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
 /* ============== CROWN PODIUM ============== */
 .podium-screen {
   position: fixed;

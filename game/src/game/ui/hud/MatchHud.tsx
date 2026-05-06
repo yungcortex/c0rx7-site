@@ -1,9 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useMatch } from "@state/match";
+import { useTournament } from "@state/tournament";
 import { playSfx } from "@game/systems/audio/SoundManager";
+import type { ArenaVariantId } from "@game/scenes/arena-bonk/arenaVariants";
+
+const ARENA_TITLES: Record<ArenaVariantId, { name: string; tag: string }> = {
+  "bonk-island": { name: "Bonk Brawl", tag: "Last Bean Standing" },
+  "bean-race": { name: "Bean Race", tag: "First Across the Finish" },
+  "king-of-bell": { name: "King of the Bell", tag: "Hold the Golden Zone" },
+  "hot-bean": { name: "Hot Bean", tag: "Survive the Volcano" },
+  "jump-club": { name: "Jump Club", tag: "Hop the Sweeping Beam" },
+  "hex-a-gone": { name: "Hex-A-Gone", tag: "Tiles Vanish, Don't Fall" },
+  "block-party": { name: "Block Party", tag: "Find the Gap" },
+  "slime-climb": { name: "Slime Climb", tag: "Race the Rising Slime" },
+  "roll-out": { name: "Roll Out", tag: "Stay on the Cylinders" },
+  "door-dash": { name: "Door Dash", tag: "Pick the Real Doors" },
+  "tail-tag": { name: "Tail Tag", tag: "Snatch the Tails" },
+};
 
 export function MatchHud({ onExit }: { onExit: () => void }) {
   const phase = useMatch((s) => s.phase);
+  const variant = useMatch((s) => s.variant);
   const beansAlive = useMatch((s) => s.beansAlive);
   const totalBeans = useMatch((s) => s.totalBeans);
   const bonks = useMatch((s) => s.bonks);
@@ -11,7 +28,11 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
   const playableAt = useMatch((s) => s.playableAt);
   const endedAt = useMatch((s) => s.endedAt);
   const invulnerableUntil = useMatch((s) => s.invulnerableUntil);
+  const tournamentActive = useTournament((s) => s.active);
+  const tournamentRoundIdx = useTournament((s) => s.roundIdx);
+  const tournamentRounds = useTournament((s) => s.rounds);
   const [now, setNow] = useState(Date.now());
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (phase !== "playing" && phase !== "countdown") return;
@@ -55,6 +76,18 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
     if (!countdownLabel) lastBeep.current = null;
   }, [countdownLabel]);
 
+  // Round-start splash (1.7s) — fades in, holds, fades out
+  useEffect(() => {
+    setShowSplash(true);
+    const id = window.setTimeout(() => setShowSplash(false), 1700);
+    return () => window.clearTimeout(id);
+  }, [variant]);
+
+  const arenaInfo = ARENA_TITLES[variant];
+  const roundLabel = tournamentActive
+    ? `Round ${tournamentRoundIdx + 1} / ${tournamentRounds.length}`
+    : "Free Match";
+
   const invulnRemaining = Math.max(0, (invulnerableUntil - now) / 1000);
   void startedAt;
 
@@ -89,6 +122,15 @@ export function MatchHud({ onExit }: { onExit: () => void }) {
         <span className="hot"><kbd>T</kbd> or <kbd>F</kbd> tackle</span>
         <span><kbd>1-4</kbd> emote</span>
       </div>
+
+      {/* Round-start splash */}
+      {showSplash && arenaInfo && (
+        <div className="match-splash">
+          <div className="match-splash-tag">{roundLabel}</div>
+          <div className="match-splash-name">{arenaInfo.name}</div>
+          <div className="match-splash-sub">{arenaInfo.tag}</div>
+        </div>
+      )}
 
       {/* Countdown overlay */}
       {countdownLabel && (
